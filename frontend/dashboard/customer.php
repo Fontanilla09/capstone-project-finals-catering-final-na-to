@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'customer') {
     exit;
 }
 
-require_once '../../backend/config.php';
+require_once __DIR__ . '/../../backend/config.php';
 
 // Get customer information from database
 $customer_id = $_SESSION['customer_id'];
@@ -31,6 +31,17 @@ $reservations_stmt->bind_param("i", $customer_id);
 $reservations_stmt->execute();
 $reservations_result = $reservations_stmt->get_result();
 $reservations = $reservations_result->fetch_all(MYSQLI_ASSOC);
+
+$payment_status = isset($_GET['payment']) ? $_GET['payment'] : '';
+$payment_message = '';
+$payment_class = '';
+if ($payment_status === 'success') {
+    $payment_message = 'Your payment was successful. Your booking is now pending confirmation from the caterer.';
+    $payment_class = 'success';
+} elseif ($payment_status === 'failed') {
+    $payment_message = 'Your payment did not complete. Please try again or contact support.';
+    $payment_class = 'error';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -414,8 +425,8 @@ $reservations = $reservations_result->fetch_all(MYSQLI_ASSOC);
                 <ul class="nav-list">
                     <li><a class="active" href="customer.php"><span class="icon">🏠</span>Dashboard</a></li>
                     <li><a href="#"><span class="icon">💬</span>Messages</a></li>
-                    <li><a href="#"><span class="icon">👁️</span>Browse Package</a></li>
-                    <li><a href="#"><span class="icon">🎯</span>Venue Visualizer</a></li>
+                    <li><a href="../browse_packages.php"><span class="icon">👁️</span>Browse Package</a></li>
+                    <li><a href="venue_visualizer.php"><span class="icon">🎯</span>Venue Visualizer</a></li>
                     <li><a href="#"><span class="icon">⚙️</span>Settings</a></li>
                     <li><a href="../logout.php"><span class="icon">↩️</span>Log Out</a></li>
                 </ul>
@@ -429,6 +440,16 @@ $reservations = $reservations_result->fetch_all(MYSQLI_ASSOC);
                     <p>Here are your booking requests:</p>
                 </div>
             </div>
+
+            <?php if (!empty($payment_message)): ?>
+                <section class="card" style="border-left: 4px solid <?php echo $payment_class === 'success' ? '#16a34a' : '#dc2626'; ?>;">
+                    <div style="padding: 16px 20px;">
+                        <p style="margin: 0; color: <?php echo $payment_class === 'success' ? '#165f31' : '#7f1d1d'; ?>; font-weight: 700;">
+                            <?php echo htmlspecialchars($payment_message); ?>
+                        </p>
+                    </div>
+                </section>
+            <?php endif; ?>
 
             <section class="card">
                 <div class="card-header">

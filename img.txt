@@ -1,0 +1,37 @@
+IMPORTANT: DO NOT store API keys in repository files.
+
+This file previously contained an API key; it has been removed for security.
+
+Set your API key in your environment (example: `.env` or system environment variable):
+
+  GENAI_API_KEY=your_real_key_here
+
+Example usage (text-and-image-to-image) — keep this snippet private, do not commit keys:
+
+import { GoogleGenAI } from "@google/genai";
+import * as fs from "node:fs";
+
+async function main() {
+  const ai = new GoogleGenAI({ apiKey: process.env.GENAI_API_KEY });
+  const imagePath = "path/to/cat_image.png";
+  const imageData = fs.readFileSync(imagePath);
+  const base64Image = imageData.toString("base64");
+
+  const prompt = [
+    { type: "text", text: "Create a picture of my cat eating a nano-banana in a fancy restaurant under the Gemini constellation" },
+    { type: "image", mime_type: "image/png", data: base64Image },
+  ];
+
+  const interaction = await ai.interactions.create({
+    model: "gemini-3.1-flash-image",
+    input: prompt,
+  });
+  const generatedImage = interaction.output_image;
+  if (generatedImage) {
+    const buffer = Buffer.from(generatedImage.data, "base64");
+    fs.writeFileSync("gemini-native-image.png", buffer);
+    console.log("Image saved as gemini-native-image.png");
+  }
+}
+
+main();

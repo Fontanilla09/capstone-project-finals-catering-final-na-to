@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit;
 }
 
-require_once '../../backend/config.php';
+require_once __DIR__ . '/../../backend/config.php';
 
 $success_message = '';
 $error_message = '';

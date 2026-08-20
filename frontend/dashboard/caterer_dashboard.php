@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'caterer') {
     exit;
 }
 
-require_once '../../backend/config.php';
+require_once __DIR__ . '/../../backend/config.php';
 
 $caterer_id = $_SESSION['caterer_id'];
 $query = $conn->prepare("SELECT c.id, c.business_name, c.is_verified, u.email
@@ -151,7 +151,7 @@ $recent_reservations = $recent_reservations_stmt->get_result()->fetch_all(MYSQLI
         </div>
 
         <div class="action-grid">
-            <div class="action-card">
+            <div class="action-card" onclick="location.href='manage_services.php'">
                 <div class="icon">📦</div>
                 <h3>Manage Services</h3>
                 <p>Update your packages, pricing, and available offerings for customers.</p>
@@ -161,6 +161,12 @@ $recent_reservations = $recent_reservations_stmt->get_result()->fetch_all(MYSQLI
                 <h3>View Reservations</h3>
                 <p>Check upcoming events, reservation status, and booking details.</p>
             </div>
+
+            <script>
+                document.querySelectorAll('.action-card')[1].addEventListener('click', function() {
+                    window.location.href = 'view_reservations.php';
+                });
+            </script>
             <div class="action-card">
                 <div class="icon">💬</div>
                 <h3>Messages</h3>

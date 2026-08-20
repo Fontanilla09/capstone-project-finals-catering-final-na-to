@@ -13,10 +13,11 @@
             <div class="navbar-content">
                 <div class="logo">CaterAI</div>
                 <ul class="nav-links">
+                    <li><a href="browse_packages.php">Browse Packages</a></li>
                     <li><a href="#features">Features</a></li>
                     <li><a href="#how-it-works">How It Works</a></li>
                     <li><a href="#contact">Contact</a></li>
-                    <li><a href="../backend/login.php" class="btn-login">Login</a></li>
+                    <li><a href="login.php" class="btn-login">Login</a></li>
                 </ul>
             </div>
         </div>
@@ -27,7 +28,7 @@
         <div class="hero-content">
             <h1>AI-Assisted Web-Based Catering<br>Reservation and Recommendation<br>System</h1>
             <p>Visualize your dream event before it happens. Book verified caterers with confidence.</p>
-            <a href="register.php" class="btn btn-primary">Get Started</a>
+            <a href="browse_packages.php" class="btn btn-primary">Get Started</a>
         </div>
     </section>
 

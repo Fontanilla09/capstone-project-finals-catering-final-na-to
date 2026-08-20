@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'caterer') {
     exit;
 }
 
-require_once '../../backend/config.php';
+require_once __DIR__ . '/../../backend/config.php';
 
 // Get caterer information from database
 $caterer_id = $_SESSION['caterer_id'];
