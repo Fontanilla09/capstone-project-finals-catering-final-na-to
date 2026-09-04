@@ -50,6 +50,7 @@ CREATE TABLE caterers (
     address TEXT,
     city VARCHAR(50),
     rating DECIMAL(3, 2) DEFAULT 0,
+    paypal_email VARCHAR(150) DEFAULT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     verification_submitted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -102,20 +103,49 @@ CREATE TABLE payments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     reservation_id INT NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
-    payment_method ENUM('e-wallet', 'cash', 'card') NOT NULL,
+    payment_method ENUM('e-wallet', 'cash', 'card', 'paypal') NOT NULL,
     payment_date DATE,
     reference_number VARCHAR(100),
     receipt_image VARCHAR(255),
     payment_status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
+    provider VARCHAR(50) DEFAULT NULL,
+    external_id VARCHAR(100) DEFAULT NULL,
+    webhook_payload TEXT DEFAULT NULL,
+    payment_type VARCHAR(30) DEFAULT 'down_payment',
+    payer_email VARCHAR(150) DEFAULT NULL,
+    payer_name VARCHAR(150) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE
 );
 
+-- Manual payouts from the platform account to caterers
+CREATE TABLE payouts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    reservation_id INT NOT NULL UNIQUE,
+    caterer_id INT NOT NULL,
+    payment_id INT DEFAULT NULL,
+    gross_amount DECIMAL(10, 2) NOT NULL,
+    platform_fee DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    caterer_amount DECIMAL(10, 2) NOT NULL,
+    payout_status ENUM('pending', 'processing', 'paid', 'failed') NOT NULL DEFAULT 'pending',
+    payout_reference VARCHAR(100) DEFAULT NULL,
+    payout_batch_id VARCHAR(100) DEFAULT NULL,
+    payout_item_id VARCHAR(100) DEFAULT NULL,
+    payout_error TEXT DEFAULT NULL,
+    paid_at DATETIME DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE,
+    FOREIGN KEY (caterer_id) REFERENCES caterers(id) ON DELETE CASCADE,
+    FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE SET NULL
+);
+
 -- Messages Table (Real-time Chat)
 CREATE TABLE messages (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    reservation_id INT NOT NULL,
+    reservation_id INT DEFAULT NULL,
+    package_id INT DEFAULT NULL,
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
     message TEXT NOT NULL,
@@ -123,6 +153,7 @@ CREATE TABLE messages (
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE,
+    FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE SET NULL,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
 );

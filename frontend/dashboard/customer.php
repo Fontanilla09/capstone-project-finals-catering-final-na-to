@@ -21,7 +21,7 @@ $result = $query->get_result();
 $customer = $result->fetch_assoc();
 
 // Get customer reservations
-$reservations_stmt = $conn->prepare("SELECT r.id, p.package_name, c.business_name, r.event_date, r.guest_count, r.reservation_status
+$reservations_stmt = $conn->prepare("SELECT r.id, p.package_name, c.business_name, r.event_date, r.guest_count, r.total_amount, r.balance_amount, r.payment_status, r.reservation_status, COALESCE((SELECT SUM(pay.amount) FROM payments pay WHERE pay.reservation_id = r.id AND pay.payment_status = 'completed'), 0) AS paid_amount
     FROM reservations r
     JOIN packages p ON r.package_id = p.id
     JOIN caterers c ON r.caterer_id = c.id
@@ -32,16 +32,6 @@ $reservations_stmt->execute();
 $reservations_result = $reservations_stmt->get_result();
 $reservations = $reservations_result->fetch_all(MYSQLI_ASSOC);
 
-$payment_status = isset($_GET['payment']) ? $_GET['payment'] : '';
-$payment_message = '';
-$payment_class = '';
-if ($payment_status === 'success') {
-    $payment_message = 'Your payment was successful. Your booking is now pending confirmation from the caterer.';
-    $payment_class = 'success';
-} elseif ($payment_status === 'failed') {
-    $payment_message = 'Your payment did not complete. Please try again or contact support.';
-    $payment_class = 'error';
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -424,7 +414,7 @@ if ($payment_status === 'success') {
             <nav>
                 <ul class="nav-list">
                     <li><a class="active" href="customer.php"><span class="icon">🏠</span>Dashboard</a></li>
-                    <li><a href="#"><span class="icon">💬</span>Messages</a></li>
+                    <li><a href="messages.php"><span class="icon">💬</span>Messages</a></li>
                     <li><a href="../browse_packages.php"><span class="icon">👁️</span>Browse Package</a></li>
                     <li><a href="venue_visualizer.php"><span class="icon">🎯</span>Venue Visualizer</a></li>
                     <li><a href="#"><span class="icon">⚙️</span>Settings</a></li>
@@ -441,16 +431,6 @@ if ($payment_status === 'success') {
                 </div>
             </div>
 
-            <?php if (!empty($payment_message)): ?>
-                <section class="card" style="border-left: 4px solid <?php echo $payment_class === 'success' ? '#16a34a' : '#dc2626'; ?>;">
-                    <div style="padding: 16px 20px;">
-                        <p style="margin: 0; color: <?php echo $payment_class === 'success' ? '#165f31' : '#7f1d1d'; ?>; font-weight: 700;">
-                            <?php echo htmlspecialchars($payment_message); ?>
-                        </p>
-                    </div>
-                </section>
-            <?php endif; ?>
-
             <section class="card">
                 <div class="card-header">
                     <h3>Booking Requests</h3>
@@ -463,7 +443,9 @@ if ($payment_status === 'success') {
                             <th>Caterer</th>
                             <th>Date</th>
                             <th>Guests</th>
+                            <th>Payment</th>
                             <th>Status</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -482,12 +464,27 @@ if ($payment_status === 'success') {
                                     <td><?php echo htmlspecialchars($reservation['business_name']); ?></td>
                                     <td><?php echo htmlspecialchars($reservation['event_date']); ?></td>
                                     <td><?php echo htmlspecialchars($reservation['guest_count']); ?></td>
+                                    <td>
+                                        ₱<?php echo number_format($reservation['paid_amount'], 2); ?> / ₱<?php echo number_format($reservation['total_amount'], 2); ?>
+                                    </td>
                                     <td><span class="status-pill <?php echo $statusClass; ?>"><?php echo ucfirst(htmlspecialchars($reservation['reservation_status'])); ?></span></td>
+                                    <td>
+                                        <?php if ($reservation['reservation_status'] === 'confirmed' && (float) $reservation['paid_amount'] < (float) $reservation['total_amount']): ?>
+                                            <form method="POST" action="../../backend/paypal_balance.php" style="margin:0;">
+                                                <input type="hidden" name="reservation_id" value="<?php echo intval($reservation['id']); ?>">
+                                                <button type="submit" class="status-pill" style="border:0; background:#2563eb; color:#fff; cursor:pointer;">Pay Balance</button>
+                                            </form>
+                                        <?php elseif ((float) $reservation['paid_amount'] >= (float) $reservation['total_amount']): ?>
+                                            <span style="color:#166534; font-weight:700;">Fully Paid</span>
+                                        <?php else: ?>
+                                            <span style="color:#64748b;">Awaiting confirmation</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="5" style="text-align:center; padding: 30px 0; color: #64748b;">No booking requests found.</td>
+                                <td colspan="7" style="text-align:center; padding: 30px 0; color: #64748b;">No booking requests found.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

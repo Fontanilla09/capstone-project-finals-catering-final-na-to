@@ -408,7 +408,7 @@ $is_logged_in = isset($_SESSION['user_id']);
                     <div class="action-buttons">
                         <?php if ($is_logged_in && $_SESSION['role'] === 'customer'): ?>
                             <button class="btn btn-primary" onclick="bookPackage()">Book Now</button>
-                            <button class="btn btn-secondary" onclick="contactCaterer()">Contact</button>
+                            <button class="btn btn-secondary" onclick="messageCaterer()">Message Caterer</button>
                         <?php else: ?>
                             <a href="login.php" class="btn btn-primary">Login to Book</a>
                             <a href="login.php" class="btn btn-secondary">Login to Message</a>
@@ -424,8 +424,8 @@ $is_logged_in = isset($_SESSION['user_id']);
             window.location.href = '/capstone-project-finals-catering/frontend/book.php?package=' + <?php echo $package_id; ?> + '&caterer=' + <?php echo $package['caterer_id']; ?>;
         }
 
-        function contactCaterer() {
-            window.location.href = '/capstone-project-finals-catering/frontend/dashboard/messages.php?caterer=' + <?php echo $package['caterer_id']; ?>;
+        function messageCaterer() {
+            window.location.href = '/capstone-project-finals-catering/frontend/dashboard/messages.php?caterer=' + <?php echo $package['caterer_id']; ?> + '&package=' + <?php echo $package_id; ?>;
         }
     </script>
 </body>

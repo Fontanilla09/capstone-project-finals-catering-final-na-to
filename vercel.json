@@ -1,9 +1,13 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "frontend/**/*.php", "use": "@vercel/php" },
-    { "src": "backend/**/*.php", "use": "@vercel/php" }
-  ],
+  "functions": {
+    "frontend/**/*.php": {
+      "runtime": "vercel-php@0.9.0"
+    },
+    "backend/**/*.php": {
+      "runtime": "vercel-php@0.9.0"
+    }
+  },
   "routes": [
     { "src": "^/$", "dest": "/frontend/index.php" },
     { "src": "^/backend/(.*)$", "dest": "/backend/$1" },

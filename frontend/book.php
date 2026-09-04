@@ -69,38 +69,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($insert->execute()) {
             $reservation_id = $conn->insert_id;
+            require_once __DIR__ . '/../backend/paypal_handler.php';
+            $paypal_order = create_paypal_order(
+                $reservation_id,
+                $advance_payment,
+                'CaterAI booking for ' . $package['business_name'] . ' - 30% down payment for ' . $package['package_name']
+            );
 
-            require_once __DIR__ . '/../backend/paymongo_handler.php';
-            $handler = new PayMongoHandler(PAYMONGO_PUBLIC_KEY, PAYMONGO_SECRET_KEY);
-            $description = sprintf('30%% down payment for %s', $package['package_name']);
-            $metadata = [
-                'customer_id' => $customer_id,
-                'caterer_id' => $caterer_id,
-                'package_id' => $package_id,
-                'reservation_id' => $reservation_id,
-                'payment_type' => 'down_payment'
-            ];
-
-            $paymentResponse = $handler->createPaymentLink($caterer_id, $description, $advance_payment, $metadata);
-
-            $checkoutUrl = $paymentResponse['checkout_url'] ?? $paymentResponse['data']['data']['attributes']['checkout_url'] ?? null;
-            if (!empty($paymentResponse['success']) && $checkoutUrl) {
-                header('Location: ' . $checkoutUrl);
+            if ($paypal_order['ok']) {
+                header('Location: ' . $paypal_order['approval_url']);
                 exit;
             }
 
-            // If payment session creation fails, remove the reservation so the customer can try again cleanly.
-            $conn->query("DELETE FROM reservations WHERE id = " . intval($reservation_id));
-
-            $apiError = '';
-            if (!empty($paymentResponse['error'])) {
-                $apiError = ' ' . htmlspecialchars($paymentResponse['error']);
-            } elseif (!empty($paymentResponse['data']['errors'])) {
-                $apiError = ' ' . htmlspecialchars(json_encode($paymentResponse['data']['errors']));
-            }
-
-            $errors[] = 'Unable to start PayMongo payment. Please try again later.' . $apiError;
-
+            $conn->query('DELETE FROM reservations WHERE id = ' . intval($reservation_id));
+            $errors[] = 'Unable to start PayPal payment. Please try again later.';
         } else {
             $errors[] = 'Failed to create booking request. Please try again.';
         }
@@ -152,7 +134,7 @@ $balance = round($package['price'] - $downpayment, 2);
 
         <div class="notice">
             <strong>You're initiating a booking request.</strong>
-            <p>Fill in your event details below. After submitting, proceed to payment to confirm your slot. Your booking will remain "Pending" until the caterer verifies your payment.</p>
+            <p>Fill in your event details below. After submitting, you will be redirected to PayPal to pay the 30% down payment. The payment first goes to CaterAI's PayPal merchant account and is then settled with the caterer.</p>
         </div>
 
         <?php if (!empty($errors)): ?>
@@ -200,7 +182,7 @@ $balance = round($package['price'] - $downpayment, 2);
                     </div>
 
                     <div class="submit-row">
-                        <button type="submit" class="btn">Proceed to Payment</button>
+                        <button type="submit" class="btn">Proceed to PayPal</button>
                     </div>
                 </form>
             </div>
@@ -215,7 +197,7 @@ $balance = round($package['price'] - $downpayment, 2);
                 </div>
                 <div class="summary-card">
                     <h3>Payment Details</h3>
-                    <p style="color:#475569;">Your down payment will be processed through PayMongo using GCash or Card. After you complete payment, your booking request will appear in your customer dashboard.</p>
+                    <p style="color:#475569;">PayPal will show CaterAI's merchant name as the payment recipient. Your payment is for <strong><?php echo htmlspecialchars($package['business_name']); ?></strong>, and the caterer will receive the corresponding payout from the platform.</p>
                 </div>
             </aside>
         </div>

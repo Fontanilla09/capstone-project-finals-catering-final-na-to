@@ -156,7 +156,7 @@ $recent_reservations = $recent_reservations_stmt->get_result()->fetch_all(MYSQLI
                 <h3>Manage Services</h3>
                 <p>Update your packages, pricing, and available offerings for customers.</p>
             </div>
-            <div class="action-card">
+            <div class="action-card" onclick="location.href='view_reservations.php'">
                 <div class="icon">📅</div>
                 <h3>View Reservations</h3>
                 <p>Check upcoming events, reservation status, and booking details.</p>
@@ -167,7 +167,7 @@ $recent_reservations = $recent_reservations_stmt->get_result()->fetch_all(MYSQLI
                     window.location.href = 'view_reservations.php';
                 });
             </script>
-            <div class="action-card">
+            <div class="action-card" onclick="location.href='messages.php'">
                 <div class="icon">💬</div>
                 <h3>Messages</h3>
                 <p>Respond to new inquiries and chat with customers in real time.</p>

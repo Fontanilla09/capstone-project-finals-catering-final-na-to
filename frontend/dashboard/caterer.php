@@ -12,7 +12,7 @@ require_once __DIR__ . '/../../backend/config.php';
 // Get caterer information from database
 $caterer_id = $_SESSION['caterer_id'];
 $query = $conn->prepare("
-    SELECT c.id, c.business_name, c.phone, c.address, c.city, c.description, c.business_permit, c.is_verified, c.verification_submitted, u.email
+    SELECT c.id, c.business_name, c.phone, c.address, c.city, c.description, c.business_permit, c.paypal_email, c.is_verified, c.verification_submitted, u.email
     FROM caterers c
     JOIN users u ON c.user_id = u.id
     WHERE c.id = ?
@@ -22,13 +22,10 @@ $query->execute();
 $result = $query->get_result();
 $caterer = $result->fetch_assoc();
 
-if ($caterer && $caterer['is_verified']) {
-    header('Location: caterer_dashboard.php');
-    exit;
-}
-
 $success_message = '';
 $error_message = '';
+// Which tab to show after reload (default to business-info)
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'business-info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'update_profile') {
@@ -37,16 +34,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $address = trim($_POST['address'] ?? '');
         $city = trim($_POST['city'] ?? '');
         $description = trim($_POST['description'] ?? '');
+        $paypal_email = trim($_POST['paypal_email'] ?? '');
 
         if (empty($business_name) || empty($phone) || empty($address) || empty($city)) {
             $error_message = 'Please fill in all required fields.';
         } else {
-            $update_query = $conn->prepare("
+            if ($paypal_email !== '' && !filter_var($paypal_email, FILTER_VALIDATE_EMAIL)) {
+                $error_message = 'Please enter a valid PayPal email address.';
+            }
+
+            if (empty($error_message)) {
+                $update_query = $conn->prepare("
                 UPDATE caterers
-                SET business_name = ?, phone = ?, address = ?, city = ?, description = ?
+                SET business_name = ?, phone = ?, address = ?, city = ?, description = ?, paypal_email = ?
                 WHERE id = ?
             ");
-            $update_query->bind_param("sssssi", $business_name, $phone, $address, $city, $description, $caterer_id);
+                $update_query->bind_param("ssssssi", $business_name, $phone, $address, $city, $description, $paypal_email, $caterer_id);
 
             if ($update_query->execute()) {
                 $success_message = 'Profile updated successfully!';
@@ -54,8 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $query->execute();
                 $result = $query->get_result();
                 $caterer = $result->fetch_assoc();
-            } else {
-                $error_message = 'Failed to update profile. Please try again.';
+                } else {
+                    $error_message = 'Failed to update profile. Please try again.';
+                }
             }
         }
     }
@@ -582,12 +586,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['business_permit'])) 
         <?php endif; ?>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('business-info', event)">Business Information</button>
-            <button class="tab-btn" onclick="switchTab('documents', event)">Documents</button>
+            <button class="tab-btn <?php echo $active_tab === 'business-info' ? 'active' : ''; ?>" onclick="switchTab('business-info', event)">Business Information</button>
+            <button class="tab-btn <?php echo $active_tab === 'documents' ? 'active' : ''; ?>" onclick="switchTab('documents', event)">Documents</button>
         </div>
 
         <!-- Business Information Tab -->
-        <div id="business-info" class="tab-content active">
+        <div id="business-info" class="tab-content <?php echo $active_tab === 'business-info' ? 'active' : ''; ?>">
             <div class="section-title">Basic Information</div>
             <div class="section-description">Update your business details</div>
 
@@ -659,6 +663,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['business_permit'])) 
                     ><?php echo htmlspecialchars($caterer['description'] ?? ''); ?></textarea>
                 </div>
 
+                <div class="form-group form-row full">
+                    <label for="paypal_email">PayPal Email for Payouts</label>
+                    <input type="email" id="paypal_email" name="paypal_email" value="<?php echo htmlspecialchars($caterer['paypal_email'] ?? ''); ?>" placeholder="you@example.com">
+                    <small style="display:block; margin-top:6px; color:#666;">Admin will use this account when sending your completed-payment payout.</small>
+                </div>
+
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">Save Changes</button>
                 </div>
@@ -666,7 +676,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['business_permit'])) 
         </div>
 
         <!-- Documents Tab -->
-        <div id="documents" class="tab-content">
+        <div id="documents" class="tab-content <?php echo $active_tab === 'documents' ? 'active' : ''; ?>">
             <div class="section-title">Business Documents</div>
             <div class="section-description">Upload required documents for verification</div>
 
@@ -702,7 +712,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['business_permit'])) 
                             <div class="upload-area-text">Click to upload business permit</div>
                             <div class="upload-area-hint">PDF, JPG, or PNG up to 10MB</div>
                         </div>
-                        <input type="file" id="permit_input" name="business_permit" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)">
+                            <input type="file" id="permit_input" name="business_permit" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)">
                     </div>
 
                     <div class="verification-checklist">

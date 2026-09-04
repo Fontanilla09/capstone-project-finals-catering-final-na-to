@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['res
     if ($_POST['action'] === 'accept') {
         $stmt = $conn->prepare("UPDATE reservations SET reservation_status = 'confirmed' WHERE id = ? AND caterer_id = ? AND payment_status = 'completed'");
         $stmt->bind_param('ii', $reservation_id, $caterer_id);
-        if ($stmt->execute()) {
+        if ($stmt->execute() && $stmt->affected_rows === 1) {
             $message = 'Reservation accepted successfully.';
         } else {
             $message = 'Unable to accept reservation. Please try again.';
@@ -32,7 +32,7 @@ $reservations_stmt = $conn->prepare(
      FROM reservations r
      JOIN customers cu ON r.customer_id = cu.id
      JOIN packages p ON r.package_id = p.id
-     WHERE r.caterer_id = ?
+    WHERE r.caterer_id = ? AND r.payment_status = 'completed'
      ORDER BY r.event_date DESC"
 );
 $reservations_stmt->bind_param('i', $caterer_id);
@@ -112,7 +112,6 @@ $reservations = $reservations_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <input type="hidden" name="reservation_id" value="<?php echo intval($reservation['id']); ?>">
                                     <button type="submit" name="action" value="accept" class="btn<?php echo $canAccept ? '' : ' disabled'; ?>"<?php echo $canAccept ? '' : ' disabled'; ?> id="accept-btn-<?php echo intval($reservation['id']); ?>">Accept</button>
                                 </form>
-                                <button type="button" class="btn" style="background:#10B981; margin-left:8px;" onclick="checkPayment(<?php echo intval($reservation['id']); ?>)">Check</button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -121,52 +120,6 @@ $reservations = $reservations_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         </table>
     </div>
     <script>
-    function checkPayment(reservationId) {
-        const url = '/capstone-project-finals-catering/backend/check_reservation_payment.php';
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reservation_id: reservationId })
-        }).then(r => r.json()).then(data => {
-            if (!data || !data.payment_status) return;
-            const badge = document.getElementById('payment-status-' + reservationId);
-            badge.textContent = data.payment_status.charAt(0).toUpperCase() + data.payment_status.slice(1);
-            // update classes to use existing status styles (pending/completed/failed)
-            badge.className = 'status ' + data.payment_status;
-
-            const acceptBtn = document.getElementById('accept-btn-' + reservationId);
-            if (data.payment_status === 'completed') {
-                acceptBtn.disabled = false;
-                acceptBtn.classList.remove('disabled');
-            } else {
-                acceptBtn.disabled = true;
-                if (!acceptBtn.classList.contains('disabled')) acceptBtn.classList.add('disabled');
-            }
-        }).catch(err => {
-            console.error('checkPayment error', err);
-        });
-    }
-
-    // Poll pending reservations automatically so caterer sees paid status in near-real-time.
-    function startPolling(intervalMs = 8000) {
-        function pollOnce() {
-            // find all payment status badges with class 'pending' and extract their reservation ids
-            const pendingBadges = document.querySelectorAll('.status.pending[id^="payment-status-"]');
-            pendingBadges.forEach(b => {
-                const idStr = b.id.replace('payment-status-', '');
-                const id = parseInt(idStr, 10);
-                if (!isNaN(id)) checkPayment(id);
-            });
-        }
-        // initial poll shortly after load
-        setTimeout(pollOnce, 1000);
-        return setInterval(pollOnce, intervalMs);
-    }
-
-    // Start polling when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        startPolling(8000);
-    });
     </script>
 </body>
 </html>

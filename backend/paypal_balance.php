@@ -1,0 +1,33 @@
+<?php
+session_start();
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/paypal_handler.php';
+
+$customer_id = intval($_SESSION['customer_id'] ?? 0);
+$reservation_id = intval($_POST['reservation_id'] ?? 0);
+
+if ($customer_id <= 0 || $reservation_id <= 0) {
+    header('Location: ../frontend/dashboard/customer.php?payment=failed');
+    exit;
+}
+
+$stmt = $conn->prepare("SELECT r.id, r.balance_amount, r.reservation_status, p.package_name FROM reservations r JOIN packages p ON p.id = r.package_id WHERE r.id = ? AND r.customer_id = ? AND r.reservation_status = 'confirmed' AND r.payment_status = 'completed' LIMIT 1");
+$stmt->bind_param('ii', $reservation_id, $customer_id);
+$stmt->execute();
+$reservation = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$reservation || (float) $reservation['balance_amount'] <= 0) {
+    header('Location: ../frontend/dashboard/customer.php?payment=failed');
+    exit;
+}
+
+$order = create_paypal_order($reservation_id, (float) $reservation['balance_amount'], 'Balance payment for ' . $reservation['package_name'], 'balance');
+if (!$order['ok']) {
+    header('Location: ../frontend/dashboard/customer.php?payment=failed');
+    exit;
+}
+
+header('Location: ' . $order['approval_url']);
+exit;
+?>

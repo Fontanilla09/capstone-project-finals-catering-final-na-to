@@ -40,8 +40,9 @@ $outputPath = $uploadDir . $outName;
 
 // Build command (ensure node in PATH and gen_image.js exists)
 $nodeCmd = 'node';
-// Try to read GENAI_API_KEY from environment. If not present, attempt to load a ../.env file as a developer convenience.
-$envApiKey = getenv('GENAI_API_KEY');
+// Prefer the dedicated Nano Banana Pro settings, with the legacy key as fallback.
+$envApiKey = getenv('NANOBANANA_PRO_API_KEY') ?: getenv('GENAI_API_KEY');
+$imageModel = getenv('NANOBANANA_PRO_MODEL') ?: 'gemini-3-pro-image-preview';
 if (!$envApiKey) {
     // load .env file if present (simple parser)
     $envFile = __DIR__ . '/../.env';
@@ -61,29 +62,40 @@ if (!$envApiKey) {
             putenv("$k=$v");
             $_ENV[$k] = $v;
         }
-        $envApiKey = getenv('GENAI_API_KEY');
+        $envApiKey = getenv('NANOBANANA_PRO_API_KEY') ?: getenv('GENAI_API_KEY');
+        $imageModel = getenv('NANOBANANA_PRO_MODEL') ?: 'gemini-3-pro-image-preview';
     }
 }
 
 if (!$envApiKey) {
-    echo json_encode(['success' => false, 'error' => 'GENAI_API_KEY not set in server environment. Set it for Apache/XAMPP or create a ../.env file with GENAI_API_KEY=your_key']);
+    echo json_encode(['success' => false, 'error' => 'NANOBANANA_PRO_API_KEY not set in server environment. Set it in Apache/XAMPP or add it to ../.env']);
     exit;
 }
 $script = escapeshellarg(__DIR__ . '/gen_image.js');
 $escapedPrompt = escapeshellarg($prompt);
 $escapedInput = escapeshellarg($inputPath);
 $escapedOutput = escapeshellarg($outputPath);
+$appUrl = rtrim(getenv('APP_URL') ?: '', '/');
+if ($appUrl === '') {
+    echo json_encode(['success' => false, 'error' => 'APP_URL is required so Nano Banana can access the uploaded image']);
+    exit;
+}
+$inputUrl = $appUrl . '/uploads/permits/' . rawurlencode(basename($inputPath));
+$escapedInputUrl = escapeshellarg($inputUrl);
 $prefix = '';
 // On Windows use set "VAR=val" && command, on *nix prefix environment var
 if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
     // escape any double quotes in the key
     $safeKey = str_replace('"', '\\"', $envApiKey);
-    $prefix = 'set "GENAI_API_KEY=' . $safeKey . '" && ';
+    $safeModel = str_replace('"', '\\"', $imageModel);
+    $safeBaseUrl = str_replace('"', '\\"', getenv('NANOBANANA_PRO_BASE_URL') ?: 'https://nanobnana.com');
+    $prefix = 'set "NANOBANANA_PRO_API_KEY=' . $safeKey . '" && set "NANOBANANA_PRO_MODEL=' . $safeModel . '" && set "NANOBANANA_PRO_BASE_URL=' . $safeBaseUrl . '" && ';
 } else {
-    $prefix = 'GENAI_API_KEY=' . escapeshellarg($envApiKey) . ' ';
+    $baseUrl = getenv('NANOBANANA_PRO_BASE_URL') ?: 'https://nanobnana.com';
+    $prefix = 'NANOBANANA_PRO_API_KEY=' . escapeshellarg($envApiKey) . ' NANOBANANA_PRO_MODEL=' . escapeshellarg($imageModel) . ' NANOBANANA_PRO_BASE_URL=' . escapeshellarg($baseUrl) . ' ';
 }
 
-$cmd = $prefix . "$nodeCmd $script $escapedPrompt $escapedInput $escapedOutput 2>&1";
+$cmd = $prefix . "$nodeCmd $script $escapedPrompt $escapedInput $escapedOutput $escapedInputUrl 2>&1";
 
 // Execute and capture output
 exec($cmd, $outputLines, $ret);

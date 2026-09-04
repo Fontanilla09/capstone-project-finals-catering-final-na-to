@@ -32,6 +32,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } else {
             $error_message = 'Failed to reject verification.';
         }
+    } elseif ($_POST['action'] === 'send_payout') {
+        $payout_id = intval($_POST['payout_id']);
+        require_once __DIR__ . '/../../backend/paypal_handler.php';
+        $payout_query = $conn->prepare("SELECT po.reservation_id, po.caterer_amount, po.payout_status, c.paypal_email FROM payouts po JOIN caterers c ON c.id = po.caterer_id WHERE po.id = ? LIMIT 1");
+        $payout_query->bind_param('i', $payout_id);
+        $payout_query->execute();
+        $payout = $payout_query->get_result()->fetch_assoc();
+        $payout_query->close();
+
+        if (!$payout) {
+            $error_message = 'Payout record not found.';
+        } elseif (!in_array($payout['payout_status'], ['pending', 'failed'], true)) {
+            $error_message = 'This payout is already ' . $payout['payout_status'] . ' and cannot be sent again.';
+        } elseif (!filter_var(trim($payout['paypal_email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+            $error_message = 'A valid caterer PayPal email is required.';
+        } elseif ((float) $payout['caterer_amount'] <= 0) {
+            $error_message = 'Payout amount must be greater than zero.';
+        } else {
+            $claim = $conn->prepare("UPDATE payouts SET payout_status = 'processing', payout_error = NULL WHERE id = ? AND payout_status IN ('pending', 'failed')");
+            $claim->bind_param('i', $payout_id);
+            $claimed = $claim->execute() && $claim->affected_rows === 1;
+            $claim->close();
+
+            if (!$claimed) {
+                $error_message = 'This payout is already being processed or was already sent.';
+            } else {
+                $result = create_paypal_payout($payout['paypal_email'], (float) $payout['caterer_amount'], (int) $payout['reservation_id']);
+                if ($result['ok']) {
+                    $status = strtoupper($result['item_status'] ?? '') === 'SUCCESS' ? 'paid' : 'processing';
+                    $update = $conn->prepare('UPDATE payouts SET payout_status = ?, payout_reference = ?, payout_batch_id = ?, payout_item_id = ?, paid_at = IF(? = \'paid\', NOW(), NULL) WHERE id = ?');
+                    $reference = $result['item_id'] ?: $result['batch_id'];
+                    $update->bind_param('sssssi', $status, $reference, $result['batch_id'], $result['item_id'], $status, $payout_id);
+                    $update->execute();
+                    $update->close();
+                    $success_message = $status === 'paid' ? 'Payout sent and completed.' : 'Payout sent to PayPal. Recipient must claim the payout.';
+                } else {
+                    $error = $result['error'] ?? 'PayPal payout failed.';
+                    $update = $conn->prepare("UPDATE payouts SET payout_status = 'failed', payout_error = ? WHERE id = ?");
+                    $update->bind_param('si', $error, $payout_id);
+                    $update->execute();
+                    $update->close();
+                    $error_message = $error;
+                }
+            }
+        }
     }
 }
 
@@ -56,6 +101,10 @@ $total_caterers = $conn->query("SELECT COUNT(*) as count FROM caterers")->fetch_
 $verified_caterers = $conn->query("SELECT COUNT(*) as count FROM caterers WHERE is_verified = 1")->fetch_assoc()['count'];
 $pending_verification = $conn->query("SELECT COUNT(*) as count FROM caterers WHERE business_permit IS NOT NULL AND is_verified = 0 AND verification_submitted = 1")->fetch_assoc()['count'];
 $total_customers = $conn->query("SELECT COUNT(*) as count FROM customers")->fetch_assoc()['count'];
+$payouts_query = $conn->query("SELECT po.id, po.reservation_id, po.gross_amount, po.platform_fee, po.caterer_amount, po.payout_status, po.payout_reference, po.payout_batch_id, po.payout_item_id, po.payout_error, po.paid_at, c.business_name, c.paypal_email, cu.full_name AS customer_name, p.package_name FROM payouts po JOIN reservations r ON po.reservation_id = r.id JOIN caterers c ON po.caterer_id = c.id JOIN customers cu ON r.customer_id = cu.id JOIN packages p ON r.package_id = p.id ORDER BY po.created_at DESC");
+$payouts = $payouts_query ? $payouts_query->fetch_all(MYSQLI_ASSOC) : [];
+$payments_query = $conn->query("SELECT pay.id, pay.reservation_id, pay.amount, pay.payment_type, pay.payer_email, pay.payer_name, pay.provider, pay.external_id, pay.reference_number, pay.payment_status, c.business_name FROM payments pay JOIN reservations r ON pay.reservation_id = r.id JOIN caterers c ON r.caterer_id = c.id ORDER BY pay.created_at DESC");
+$payments = $payments_query ? $payments_query->fetch_all(MYSQLI_ASSOC) : [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -500,6 +549,90 @@ $total_customers = $conn->query("SELECT COUNT(*) as count FROM customers")->fetc
                 </table>
             </div>
         <?php endif; ?>
+
+        <div class="section-title">Caterer Payouts</div>
+        <div class="section-description">Send the caterer share manually through PayPal, then record the payout reference.</div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Booking</th>
+                        <th>Caterer</th>
+                        <th>Customer</th>
+                        <th>PayPal Email</th>
+                        <th>Gross Payment</th>
+                        <th>Platform Fee</th>
+                        <th>Caterer Share</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($payouts)): ?>
+                        <tr><td colspan="9" class="no-data">No payouts recorded yet.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($payouts as $payout): ?>
+                            <tr>
+                                <td>#<?php echo intval($payout['reservation_id']); ?><br><small><?php echo htmlspecialchars($payout['package_name']); ?></small></td>
+                                <td><?php echo htmlspecialchars($payout['business_name']); ?></td>
+                                <td><?php echo htmlspecialchars($payout['customer_name']); ?></td>
+                                <td><?php echo htmlspecialchars($payout['paypal_email'] ?: 'Not provided'); ?></td>
+                                <td>₱<?php echo number_format($payout['gross_amount'], 2); ?></td>
+                                <td>₱<?php echo number_format($payout['platform_fee'], 2); ?></td>
+                                <td>₱<?php echo number_format($payout['caterer_amount'], 2); ?></td>
+                                <td><span class="badge <?php echo $payout['payout_status'] === 'paid' ? 'badge-verified' : 'badge-pending'; ?>"><?php echo htmlspecialchars(ucfirst($payout['payout_status'])); ?></span><?php if (!empty($payout['payout_error'])): ?><br><small><?php echo htmlspecialchars($payout['payout_error']); ?></small><?php endif; ?></td>
+                                <td>
+                                    <?php if (in_array($payout['payout_status'], ['pending', 'failed'], true)): ?>
+                                        <form method="POST">
+                                            <input type="hidden" name="action" value="send_payout">
+                                            <input type="hidden" name="payout_id" value="<?php echo intval($payout['id']); ?>">
+                                            <button type="submit" class="btn btn-approve" onclick="return confirm('Send this payout through PayPal?')">Send Payout</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <?php echo htmlspecialchars($payout['payout_reference'] ?: $payout['payout_batch_id'] ?: ucfirst($payout['payout_status'])); ?>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-title">Payment History</div>
+        <div class="section-description">Use the PayPal reference or capture ID to match a payment in the merchant PayPal Activity.</div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Reservation</th>
+                        <th>Customer PayPal Account</th>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Provider</th>
+                        <th>PayPal Reference</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($payments)): ?>
+                        <tr><td colspan="7" class="no-data">No payments recorded yet.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($payments as $payment): ?>
+                            <tr>
+                                <td>#<?php echo intval($payment['reservation_id']); ?> / <?php echo htmlspecialchars($payment['business_name']); ?></td>
+                                <td><?php echo htmlspecialchars($payment['payer_name'] ?: 'Name unavailable'); ?><br><small><?php echo htmlspecialchars($payment['payer_email'] ?: 'Email unavailable'); ?></small></td>
+                                <td><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $payment['payment_type'] ?: 'payment'))); ?></td>
+                                <td>₱<?php echo number_format($payment['amount'], 2); ?></td>
+                                <td><?php echo htmlspecialchars($payment['provider'] ?: 'Unknown'); ?></td>
+                                <td><strong><?php echo htmlspecialchars($payment['external_id'] ?: $payment['reference_number'] ?: 'Unavailable'); ?></strong></td>
+                                <td><span class="badge badge-verified"><?php echo htmlspecialchars(ucfirst($payment['payment_status'])); ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Modal -->
