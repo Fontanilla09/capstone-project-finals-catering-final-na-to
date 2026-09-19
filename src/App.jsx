@@ -1,0 +1,34 @@
+import AdminDashboard from './pages/AdminDashboard.jsx';
+import Book from './pages/Book.jsx';
+import CatererDashboard from './pages/CatererDashboard.jsx';
+import CatererProfile from './pages/CatererProfile.jsx';
+import CustomerDashboard from './pages/CustomerDashboard.jsx';
+import CustomerMessages from './pages/CustomerMessages.jsx';
+import Home from './pages/Home.jsx';
+import Login from './pages/Login.jsx';
+import ManageServices from './pages/ManageServices.jsx';
+import PackageDetails from './pages/PackageDetails.jsx';
+import Packages from './pages/Packages.jsx';
+import Register from './pages/Register.jsx';
+import VenueVisualizer from './pages/VenueVisualizer.jsx';
+import ViewReservations from './pages/ViewReservations.jsx';
+
+export default function App() {
+  const path = window.location.pathname;
+
+  if (path === '/login') return <Login />;
+  if (path === '/register') return <Register />;
+  if (path === '/packages') return <Packages />;
+  if (path.startsWith('/packages/')) return <PackageDetails />;
+  if (path === '/book') return <Book />;
+  if (path === '/dashboard/customer') return <CustomerDashboard />;
+  if (path === '/dashboard/messages') return <CustomerMessages />;
+  if (path === '/dashboard/venue') return <VenueVisualizer />;
+  if (path === '/dashboard/caterer') return <CatererDashboard />;
+  if (path === '/dashboard/caterer/profile') return <CatererProfile />;
+  if (path === '/dashboard/caterer/services') return <ManageServices />;
+  if (path === '/dashboard/caterer/reservations') return <ViewReservations />;
+  if (path === '/dashboard/admin') return <AdminDashboard />;
+
+  return <Home />;
+}

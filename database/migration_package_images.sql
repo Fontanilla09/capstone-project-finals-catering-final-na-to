@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS package_images (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    package_id INT NOT NULL,
+    image_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
+);
+
+ALTER TABLE reviews ADD COLUMN review_image VARCHAR(255) NULL;

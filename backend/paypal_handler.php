@@ -100,6 +100,7 @@ function create_paypal_order(int $reservation_id, float $amount, string $descrip
 
     global $paypal_env;
     $app_url = rtrim($paypal_env['APP_URL'] ?? getenv('APP_URL') ?: 'http://localhost/capstone-project-finals-catering', '/');
+    $frontend_url = rtrim($paypal_env['FRONTEND_URL'] ?? getenv('FRONTEND_URL') ?: 'http://localhost:5175', '/');
     $callback_signature = hash_hmac('sha256', $reservation_id . '|' . $payment_type, $paypal_client_secret);
     $response = paypal_request_with_token('POST', '/v2/checkout/orders', [
         'intent' => 'CAPTURE',
@@ -112,7 +113,7 @@ function create_paypal_order(int $reservation_id, float $amount, string $descrip
             'brand_name' => 'CaterAI',
             'user_action' => 'PAY_NOW',
             'return_url' => $app_url . '/backend/paypal_return.php?reservation_id=' . $reservation_id . '&payment_type=' . rawurlencode($payment_type) . '&signature=' . $callback_signature . '&ngrok-skip-browser-warning=1',
-            'cancel_url' => $app_url . '/frontend/book.php?package=0&caterer=0&payment=cancelled&ngrok-skip-browser-warning=1',
+            'cancel_url' => $frontend_url . '/book?payment=cancelled',
         ],
     ], $token['token']);
 
@@ -169,6 +170,59 @@ function paypal_request_with_token(string $method, string $endpoint, ?array $bod
         'error' => $error,
         'data' => json_decode($response ?: '', true),
     ];
+}
+
+function trigger_auto_payout_for_reservation(mysqli $conn, int $reservation_id): array
+{
+    $query = $conn->prepare("SELECT po.id, po.reservation_id, po.caterer_amount, po.payout_status, c.paypal_email FROM payouts po JOIN caterers c ON c.id = po.caterer_id WHERE po.reservation_id = ? LIMIT 1");
+    if (!$query) {
+        return ['ok' => false, 'error' => 'Unable to prepare payout lookup.'];
+    }
+    $query->bind_param('i', $reservation_id);
+    $query->execute();
+    $payout = $query->get_result()->fetch_assoc();
+    $query->close();
+
+    if (!$payout) {
+        return ['ok' => true, 'skipped' => true, 'status' => 'not_found'];
+    }
+
+    if (!in_array($payout['payout_status'], ['pending', 'failed'], true)) {
+        return ['ok' => true, 'skipped' => true, 'status' => $payout['payout_status']];
+    }
+
+    if (!filter_var(trim((string) ($payout['paypal_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
+        $error = 'Caterer PayPal email is missing or invalid.';
+        $update = $conn->prepare("UPDATE payouts SET payout_status = 'failed', payout_error = ? WHERE id = ? AND payout_status IN ('pending', 'failed')");
+        $update->bind_param('si', $error, $payout['id']);
+        $update->execute();
+        $update->close();
+        return ['ok' => false, 'error' => $error, 'skipped' => false];
+    }
+
+    $claim = $conn->prepare("UPDATE payouts SET payout_status = 'processing', payout_error = NULL WHERE id = ? AND payout_status IN ('pending', 'failed')");
+    $claim->bind_param('i', $payout['id']);
+    $claim->execute();
+    $claim->close();
+
+    $result = create_paypal_payout($payout['paypal_email'], (float) $payout['caterer_amount'], (int) $payout['reservation_id']);
+    if (!$result['ok']) {
+        $error = $result['error'] ?? 'PayPal payout failed.';
+        $update = $conn->prepare("UPDATE payouts SET payout_status = 'failed', payout_error = ? WHERE id = ?");
+        $update->bind_param('si', $error, $payout['id']);
+        $update->execute();
+        $update->close();
+        return ['ok' => false, 'error' => $error, 'skipped' => false];
+    }
+
+    $status = strtoupper($result['item_status'] ?? '') === 'SUCCESS' ? 'paid' : 'processing';
+    $reference = $result['item_id'] ?: $result['batch_id'];
+    $update = $conn->prepare("UPDATE payouts SET payout_status = ?, payout_reference = ?, payout_batch_id = ?, payout_item_id = ?, paid_at = IF(? = 'paid', NOW(), NULL) WHERE id = ?");
+    $update->bind_param('sssssi', $status, $reference, $result['batch_id'], $result['item_id'], $status, $payout['id']);
+    $update->execute();
+    $update->close();
+
+    return ['ok' => true, 'status' => $status, 'skipped' => false];
 }
 
 function create_paypal_payout(string $recipient_email, float $amount, int $reservation_id): array

@@ -1,0 +1,4 @@
+RewriteEngine On
+
+# Keep old PayPal cancellation URLs compatible with the React booking route.
+RewriteRule ^book$ frontend/book.php [L,QSA]

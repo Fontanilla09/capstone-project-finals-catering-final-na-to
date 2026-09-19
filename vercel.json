@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "functions": {
     "frontend/**/*.php": {
       "runtime": "vercel-php@0.9.0"
@@ -9,9 +11,10 @@
     }
   },
   "routes": [
-    { "src": "^/$", "dest": "/frontend/index.php" },
+    { "src": "^/$", "dest": "/index.html" },
     { "src": "^/backend/(.*)$", "dest": "/backend/$1" },
-    { "src": "^/frontend/(.*)$", "dest": "/frontend/$1" },
+    { "src": "^/frontend/(.*)$", "dest": "/frontend-legacy/$1" },
+    { "src": "^/frontend-legacy/(.*)$", "dest": "/frontend-legacy/$1" },
     { "src": "^/(.*)$", "dest": "/frontend/$1" }
   ]
 }

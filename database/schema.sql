@@ -68,10 +68,20 @@ CREATE TABLE packages (
     price DECIMAL(10, 2) NOT NULL,
     guest_count_min INT,
     guest_count_max INT,
+    max_bookings INT NOT NULL DEFAULT 0,
     includes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (caterer_id) REFERENCES caterers(id) ON DELETE CASCADE
+);
+
+-- Sample setup, food, and design photos for each package
+CREATE TABLE package_images (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    package_id INT NOT NULL,
+    image_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
 );
 
 -- Reservations Table
@@ -178,6 +188,7 @@ CREATE TABLE reviews (
     caterer_id INT NOT NULL,
     rating INT CHECK(rating >= 1 AND rating <= 5),
     review_text TEXT,
+    review_image VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE,

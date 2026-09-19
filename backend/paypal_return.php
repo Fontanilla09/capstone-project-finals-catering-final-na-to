@@ -2,6 +2,8 @@
 session_start();
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/paypal_handler.php';
+$app_url = rtrim($paypal_env['APP_URL'] ?? getenv('APP_URL') ?: 'http://localhost:5174', '/');
+$frontend_url = rtrim($paypal_env['FRONTEND_URL'] ?? getenv('FRONTEND_URL') ?: 'http://localhost:5175', '/');
 
 $reservation_id = intval($_GET['reservation_id'] ?? 0);
 $order_id = trim($_GET['token'] ?? '');
@@ -9,13 +11,13 @@ $payment_type = $_GET['payment_type'] ?? 'down_payment';
 $signature = $_GET['signature'] ?? '';
 
 if ($reservation_id <= 0 || $order_id === '' || !in_array($payment_type, ['down_payment', 'balance'], true)) {
-    header('Location: ../frontend/dashboard/customer.php?payment=failed');
+    header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
     exit;
 }
 
 $expected_signature = hash_hmac('sha256', $reservation_id . '|' . $payment_type, $paypal_client_secret);
 if (!hash_equals($expected_signature, $signature)) {
-    header('Location: ../frontend/dashboard/customer.php?payment=failed');
+    header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
     exit;
 }
 
@@ -26,7 +28,7 @@ $reservation = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$reservation) {
-    header('Location: ../frontend/dashboard/customer.php?payment=failed');
+    header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
     exit;
 }
 $customer_id = (int) $reservation['customer_id'];
@@ -39,13 +41,13 @@ $existing->close();
 
 if (!$already_paid) {
     if ($payment_type === 'balance' && $reservation['reservation_status'] !== 'confirmed') {
-        header('Location: ../frontend/dashboard/customer.php?payment=failed');
+        header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
         exit;
     }
     $capture = capture_paypal_order($order_id);
     if (!$capture['ok']) {
         error_log('PayPal capture failed for reservation ' . $reservation_id . ', order ' . $order_id . ': ' . ($capture['error'] ?? 'unknown error'));
-        header('Location: ../frontend/dashboard/customer.php?payment=failed');
+        header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
         exit;
     }
 
@@ -86,14 +88,19 @@ if (!$already_paid) {
         }
         $payout->close();
         $conn->commit();
+
+        $auto_payout = trigger_auto_payout_for_reservation($conn, $reservation_id);
+        if (!$auto_payout['ok'] && empty($auto_payout['skipped'])) {
+            error_log('Auto payout failed for reservation ' . $reservation_id . ': ' . ($auto_payout['error'] ?? 'unknown error'));
+        }
     } catch (Throwable $exception) {
         $conn->rollback();
         error_log('Payment recording failed for reservation ' . $reservation_id . ', order ' . $order_id . ': ' . $exception->getMessage());
-        header('Location: ../frontend/dashboard/customer.php?payment=failed');
+        header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
         exit;
     }
 }
 
-header('Location: ../frontend/dashboard/customer.php?payment=success');
+header('Location: ' . $frontend_url . '/dashboard/customer?payment=success');
 exit;
 ?>
