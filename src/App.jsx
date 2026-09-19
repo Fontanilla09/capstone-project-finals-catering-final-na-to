@@ -15,6 +15,7 @@ import VenueVisualizer from './pages/VenueVisualizer.jsx';
 import ViewReservations from './pages/ViewReservations.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminActivity from './pages/AdminActivity.jsx';
+import AiGeneratedPhoto from './pages/AiGeneratedPhoto.jsx';
 
 export default function App() {
   const path = window.location.pathname;
@@ -30,6 +31,7 @@ export default function App() {
   if (path === '/dashboard/caterer') return <CatererDashboard />;
   if (path === '/dashboard/caterer/profile') return <CatererProfile />;
   if (path === '/dashboard/caterer/services') return <ManageServices />;
+  if (path === '/dashboard/caterer/ai-photos') return <AiGeneratedPhoto />;
   if (path === '/dashboard/caterer/reservations') return <ViewReservations />;
   if (path === '/dashboard/caterer/earnings') return <CatererEarnings />;
   if (path === '/dashboard/admin') return <AdminDashboard />;

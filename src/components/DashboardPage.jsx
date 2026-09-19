@@ -3,7 +3,7 @@ import { API_BASE, requestJson } from '../lib/api';
 
 const dashboardSections = {
   customer: [['overview', 'Overview', '/dashboard/customer'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages'], ['visualizer', 'Venue visualizer', '/dashboard/venue']],
-  caterer: [['overview', 'Overview', '/dashboard/caterer'], ['profile', 'Business profile', '/dashboard/caterer/profile'], ['services', 'Manage services', '/dashboard/caterer/services'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages']],
+  caterer: [['overview', 'Overview', '/dashboard/caterer'], ['profile', 'Business profile', '/dashboard/caterer/profile'], ['services', 'Manage services', '/dashboard/caterer/services'], ['ai-photos', 'AI generated photo', '/dashboard/caterer/ai-photos'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages']],
   admin: [['overview', 'Overview', '/dashboard/admin'], ['users', 'User management', '/dashboard/admin/users'], ['activity', 'Activity log', '/dashboard/admin/activity']],
 };
 

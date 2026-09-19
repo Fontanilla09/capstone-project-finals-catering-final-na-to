@@ -1,7 +1,7 @@
 <?php
 // generate.php
 // Accepts: multipart/form-data with 'prompt' and optional 'image'
-// Saves uploaded image, invokes node gen_image.js, and returns JSON { success, url }
+// Saves the reference image, invokes the NVIDIA NIM image client, and returns JSON { success, url }
 
 header('Content-Type: application/json');
 
@@ -28,10 +28,6 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
         echo json_encode(['success' => false, 'error' => 'Failed to save uploaded image']);
         exit;
     }
-} else {
-    // No image uploaded: return error for now (we expect an input image for image-to-image)
-    echo json_encode(['success' => false, 'error' => 'No input image provided']);
-    exit;
 }
 
 // Prepare output path
@@ -40,9 +36,9 @@ $outputPath = $uploadDir . $outName;
 
 // Build command (ensure node in PATH and gen_image.js exists)
 $nodeCmd = 'node';
-// Prefer the dedicated Nano Banana Pro settings, with the legacy key as fallback.
-$envApiKey = getenv('NANOBANANA_PRO_API_KEY') ?: getenv('GENAI_API_KEY');
-$imageModel = getenv('NANOBANANA_PRO_MODEL') ?: 'gemini-3-pro-image-preview';
+// NVIDIA NIM can run locally without a key or through a hosted endpoint with one.
+$envApiKey = getenv('NVIDIA_NIM_API_KEY') ?: getenv('NVIDIA_API_KEY');
+$imageModel = getenv('NVIDIA_NIM_MODEL') ?: 'black-forest-labs/FLUX.1-dev';
 if (!$envApiKey) {
     // load .env file if present (simple parser)
     $envFile = __DIR__ . '/../.env';
@@ -62,40 +58,30 @@ if (!$envApiKey) {
             putenv("$k=$v");
             $_ENV[$k] = $v;
         }
-        $envApiKey = getenv('NANOBANANA_PRO_API_KEY') ?: getenv('GENAI_API_KEY');
-        $imageModel = getenv('NANOBANANA_PRO_MODEL') ?: 'gemini-3-pro-image-preview';
+        $envApiKey = getenv('NVIDIA_NIM_API_KEY') ?: getenv('NVIDIA_API_KEY');
+        $imageModel = getenv('NVIDIA_NIM_MODEL') ?: 'black-forest-labs/FLUX.1-dev';
     }
 }
 
-if (!$envApiKey) {
-    echo json_encode(['success' => false, 'error' => 'NANOBANANA_PRO_API_KEY not set in server environment. Set it in Apache/XAMPP or add it to ../.env']);
-    exit;
-}
+// A local NIM container usually needs no key; hosted NIM uses NVIDIA_NIM_API_KEY.
 $script = escapeshellarg(__DIR__ . '/gen_image.js');
 $escapedPrompt = escapeshellarg($prompt);
-$escapedInput = escapeshellarg($inputPath);
 $escapedOutput = escapeshellarg($outputPath);
-$appUrl = rtrim(getenv('APP_URL') ?: '', '/');
-if ($appUrl === '') {
-    echo json_encode(['success' => false, 'error' => 'APP_URL is required so Nano Banana can access the uploaded image']);
-    exit;
-}
-$inputUrl = $appUrl . '/uploads/permits/' . rawurlencode(basename($inputPath));
-$escapedInputUrl = escapeshellarg($inputUrl);
+$appUrl = rtrim(getenv('APP_URL') ?: 'http://localhost:8000', '/');
 $prefix = '';
 // On Windows use set "VAR=val" && command, on *nix prefix environment var
 if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
     // escape any double quotes in the key
-    $safeKey = str_replace('"', '\\"', $envApiKey);
+    $safeKey = str_replace('"', '\\"', $envApiKey ?: '');
     $safeModel = str_replace('"', '\\"', $imageModel);
-    $safeBaseUrl = str_replace('"', '\\"', getenv('NANOBANANA_PRO_BASE_URL') ?: 'https://nanobnana.com');
-    $prefix = 'set "NANOBANANA_PRO_API_KEY=' . $safeKey . '" && set "NANOBANANA_PRO_MODEL=' . $safeModel . '" && set "NANOBANANA_PRO_BASE_URL=' . $safeBaseUrl . '" && ';
+    $safeEndpoint = str_replace('"', '\\"', getenv('NVIDIA_NIM_IMAGE_ENDPOINT') ?: 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev');
+    $prefix = 'set "NVIDIA_NIM_API_KEY=' . $safeKey . '" && set "NVIDIA_NIM_MODEL=' . $safeModel . '" && set "NVIDIA_NIM_IMAGE_ENDPOINT=' . $safeEndpoint . '" && ';
 } else {
-    $baseUrl = getenv('NANOBANANA_PRO_BASE_URL') ?: 'https://nanobnana.com';
-    $prefix = 'NANOBANANA_PRO_API_KEY=' . escapeshellarg($envApiKey) . ' NANOBANANA_PRO_MODEL=' . escapeshellarg($imageModel) . ' NANOBANANA_PRO_BASE_URL=' . escapeshellarg($baseUrl) . ' ';
+    $endpoint = getenv('NVIDIA_NIM_IMAGE_ENDPOINT') ?: 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev';
+    $prefix = 'NVIDIA_NIM_API_KEY=' . escapeshellarg($envApiKey ?: '') . ' NVIDIA_NIM_MODEL=' . escapeshellarg($imageModel) . ' NVIDIA_NIM_IMAGE_ENDPOINT=' . escapeshellarg($endpoint) . ' ';
 }
 
-$cmd = $prefix . "$nodeCmd $script $escapedPrompt $escapedInput $escapedOutput $escapedInputUrl 2>&1";
+$cmd = $prefix . "$nodeCmd $script $escapedPrompt $escapedOutput 2>&1";
 
 // Execute and capture output
 exec($cmd, $outputLines, $ret);
@@ -103,7 +89,7 @@ $outText = implode("\n", $outputLines);
 
 if ($ret === 0) {
     // Success: return URL
-    $urlPath = '/capstone-project-finals-catering/uploads/permits/' . $outName;
+    $urlPath = '/uploads/permits/' . $outName;
     echo json_encode(['success' => true, 'url' => $urlPath]);
     exit;
 } else {
@@ -119,7 +105,7 @@ if ($ret === 0) {
     if ($errorJson) {
         echo json_encode($errorJson);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Generation failed', 'debug' => $outText]);
+        echo json_encode(['success' => false, 'error' => 'NVIDIA NIM generation failed', 'debug' => $outText]);
     }
     exit;
 }

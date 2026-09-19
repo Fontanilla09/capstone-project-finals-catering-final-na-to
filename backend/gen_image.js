@@ -1,87 +1,59 @@
-// Usage: node gen_image.js "<prompt>" <inputPath> <outputPath> <publicInputUrl>
+// Usage: node gen_image.js "<prompt>" <outputPath>
 
 import fs from 'fs';
 
-const POLL_INTERVAL_MS = 5000;
-const MAX_POLLS = 36;
-
-function getImageUrl(data) {
+function imageDataFromResponse(body) {
+  if (typeof body?.image === 'string') return { b64_json: body.image };
+  if (Array.isArray(body?.artifacts) && body.artifacts[0]?.base64) return { b64_json: body.artifacts[0].base64 };
   const candidates = [
-    data?.image_url,
-    data?.url,
-    data?.output_url,
-    data?.output,
-    data?.image,
-    ...(Array.isArray(data?.images) ? data.images : []),
-    ...(Array.isArray(data?.image_urls) ? data.image_urls : []),
+    ...(Array.isArray(body?.data) ? body.data : []),
+    ...(Array.isArray(body?.images) ? body.images : []),
+    body?.image,
   ];
-  return candidates.find((value) => typeof value === 'string' && value.startsWith('http'));
+  return candidates.find((item) => item?.b64_json || item?.url || item?.image_url) || null;
 }
 
 async function requestJson(url, options) {
   const response = await fetch(url, options);
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(body.message || body.error || `Nano Banana request failed (${response.status})`);
-  }
+  if (!response.ok) throw new Error(body.error?.message || body.message || body.error || `NVIDIA NIM request failed (${response.status})`);
   return body;
+}
+
+async function saveImage(image, outputPath) {
+  if (image.b64_json) {
+    fs.writeFileSync(outputPath, Buffer.from(image.b64_json, 'base64'));
+    return;
+  }
+  const imageUrl = image.url || image.image_url;
+  if (!imageUrl) throw new Error('NVIDIA NIM returned no image data');
+  const response = await fetch(imageUrl);
+  if (!response.ok) throw new Error(`Failed to download generated image (${response.status})`);
+  fs.writeFileSync(outputPath, Buffer.from(await response.arrayBuffer()));
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length < 4) {
-    throw new Error('Usage: node gen_image.js <prompt> <inputPath> <outputPath> <publicInputUrl>');
-  }
+  if (args.length < 2) throw new Error('Usage: node gen_image.js <prompt> <outputPath>');
+  const [promptText, outputPath] = args;
+  const apiKey = process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY;
+  const endpoint = process.env.NVIDIA_NIM_IMAGE_ENDPOINT || 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev';
+  const model = process.env.NVIDIA_NIM_MODEL || 'black-forest-labs/FLUX.1-dev';
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
-  const [promptText, inputPath, outputPath, publicInputUrl] = args;
-  const apiKey = process.env.NANOBANANA_PRO_API_KEY;
-  const baseUrl = (process.env.NANOBANANA_PRO_BASE_URL || 'https://nanobnana.com').replace(/\/$/, '');
-  const model = process.env.NANOBANANA_PRO_MODEL || 'nano2pro';
-  if (!apiKey) throw new Error('NANOBANANA_PRO_API_KEY not set in environment');
-
-  const headers = {
-    Authorization: `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-  };
-
-  const created = await requestJson(`${baseUrl}/api/edit`, {
+  const requestBody = endpoint.includes('/genai/')
+    ? { prompt: promptText, width: 1024, height: 1024, steps: 30, seed: 0 }
+    : { model, prompt: promptText, size: '1024x1024', n: 1, response_format: 'b64_json' };
+  const body = await requestJson(endpoint, {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      prompt: promptText,
-      images: [publicInputUrl],
-      model,
-      aspect_ratio: '1:1',
-      resolution: '1K',
-      output_format: 'png',
-    }),
+    body: JSON.stringify(requestBody),
   });
-
-  const taskId = created.task_id || created.data?.task_id;
-  if (!taskId) throw new Error('Nano Banana did not return a task_id');
-
-  for (let poll = 0; poll < MAX_POLLS; poll += 1) {
-    const status = await requestJson(`${baseUrl}/api/status?task_id=${encodeURIComponent(taskId)}`, { headers });
-    const statusData = status.data || status;
-    const imageUrl = getImageUrl(statusData);
-    const state = String(statusData.status || '').toUpperCase();
-
-    if (imageUrl || ['SUCCESS', 'COMPLETED', 'DONE', 'SUCCEEDED'].includes(state)) {
-      if (!imageUrl) throw new Error('Nano Banana completed without an image URL');
-      const imageResponse = await fetch(imageUrl);
-      if (!imageResponse.ok) throw new Error(`Failed to download generated image (${imageResponse.status})`);
-      fs.writeFileSync(outputPath, Buffer.from(await imageResponse.arrayBuffer()));
-      console.log(JSON.stringify({ success: true, output: outputPath }));
-      return;
-    }
-
-    if (['FAILED', 'ERROR', 'CANCELLED'].includes(state)) {
-      throw new Error(statusData.message || 'Nano Banana image generation failed');
-    }
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-  }
-
-  throw new Error('Nano Banana generation timed out while waiting for task completion');
+  const image = imageDataFromResponse(body);
+  if (!image) throw new Error('NVIDIA NIM completed without an image');
+  await saveImage(image, outputPath);
+  console.log(JSON.stringify({ success: true, output: outputPath }));
 }
 
 main().catch((error) => {
