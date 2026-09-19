@@ -7,9 +7,8 @@ export default defineConfig({
     allowedHosts: ['slacker-denial-cure.ngrok-free.dev'],
     proxy: {
       '/backend': {
-        target: 'http://localhost',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => `/capstone-project-finals-catering${path}`,
       },
       '/capstone-project-finals-catering/backend': {
         target: 'http://localhost',

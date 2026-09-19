@@ -15,6 +15,15 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE admin_activity_log (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    admin_user_id INT NOT NULL,
+    action VARCHAR(80) NOT NULL,
+    details VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Super Admin Seed Account
 INSERT INTO users (email, password, role, created_at, updated_at) VALUES (
     'caterai@gmail.com',
@@ -51,6 +60,7 @@ CREATE TABLE caterers (
     city VARCHAR(50),
     rating DECIMAL(3, 2) DEFAULT 0,
     paypal_email VARCHAR(150) DEFAULT NULL,
+    gcash_qr_code VARCHAR(255) DEFAULT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     verification_submitted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -113,7 +123,7 @@ CREATE TABLE payments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     reservation_id INT NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
-    payment_method ENUM('e-wallet', 'cash', 'card', 'paypal') NOT NULL,
+    payment_method ENUM('e-wallet', 'cash', 'card', 'paypal', 'gcash') NOT NULL,
     payment_date DATE,
     reference_number VARCHAR(100),
     receipt_image VARCHAR(255),

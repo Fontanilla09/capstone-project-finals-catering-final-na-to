@@ -12,9 +12,10 @@ $input = json_decode(file_get_contents('php://input'), true) ?: [];
 $package_id = (int) ($input['package_id'] ?? 0); $caterer_id = (int) ($input['caterer_id'] ?? 0); $guest_count = (int) ($input['guest_count'] ?? 0);
 $event_date = trim($input['event_date'] ?? ''); $event_time = trim($input['event_time'] ?? ''); $venue_name = trim($input['venue_name'] ?? ''); $venue_address = trim($input['venue_address'] ?? '');
 if (!$package_id || !$caterer_id || !$guest_count || !$event_date || !$event_time || !$venue_name || !$venue_address) { http_response_code(422); echo json_encode(['error' => 'Complete all event details.']); exit; }
-$query = $conn->prepare("SELECT p.package_name, p.event_type, p.price, p.max_bookings, (SELECT COUNT(*) FROM reservations rb WHERE rb.package_id = p.id AND rb.reservation_status <> 'cancelled') AS booking_count, c.business_name FROM packages p JOIN caterers c ON c.id = p.caterer_id WHERE p.id = ? AND c.id = ? AND c.is_verified = 1 LIMIT 1");
+$query = $conn->prepare("SELECT p.package_name, p.event_type, p.price, p.max_bookings, (SELECT COUNT(*) FROM reservations rb WHERE rb.package_id = p.id AND rb.reservation_status <> 'cancelled') AS booking_count, c.business_name, c.gcash_qr_code FROM packages p JOIN caterers c ON c.id = p.caterer_id WHERE p.id = ? AND c.id = ? AND c.is_verified = 1 LIMIT 1");
 $query->bind_param('ii', $package_id, $caterer_id); $query->execute(); $package = $query->get_result()->fetch_assoc();
 if (!$package) { http_response_code(404); echo json_encode(['error' => 'Package not found.']); exit; }
+if (!$package['gcash_qr_code']) { http_response_code(422); echo json_encode(['error' => 'This caterer has not configured a GCash QR code yet.']); exit; }
 if ((int) $package['max_bookings'] > 0 && (int) $package['booking_count'] >= (int) $package['max_bookings']) { http_response_code(422); echo json_encode(['error' => 'This package is full and is no longer accepting bookings.']); exit; }
 $customer_id = (int) $_SESSION['customer_id'];
 $duplicate = $conn->prepare("SELECT id FROM reservations WHERE customer_id = ? AND package_id = ? AND event_date = ? AND event_time = ? AND reservation_status <> 'cancelled' LIMIT 1");
@@ -24,7 +25,8 @@ $total = (float) $package['price']; $advance = round($total * .30, 2); $balance 
 $insert = $conn->prepare("INSERT INTO reservations (customer_id, caterer_id, package_id, event_date, event_time, event_type, location, guest_count, total_amount, advance_payment, balance_amount, payment_status, reservation_status, special_requests) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', '')");
 $insert->bind_param('iiissssiddd', $customer_id, $caterer_id, $package_id, $event_date, $event_time, $package['event_type'], $location, $guest_count, $total, $advance, $balance);
 if (!$insert->execute()) { http_response_code(500); echo json_encode(['error' => 'Unable to create booking.']); exit; }
-$reservation_id = $conn->insert_id; require_once __DIR__ . '/paypal_handler.php';
-$paypal = create_paypal_order($reservation_id, $advance, 'CaterAI booking for ' . $package['business_name'] . ' - ' . $package['package_name']);
-if (!$paypal['ok']) { $conn->query('DELETE FROM reservations WHERE id = ' . $reservation_id); http_response_code(502); echo json_encode(['error' => $paypal['error'] ?? 'Unable to start payment.']); exit; }
-echo json_encode(['success' => true, 'approval_url' => $paypal['approval_url']]);
+$reservation_id = $conn->insert_id;
+$payment = $conn->prepare("INSERT INTO payments (reservation_id, amount, payment_method, payment_date, payment_status, provider, payment_type) VALUES (?, ?, 'gcash', CURDATE(), 'pending', 'gcash', 'down_payment')");
+$payment->bind_param('id', $reservation_id, $advance);
+if (!$payment->execute()) { $conn->query('DELETE FROM reservations WHERE id = ' . $reservation_id); http_response_code(500); echo json_encode(['error' => 'Unable to prepare GCash payment.']); exit; }
+echo json_encode(['success' => true, 'reservation_id' => $reservation_id, 'gcash_qr_code' => '/uploads/gcash/' . $package['gcash_qr_code'], 'amount' => $advance]);
