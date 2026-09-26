@@ -5,7 +5,7 @@ if (preg_match('/^http:\/\/localhost:\d+$/', $origin)) header('Access-Control-Al
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') exit;
 require_once __DIR__ . '/config.php';
 if (!isset($_SESSION['user_id'], $_SESSION['role'])) { http_response_code(401); echo json_encode(['error' => 'Unauthorized.']); exit; }
 $role = $_SESSION['role'];
@@ -13,9 +13,22 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
 
 function log_admin_activity(mysqli $conn, string $action, string $details): void {
-    $admin_id = (int) $_SESSION['user_id'];
+    $conn->query('CREATE TABLE IF NOT EXISTS admin_activity_log (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        admin_user_id INT NOT NULL,
+        action VARCHAR(80) NOT NULL,
+        details VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
+    )');
+
+    $admin_id = (int) ($_SESSION['user_id'] ?? 0);
+    if ($admin_id <= 0) return;
+
     $log = $conn->prepare('INSERT INTO admin_activity_log (admin_user_id, action, details) VALUES (?, ?, ?)');
-    $log->bind_param('iss', $admin_id, $action, $details); $log->execute();
+    if (!$log) return;
+    $log->bind_param('iss', $admin_id, $action, $details);
+    $log->execute();
 }
 
 if ($action === 'unread_messages' && in_array($role, ['customer', 'caterer'], true)) {
@@ -54,7 +67,11 @@ if ($action === 'caterer_overview' && $role === 'caterer') {
     $id = (int) $_SESSION['caterer_id'];
     $stats = [];
     foreach (['packages' => 'SELECT COUNT(*) count FROM packages WHERE caterer_id = ?', 'reservations' => "SELECT COUNT(*) count FROM reservations WHERE caterer_id = ? AND reservation_status IN ('pending','confirmed')", 'upcoming' => "SELECT COUNT(*) count FROM reservations WHERE caterer_id = ? AND event_date >= CURDATE() AND reservation_status = 'confirmed'"] as $key => $sql) { $stmt = $conn->prepare($sql); $stmt->bind_param('i', $id); $stmt->execute(); $stats[$key] = $stmt->get_result()->fetch_assoc()['count']; }
-    $rating = $conn->prepare('SELECT IFNULL(ROUND(AVG(rating), 1), 0) value FROM reviews WHERE caterer_id = ?'); $rating->bind_param('i', $id); $rating->execute(); $stats['rating'] = $rating->get_result()->fetch_assoc()['value']; echo json_encode(['stats' => $stats]); exit;
+    $rating = $conn->prepare('SELECT IFNULL(ROUND(AVG(rating), 1), 0) value FROM reviews WHERE caterer_id = ?'); $rating->bind_param('i', $id); $rating->execute(); $stats['rating'] = $rating->get_result()->fetch_assoc()['value'];
+    $analytics = $conn->prepare("SELECT COUNT(*) AS total_bookings, SUM(reservation_status = 'pending') AS pending, SUM(reservation_status = 'confirmed') AS confirmed, SUM(reservation_status = 'completed') AS completed, COALESCE(SUM(CASE WHEN reservation_status <> 'cancelled' THEN total_amount ELSE 0 END), 0) AS booking_value, COALESCE(AVG(CASE WHEN reservation_status <> 'cancelled' THEN total_amount END), 0) AS average_booking FROM reservations WHERE caterer_id = ?");
+    $analytics->bind_param('i', $id); $analytics->execute(); $stats['analytics'] = $analytics->get_result()->fetch_assoc();
+    $collected = $conn->prepare("SELECT COALESCE(SUM(pay.amount), 0) AS value FROM payments pay JOIN reservations r ON r.id = pay.reservation_id WHERE r.caterer_id = ? AND pay.payment_status = 'completed'"); $collected->bind_param('i', $id); $collected->execute(); $stats['analytics']['collected'] = $collected->get_result()->fetch_assoc()['value'];
+    echo json_encode(['stats' => $stats]); exit;
 }
 
 if ($action === 'admin_overview' && $role === 'admin') {
@@ -63,18 +80,41 @@ if ($action === 'admin_overview' && $role === 'admin') {
         $result = $conn->query($sql);
         $stats[$key] = $result ? (int) $result->fetch_assoc()['count'] : 0;
     }
-    echo json_encode(['stats' => $stats]); exit;
+    $analytics = [
+        'bookings' => 0,
+        'completed_payments' => 0,
+        'revenue' => 0,
+        'average_booking' => 0,
+        'statuses' => [],
+    ];
+    $result = $conn->query("SELECT COUNT(*) AS value, COALESCE(SUM(total_amount), 0) AS total, COALESCE(AVG(total_amount), 0) AS average FROM reservations WHERE reservation_status <> 'cancelled'");
+    if ($result) {
+        $bookingData = $result->fetch_assoc();
+        $analytics['bookings'] = (int) $bookingData['value'];
+        $analytics['average_booking'] = (float) $bookingData['average'];
+    }
+    $result = $conn->query("SELECT COUNT(*) AS value, COALESCE(SUM(amount), 0) AS total FROM payments WHERE payment_status = 'completed'");
+    if ($result) {
+        $paymentData = $result->fetch_assoc();
+        $analytics['completed_payments'] = (int) $paymentData['value'];
+        $analytics['revenue'] = (float) $paymentData['total'];
+    }
+    $result = $conn->query("SELECT reservation_status AS status, COUNT(*) AS value FROM reservations GROUP BY reservation_status");
+    if ($result) {
+        while ($row = $result->fetch_assoc()) $analytics['statuses'][$row['status']] = (int) $row['value'];
+    }
+    echo json_encode(['stats' => $stats, 'analytics' => $analytics]); exit;
 }
 
 if ($action === 'caterer_profile' && $role === 'caterer') {
     $id = (int) $_SESSION['caterer_id'];
-    $stmt = $conn->prepare('SELECT c.id, c.business_name, c.phone, c.address, c.city, c.description, c.business_permit, c.paypal_email, c.is_verified, c.verification_submitted, u.email FROM caterers c JOIN users u ON c.user_id = u.id WHERE c.id = ?');
+    $stmt = $conn->prepare('SELECT c.id, c.business_name, c.phone, c.address, c.city, c.description, c.business_permit, c.profile_image, c.paypal_email, c.is_verified, c.verification_submitted, u.email FROM caterers c JOIN users u ON c.user_id = u.id WHERE c.id = ?');
     $stmt->bind_param('i', $id); $stmt->execute(); echo json_encode(['caterer' => $stmt->get_result()->fetch_assoc()]); exit;
 }
 
 if ($action === 'update_profile' && $role === 'caterer') {
     $id = (int) $_SESSION['caterer_id']; $business = trim($input['business_name'] ?? ''); $phone = trim($input['phone'] ?? ''); $address = trim($input['address'] ?? ''); $city = trim($input['city'] ?? ''); $description = trim($input['description'] ?? ''); $paypal = trim($input['paypal_email'] ?? '');
-    if ($business === '' || $phone === '' || $address === '' || $city === '' || ($paypal !== '' && !filter_var($paypal, FILTER_VALIDATE_EMAIL))) { http_response_code(422); echo json_encode(['error' => 'Complete the required fields and enter a valid PayPal email.']); exit; }
+    if ($business === '' || !preg_match('/^[0-9]{10,15}$/', $phone) || $address === '' || $city === '' || ($paypal !== '' && !filter_var($paypal, FILTER_VALIDATE_EMAIL))) { http_response_code(422); echo json_encode(['error' => 'Enter a phone number with digits only (10 to 15 digits) and complete the required fields.']); exit; }
     $stmt = $conn->prepare('UPDATE caterers SET business_name = ?, phone = ?, address = ?, city = ?, description = ?, paypal_email = ? WHERE id = ?'); $stmt->bind_param('ssssssi', $business, $phone, $address, $city, $description, $paypal, $id); $stmt->execute(); echo json_encode(['success' => true]); exit;
 }
 
@@ -85,13 +125,19 @@ if ($action === 'submit_verification' && $role === 'caterer') {
 }
 
 if ($action === 'services' && $role === 'caterer') {
-    $id = (int) $_SESSION['caterer_id']; $stmt = $conn->prepare("SELECT p.id, p.package_name, p.event_type, p.price, p.guest_count_min, p.guest_count_max, p.max_bookings, p.description, p.includes, COUNT(CASE WHEN r.reservation_status <> 'cancelled' THEN r.id END) AS booking_count FROM packages p LEFT JOIN reservations r ON r.package_id = p.id WHERE p.caterer_id = ? GROUP BY p.id ORDER BY p.created_at DESC"); $stmt->bind_param('i', $id); $stmt->execute(); echo json_encode(['services' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]); exit;
+    $id = (int) $_SESSION['caterer_id']; $stmt = $conn->prepare("SELECT p.id, p.package_name, p.event_type, p.price, p.guest_count_min, p.guest_count_max, p.max_bookings, p.description, p.includes, (SELECT COUNT(*) FROM reservations r WHERE r.package_id = p.id AND r.reservation_status != 'cancelled') AS booking_count, (SELECT GROUP_CONCAT(pi.image_path ORDER BY pi.id SEPARATOR '||') FROM package_images pi WHERE pi.package_id = p.id) AS image_paths, (SELECT COALESCE(ROUND(AVG(rv.rating), 1), 0) FROM reviews rv WHERE rv.caterer_id = p.caterer_id) AS rating, (SELECT COUNT(*) FROM reviews rv WHERE rv.caterer_id = p.caterer_id) AS review_count, (SELECT GROUP_CONCAT(CONCAT(COALESCE(NULLIF(TRIM(rv.review_text), ''), 'No written comment'), ' - ', cu.full_name) ORDER BY rv.created_at DESC SEPARATOR '||') FROM reviews rv JOIN customers cu ON cu.id = rv.customer_id WHERE rv.caterer_id = p.caterer_id) AS review_comments FROM packages p WHERE p.caterer_id = ? ORDER BY p.id DESC");
+    if (!$stmt) { http_response_code(500); echo json_encode(['error' => 'Unable to load service packages.']); exit; }
+    $stmt->bind_param('i', $id); $stmt->execute(); echo json_encode(['services' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]); exit;
 }
 
 if ($action === 'create_service' && $role === 'caterer') {
     $name = trim($input['package_name'] ?? ''); $event = trim($input['event_type'] ?? ''); $range = preg_replace('/\s+/', '', trim($input['guest_range'] ?? '')); $price = (float) ($input['price'] ?? 0); $max_bookings = (int) ($input['max_bookings'] ?? 0); $description = trim($input['description'] ?? ''); $includes = trim($input['features'] ?? ''); $parts = explode('-', $range); $min = (int) ($parts[0] ?? 0); $max = (int) ($parts[1] ?? $min);
     if ($name === '' || $event === '' || $min <= 0 || $max <= 0 || $price <= 0 || $max_bookings < 0) { http_response_code(422); echo json_encode(['error' => 'Complete the service fields with a valid guest range, price, and booking limit.']); exit; }
-    $id = (int) $_SESSION['caterer_id']; $stmt = $conn->prepare('INSERT INTO packages (caterer_id, package_name, event_type, price, guest_count_min, guest_count_max, max_bookings, description, includes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'); $stmt->bind_param('issdiiiss', $id, $name, $event, $price, $min, $max, $max_bookings, $description, $includes); $stmt->execute(); echo json_encode(['success' => true, 'package_id' => $stmt->insert_id]); exit;
+    $id = (int) $_SESSION['caterer_id']; $stmt = $conn->prepare('INSERT INTO packages (caterer_id, package_name, event_type, price, guest_count_min, guest_count_max, max_bookings, description, includes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    if (!$stmt) { http_response_code(500); echo json_encode(['error' => 'Unable to prepare the service package.']); exit; }
+    $stmt->bind_param('issdiiiss', $id, $name, $event, $price, $min, $max, $max_bookings, $description, $includes);
+    if (!$stmt->execute()) { http_response_code(500); echo json_encode(['error' => 'Unable to create the service package.']); exit; }
+    echo json_encode(['success' => true, 'package_id' => $stmt->insert_id]); exit;
 }
 
 if ($action === 'delete_service' && $role === 'caterer') {
@@ -105,25 +151,23 @@ if ($action === 'update_service' && $role === 'caterer') {
 }
 
 if ($action === 'caterer_reservations' && $role === 'caterer') {
-    $id = (int) $_SESSION['caterer_id']; $stmt = $conn->prepare("SELECT r.id, cu.full_name AS customer_name, p.package_name, r.event_date, r.event_time, r.guest_count, r.location, r.advance_payment, r.payment_status, r.reservation_status, pay.reference_number, pay.receipt_image FROM reservations r JOIN customers cu ON r.customer_id = cu.id JOIN packages p ON r.package_id = p.id LEFT JOIN payments pay ON pay.reservation_id = r.id AND pay.payment_type = 'down_payment' WHERE r.caterer_id = ? AND r.reservation_status <> 'cancelled' ORDER BY r.event_date DESC"); $stmt->bind_param('i', $id); $stmt->execute(); echo json_encode(['reservations' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]); exit;
+    $id = (int) $_SESSION['caterer_id']; $stmt = $conn->prepare("SELECT r.id, cu.full_name AS customer_name, p.package_name, r.event_date, r.event_time, r.guest_count, r.location, r.advance_payment, r.payment_status, r.reservation_status FROM reservations r JOIN customers cu ON r.customer_id = cu.id JOIN packages p ON r.package_id = p.id WHERE r.caterer_id = ? AND r.reservation_status <> 'cancelled' ORDER BY r.event_date DESC"); $stmt->bind_param('i', $id); $stmt->execute(); echo json_encode(['reservations' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]); exit;
 }
 
 if ($action === 'caterer_earnings' && $role === 'caterer') {
     $id = (int) $_SESSION['caterer_id'];
-    $summary = $conn->prepare("SELECT COALESCE(SUM(caterer_amount), 0) AS total, COALESCE(SUM(CASE WHEN payout_status = 'paid' THEN caterer_amount ELSE 0 END), 0) AS paid, COALESCE(SUM(CASE WHEN payout_status IN ('pending', 'processing') THEN caterer_amount ELSE 0 END), 0) AS pending FROM payouts WHERE caterer_id = ?");
+    $summary = $conn->prepare("SELECT COALESCE(SUM(pay.amount), 0) AS total, COALESCE(SUM(CASE WHEN pay.payment_status = 'completed' THEN pay.amount ELSE 0 END), 0) AS paid, 0 AS pending FROM payments pay JOIN reservations r ON r.id = pay.reservation_id WHERE r.caterer_id = ? AND pay.provider = 'paypal'");
     $summary->bind_param('i', $id); $summary->execute();
     $summary_data = $summary->get_result()->fetch_assoc();
-    $payouts = $conn->prepare('SELECT po.id, po.reservation_id, p.package_name, r.event_date, po.gross_amount, po.platform_fee, po.caterer_amount, po.payout_status, po.paid_at FROM payouts po JOIN reservations r ON r.id = po.reservation_id JOIN packages p ON p.id = r.package_id WHERE po.caterer_id = ? ORDER BY po.created_at DESC');
+    $payouts = $conn->prepare("SELECT pay.id, pay.reservation_id, p.package_name, r.event_date, pay.amount AS gross_amount, 0 AS platform_fee, pay.amount AS caterer_amount, pay.payment_status AS payout_status, pay.payment_date AS paid_at FROM payments pay JOIN reservations r ON r.id = pay.reservation_id JOIN packages p ON p.id = r.package_id WHERE r.caterer_id = ? AND pay.provider = 'paypal' ORDER BY pay.created_at DESC");
     $payouts->bind_param('i', $id); $payouts->execute();
     $payout_data = $payouts->get_result()->fetch_all(MYSQLI_ASSOC);
-    $profile = $conn->prepare('SELECT gcash_qr_code FROM caterers WHERE id = ? LIMIT 1');
-    $profile->bind_param('i', $id); $profile->execute();
-    echo json_encode(['summary' => $summary_data, 'payouts' => $payout_data, 'gcash_qr_code' => $profile->get_result()->fetch_assoc()['gcash_qr_code'] ?? null]); exit;
+    echo json_encode(['summary' => $summary_data, 'payouts' => $payout_data]); exit;
 }
 
 if ($action === 'conversations' && in_array($role, ['customer', 'caterer'], true)) {
     $user_id = (int) $_SESSION['user_id'];
-    $stmt = $conn->prepare('SELECT MAX(m.package_id) package_id, MAX(m.created_at) last_message, u.id other_user_id, u.email other_email, c.id customer_id, c.full_name, ca.id caterer_id, ca.business_name FROM messages m JOIN users u ON u.id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END LEFT JOIN customers c ON c.user_id = u.id LEFT JOIN caterers ca ON ca.user_id = u.id WHERE m.sender_id = ? OR m.receiver_id = ? GROUP BY u.id, u.email, c.id, c.full_name, ca.id, ca.business_name ORDER BY last_message DESC');
+    $stmt = $conn->prepare('SELECT MAX(m.package_id) package_id, MAX(m.created_at) last_message, u.id other_user_id, u.email other_email, c.id customer_id, c.full_name, ca.id caterer_id, ca.business_name, COALESCE(ca.business_name, c.full_name, u.email) AS other_name FROM messages m JOIN users u ON u.id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END LEFT JOIN customers c ON c.user_id = u.id LEFT JOIN caterers ca ON ca.user_id = u.id WHERE m.sender_id = ? OR m.receiver_id = ? GROUP BY u.id, u.email, c.id, c.full_name, ca.id, ca.business_name ORDER BY last_message DESC');
     $stmt->bind_param('iii', $user_id, $user_id, $user_id); $stmt->execute(); echo json_encode(['conversations' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]); exit;
 }
 
@@ -132,21 +176,14 @@ if ($action === 'accept_reservation' && $role === 'caterer') {
     if ($stmt->affected_rows !== 1) {
         $check = $conn->prepare("SELECT id FROM reservations WHERE id = ? AND caterer_id = ? AND payment_status = 'partial' AND reservation_status = 'confirmed' LIMIT 1");
         $check->bind_param('ii', $reservation, $id); $check->execute();
-        if (!$check->get_result()->fetch_assoc()) { http_response_code(422); echo json_encode(['error' => 'Reservation requires a verified GCash down payment before it can be accepted.']); exit; }
+        if (!$check->get_result()->fetch_assoc()) { http_response_code(422); echo json_encode(['error' => 'Reservation requires a completed online payment before it can be accepted.']); exit; }
     }
     echo json_encode(['success' => true]); exit;
 }
 
-if ($action === 'verify_gcash_payment' && $role === 'caterer') {
-    $id = (int) $_SESSION['caterer_id']; $reservation = (int) ($input['reservation_id'] ?? 0);
-    $stmt = $conn->prepare("UPDATE payments pay JOIN reservations r ON r.id = pay.reservation_id SET pay.payment_status = 'completed', r.payment_status = 'partial' WHERE pay.reservation_id = ? AND pay.payment_type = 'down_payment' AND pay.payment_method = 'gcash' AND pay.receipt_image IS NOT NULL AND r.caterer_id = ? AND pay.payment_status = 'pending'");
-    $stmt->bind_param('ii', $reservation, $id); $stmt->execute();
-    if ($stmt->affected_rows !== 1) { http_response_code(422); echo json_encode(['error' => 'Payment proof is missing or already verified.']); exit; }
-    echo json_encode(['success' => true, 'message' => 'GCash payment verified.']); exit;
-}
 
 if ($action === 'admin_pending' && $role === 'admin') {
-    $rows = $conn->query("SELECT c.id, c.business_name, c.phone, c.address, c.city, c.business_permit, c.description, c.is_verified, c.verification_submitted, u.email AS user_email FROM caterers c JOIN users u ON c.user_id = u.id WHERE c.is_verified = 0 ORDER BY c.created_at DESC"); echo json_encode(['caterers' => $rows ? $rows->fetch_all(MYSQLI_ASSOC) : []]); exit;
+    $rows = $conn->query("SELECT c.id, c.business_name, c.phone, c.address, c.city, c.description, c.paypal_email, c.business_permit, c.is_verified, c.verification_submitted, u.email AS user_email FROM caterers c JOIN users u ON c.user_id = u.id WHERE c.is_verified = 0 ORDER BY c.created_at DESC"); echo json_encode(['caterers' => $rows ? $rows->fetch_all(MYSQLI_ASSOC) : []]); exit;
 }
 
 if ($action === 'admin_pending_customers' && $role === 'admin') {

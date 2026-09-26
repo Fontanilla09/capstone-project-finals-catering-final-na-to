@@ -90,7 +90,7 @@ function paypal_access_token(): array
     return ['ok' => true, 'token' => $data['access_token']];
 }
 
-function create_paypal_order(int $reservation_id, float $amount, string $description, string $payment_type = 'down_payment'): array
+function create_paypal_order(int $reservation_id, float $amount, string $description, string $payment_type = 'down_payment', string $payee_email = ''): array
 {
     global $paypal_base_url, $paypal_client_secret;
     $token = paypal_access_token();
@@ -102,13 +102,17 @@ function create_paypal_order(int $reservation_id, float $amount, string $descrip
     $app_url = rtrim($paypal_env['APP_URL'] ?? getenv('APP_URL') ?: 'http://localhost/capstone-project-finals-catering', '/');
     $frontend_url = rtrim($paypal_env['FRONTEND_URL'] ?? getenv('FRONTEND_URL') ?: 'http://localhost:5175', '/');
     $callback_signature = hash_hmac('sha256', $reservation_id . '|' . $payment_type, $paypal_client_secret);
+    $purchase_unit = [
+        'reference_id' => (string) $reservation_id,
+        'description' => $description,
+        'amount' => ['currency_code' => 'PHP', 'value' => number_format($amount, 2, '.', '')],
+    ];
+    if ($payee_email !== '') {
+        $purchase_unit['payee'] = ['email_address' => $payee_email];
+    }
     $response = paypal_request_with_token('POST', '/v2/checkout/orders', [
         'intent' => 'CAPTURE',
-        'purchase_units' => [[
-            'reference_id' => (string) $reservation_id,
-            'description' => $description,
-            'amount' => ['currency_code' => 'PHP', 'value' => number_format($amount, 2, '.', '')],
-        ]],
+        'purchase_units' => [$purchase_unit],
         'application_context' => [
             'brand_name' => 'CaterAI',
             'user_action' => 'PAY_NOW',

@@ -1,9 +1,22 @@
 <?php
 // generate.php
 // Accepts: multipart/form-data with 'prompt' and optional 'image'
-// Saves the reference image, invokes the NVIDIA NIM image client, and returns JSON { success, url }
+// Saves the reference image, invokes the configured image client, and returns JSON { success, url }
 
 header('Content-Type: application/json');
+set_time_limit(600);
+ini_set('max_execution_time', '600');
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (preg_match('/^http:\/\/localhost:\d+$/', $origin)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+}
+header('Access-Control-Allow-Credentials: true');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'error' => 'Invalid method']);
@@ -11,6 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $prompt = isset($_POST['prompt']) ? trim($_POST['prompt']) : '';
+$aspectRatio = $_POST['aspect_ratio'] ?? '1:1';
+$singleDimension = 1024;
+$dimensions = [
+    '1:1' => [$singleDimension, $singleDimension],
+    '4:5' => [$singleDimension, $singleDimension],
+    '16:9' => [$singleDimension, $singleDimension],
+];
+if (!isset($dimensions[$aspectRatio])) $aspectRatio = '1:1';
 if ($prompt === '') {
     echo json_encode(['success' => false, 'error' => 'Prompt is required']);
     exit;
@@ -34,54 +55,43 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
 $outName = 'gen_' . time() . '_' . bin2hex(random_bytes(6)) . '.png';
 $outputPath = $uploadDir . $outName;
 
-// Build command (ensure node in PATH and gen_image.js exists)
-$nodeCmd = 'node';
-// NVIDIA NIM can run locally without a key or through a hosted endpoint with one.
-$envApiKey = getenv('NVIDIA_NIM_API_KEY') ?: getenv('NVIDIA_API_KEY');
-$imageModel = getenv('NVIDIA_NIM_MODEL') ?: 'black-forest-labs/FLUX.1-dev';
-if (!$envApiKey) {
-    // load .env file if present (simple parser)
-    $envFile = __DIR__ . '/../.env';
-    if (file_exists($envFile)) {
-        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '' || strpos($line, '#') === 0) continue;
-            if (strpos($line, '=') === false) continue;
-            list($k, $v) = explode('=', $line, 2);
-            $k = trim($k);
-            $v = trim($v);
-            // strip quotes
-            if ((substr($v,0,1) === '"' && substr($v,-1) === '"') || (substr($v,0,1) === "'" && substr($v,-1) === "'")) {
-                $v = substr($v,1,-1);
-            }
-            putenv("$k=$v");
-            $_ENV[$k] = $v;
+// PHP-FPM/Apache does not automatically load the Vite project's .env file.
+$envFile = __DIR__ . '/../.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) continue;
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        $value = trim($value);
+        if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') || (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+            $value = substr($value, 1, -1);
         }
-        $envApiKey = getenv('NVIDIA_NIM_API_KEY') ?: getenv('NVIDIA_API_KEY');
-        $imageModel = getenv('NVIDIA_NIM_MODEL') ?: 'black-forest-labs/FLUX.1-dev';
+        putenv("$key=$value");
+        $_ENV[$key] = $value;
     }
 }
 
-// A local NIM container usually needs no key; hosted NIM uses NVIDIA_NIM_API_KEY.
+$nodeCmd = 'node';
 $script = escapeshellarg(__DIR__ . '/gen_image.js');
 $escapedPrompt = escapeshellarg($prompt);
 $escapedOutput = escapeshellarg($outputPath);
-$appUrl = rtrim(getenv('APP_URL') ?: 'http://localhost:8000', '/');
+$escapedInput = escapeshellarg($inputPath);
+$escapedWidth = escapeshellarg((string) $dimensions[$aspectRatio][0]);
+$escapedHeight = escapeshellarg((string) $dimensions[$aspectRatio][1]);
+
+$safeNanoBananaKey = str_replace('"', '\\"', (string) getenv('NANOBANANA_API_KEY'));
+$safeProvider = 'nanobanana';
+
 $prefix = '';
-// On Windows use set "VAR=val" && command, on *nix prefix environment var
 if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-    // escape any double quotes in the key
-    $safeKey = str_replace('"', '\\"', $envApiKey ?: '');
-    $safeModel = str_replace('"', '\\"', $imageModel);
-    $safeEndpoint = str_replace('"', '\\"', getenv('NVIDIA_NIM_IMAGE_ENDPOINT') ?: 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev');
-    $prefix = 'set "NVIDIA_NIM_API_KEY=' . $safeKey . '" && set "NVIDIA_NIM_MODEL=' . $safeModel . '" && set "NVIDIA_NIM_IMAGE_ENDPOINT=' . $safeEndpoint . '" && ';
+    $prefix = 'set "AI_IMAGE_PROVIDER=' . $safeProvider . '" && set "NANOBANANA_API_KEY=' . $safeNanoBananaKey . '" && ';
 } else {
-    $endpoint = getenv('NVIDIA_NIM_IMAGE_ENDPOINT') ?: 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev';
-    $prefix = 'NVIDIA_NIM_API_KEY=' . escapeshellarg($envApiKey ?: '') . ' NVIDIA_NIM_MODEL=' . escapeshellarg($imageModel) . ' NVIDIA_NIM_IMAGE_ENDPOINT=' . escapeshellarg($endpoint) . ' ';
+    $prefix = 'AI_IMAGE_PROVIDER=' . escapeshellarg($safeProvider) . ' NANOBANANA_API_KEY=' . escapeshellarg((string) getenv('NANOBANANA_API_KEY')) . ' ';
 }
 
-$cmd = $prefix . "$nodeCmd $script $escapedPrompt $escapedOutput 2>&1";
+$cmd = $prefix . "$nodeCmd $script $escapedPrompt $escapedOutput $escapedWidth $escapedHeight $escapedInput 2>&1";
 
 // Execute and capture output
 exec($cmd, $outputLines, $ret);
@@ -89,7 +99,7 @@ $outText = implode("\n", $outputLines);
 
 if ($ret === 0) {
     // Success: return URL
-    $urlPath = '/uploads/permits/' . $outName;
+    $urlPath = '/capstone-project-finals-catering/uploads/permits/' . $outName;
     echo json_encode(['success' => true, 'url' => $urlPath]);
     exit;
 } else {
@@ -103,9 +113,10 @@ if ($ret === 0) {
         }
     }
     if ($errorJson) {
-        echo json_encode($errorJson);
+        $errorMessage = $errorJson['error'] ?? 'NanoBanana generation failed';
+        echo json_encode(['success' => false, 'error' => $errorMessage]);
     } else {
-        echo json_encode(['success' => false, 'error' => 'NVIDIA NIM generation failed', 'debug' => $outText]);
+        echo json_encode(['success' => false, 'error' => 'NanoBanana generation failed', 'debug' => $outText]);
     }
     exit;
 }

@@ -1,26 +1,65 @@
 import { useState } from 'react';
-import { requestJson } from '../lib/api';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
-const emptyForm = { full_name: '', business_name: '', email: '', phone: '', password: '' };
+const emptyForm = { full_name: '', business_name: '', email: '', phone: '', address: '', city: '', description: '', paypal_email: '', password: '' };
 
 export default function Register() {
-  const [accountType, setAccountType] = useState('customer');
+  const requestedType = new URLSearchParams(window.location.search).get('account_type');
+  const [accountType, setAccountType] = useState(requestedType === 'caterer' ? 'caterer' : 'customer');
   const [form, setForm] = useState(emptyForm);
   const [status, setStatus] = useState({ error: '', success: '' });
   const nameField = accountType === 'customer' ? 'full_name' : 'business_name';
+  const confirmationRedirectUrl = `${window.location.origin}/login?confirmed=1`;
 
   function update(event) {
-    setForm({ ...form, [event.target.name]: event.target.value });
+    const value = event.target.name === 'phone' ? event.target.value.replace(/\D/g, '').slice(0, 15) : event.target.value;
+    setForm({ ...form, [event.target.name]: value });
   }
 
   async function submit(event) {
     event.preventDefault();
     setStatus({ error: '', success: '' });
     try {
-      const data = new FormData(event.currentTarget);
-      data.set('account_type', accountType);
-      const result = await requestJson('/backend/register_api.php', { method: 'POST', body: data });
-      setStatus({ error: '', success: result.message });
+      if (!isSupabaseConfigured) throw new Error('Supabase is not configured. Check your .env file.');
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const { data, error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          emailRedirectTo: confirmationRedirectUrl,
+          data: {
+            account_type: accountType,
+            full_name: values.full_name || '',
+            business_name: values.business_name || '',
+            phone: values.phone || '',
+            address: values.address || '',
+            city: values.city || '',
+            description: values.description || '',
+            paypal_email: values.paypal_email || '',
+          },
+        },
+      });
+      if (error) throw new Error(error.message.includes('already registered') ? 'Email already registered.' : error.message);
+
+      if (accountType === 'caterer' && values.business_permit?.size) {
+        if (!data.session) {
+          setStatus({
+            error: '',
+            success: 'Account created. Email confirmation is enabled, so the permit will only be attached after the user confirms the email and signs in again.',
+          });
+          setForm(emptyForm);
+          return;
+        }
+
+        const path = `${data.user.id}/${crypto.randomUUID()}-${values.business_permit.name}`;
+        const { error: uploadError } = await supabase.storage.from('permits').upload(path, values.business_permit, { contentType: values.business_permit.type });
+        if (uploadError) throw new Error('Account created, but the business permit could not be uploaded.');
+        const { error: permitError } = await supabase.rpc('save_my_caterer_permit', { permit_path: path });
+        if (permitError) throw new Error('Account created, but the business permit could not be saved.');
+      }
+
+      const confirmationNote = data.session ? '' : ' Check your email to confirm your account.';
+      setStatus({ error: '', success: `Account created.${confirmationNote}` });
       setForm(emptyForm);
     } catch (error) {
       setStatus({ error: error.message, success: '' });
@@ -29,7 +68,6 @@ export default function Register() {
 
   return (
     <main className="auth-page">
-      <a className="auth-back" href="/">← Back to home</a>
       <section className="auth-card">
         <div className="auth-intro">
           <a className="brand" href="/">Cater<span>AI</span></a>
@@ -49,7 +87,15 @@ export default function Register() {
           <label htmlFor="register-email">Email address</label>
           <input id="register-email" name="email" type="email" value={form.email} onChange={update} placeholder="you@example.com" required />
           <label htmlFor="phone">Phone number</label>
-          <input id="phone" name="phone" type="tel" inputMode="tel" value={form.phone} onChange={update} placeholder="09XXXXXXXXX" required />
+          <input id="phone" name="phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength="15" value={form.phone} onChange={update} placeholder="09XXXXXXXXX" required />
+          {accountType === 'caterer' && <>
+            <div className="caterer-registration-fields">
+              <label htmlFor="register-address">Address<input id="register-address" name="address" value={form.address} onChange={update} placeholder="Business address" required /></label>
+              <label htmlFor="register-city">City<input id="register-city" name="city" value={form.city} onChange={update} placeholder="City" required /></label>
+              <label className="registration-field-wide" htmlFor="register-description">Description<textarea id="register-description" name="description" value={form.description} onChange={update} placeholder="Tell customers about your catering business" /></label>
+              <label className="registration-field-wide" htmlFor="register-paypal">PayPal email<input id="register-paypal" name="paypal_email" type="email" value={form.paypal_email} onChange={update} placeholder="PayPal account email (optional)" /></label>
+            </div>
+          </>}
           {accountType === 'caterer' && <label htmlFor="business-permit">Business permit
             <input id="business-permit" name="business_permit" type="file" accept="application/pdf,image/jpeg,image/png" required />
             <small>PDF, JPG, or PNG. Maximum 10MB.</small>
