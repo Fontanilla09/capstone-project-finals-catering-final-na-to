@@ -1,4 +1,6 @@
 /.env
+/backup_cateraiDB_20260820.sql
+/cateraidb.sql
 node_modules/
 npm-debug.log
 uploads/permits/*.png
