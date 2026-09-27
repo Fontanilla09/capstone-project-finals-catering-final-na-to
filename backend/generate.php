@@ -1,122 +1,104 @@
 <?php
-// generate.php
-// Accepts: multipart/form-data with 'prompt' and optional 'image'
-// Saves the reference image, invokes the configured image client, and returns JSON { success, url }
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+require_once __DIR__ . '/image_storage.php';
 
 header('Content-Type: application/json');
-set_time_limit(600);
-ini_set('max_execution_time', '600');
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if (preg_match('/^http:\/\/localhost:\d+$/', $origin)) {
+if (preg_match('/^https?:\/\/localhost:\d+$/', $origin)) {
     header('Access-Control-Allow-Origin: ' . $origin);
 }
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit;
-}
-
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'error' => 'Invalid method']);
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Invalid method.']);
     exit;
 }
 
-$prompt = isset($_POST['prompt']) ? trim($_POST['prompt']) : '';
-$aspectRatio = $_POST['aspect_ratio'] ?? '1:1';
-$singleDimension = 1024;
-$dimensions = [
-    '1:1' => [$singleDimension, $singleDimension],
-    '4:5' => [$singleDimension, $singleDimension],
-    '16:9' => [$singleDimension, $singleDimension],
-];
-if (!isset($dimensions[$aspectRatio])) $aspectRatio = '1:1';
-if ($prompt === '') {
-    echo json_encode(['success' => false, 'error' => 'Prompt is required']);
+$user = supabase_current_user();
+if (!$user['ok']) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => $user['error']]);
     exit;
 }
 
-$uploadDir = __DIR__ . '/../uploads/permits/';
-if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+$prompt = trim((string) ($_POST['prompt'] ?? ''));
+$aspect_ratio = (string) ($_POST['aspect_ratio'] ?? '1:1');
+if ($prompt === '' || strlen($prompt) > 2000) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Enter a prompt under 2,000 characters.']);
+    exit;
+}
+if (!in_array($aspect_ratio, ['1:1', '4:5', '16:9'], true)) $aspect_ratio = '1:1';
 
-$inputPath = '';
-if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-    $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-    $safe = time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-    $inputPath = $uploadDir . $safe;
-    if (!move_uploaded_file($_FILES['image']['tmp_name'], $inputPath)) {
-        echo json_encode(['success' => false, 'error' => 'Failed to save uploaded image']);
+$owner = (string) $user['auth_user']['id'];
+$input_path = '';
+$input_url = '';
+if (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE) {
+    if ($_FILES['image']['error'] !== UPLOAD_ERR_OK || $_FILES['image']['size'] > 4194304) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Reference image must be smaller than 4 MB.']);
+        exit;
+    }
+
+    $mime = mime_content_type($_FILES['image']['tmp_name']) ?: '';
+    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (!isset($extensions[$mime])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Reference image must be JPG, PNG, or WEBP.']);
+        exit;
+    }
+
+    $input_path = $owner . '/' . bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+    $contents = file_get_contents($_FILES['image']['tmp_name']);
+    if (!is_string($contents)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Could not read the reference image.']);
+        exit;
+    }
+    $upload = image_storage_upload($input_path, $contents, $mime);
+    if (!$upload['ok']) {
+        http_response_code(502);
+        echo json_encode(['success' => false, 'error' => 'Could not save the reference image to Supabase Storage.']);
+        exit;
+    }
+
+    $input_url = image_storage_signed_url($input_path, 3600) ?? '';
+    if ($input_url === '') {
+        image_storage_delete($input_path);
+        http_response_code(502);
+        echo json_encode(['success' => false, 'error' => 'Could not create a temporary link for the reference image.']);
         exit;
     }
 }
 
-// Prepare output path
-$outName = 'gen_' . time() . '_' . bin2hex(random_bytes(6)) . '.png';
-$outputPath = $uploadDir . $outName;
-
-// PHP-FPM/Apache does not automatically load the Vite project's .env file.
-$envFile = __DIR__ . '/../.env';
-if (file_exists($envFile)) {
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) continue;
-        [$key, $value] = explode('=', $line, 2);
-        $key = trim($key);
-        $value = trim($value);
-        if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') || (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
-            $value = substr($value, 1, -1);
-        }
-        putenv("$key=$value");
-        $_ENV[$key] = $value;
-    }
+$app_env = $app_env ?? [];
+$model = (string) ($app_env['NANOBANANA_MODEL'] ?? getenv('NANOBANANA_MODEL') ?: 'nano2');
+$endpoint = $input_url !== '' ? '/api/edit' : '/api/generate';
+$payload = $input_url !== ''
+    ? ['prompt' => $prompt, 'images' => [$input_url], 'model' => $model, 'aspect_ratio' => $aspect_ratio, 'resolution' => '1K', 'output_format' => 'png']
+    : ['prompt' => $prompt, 'model' => $model, 'aspect_ratio' => $aspect_ratio, 'size' => '1K', 'format' => 'png'];
+$provider = image_provider_request('POST', $endpoint, $payload);
+$task_id = $provider['data']['task_id'] ?? $provider['data']['data']['task_id'] ?? '';
+if (!$provider['ok'] || !is_string($task_id) || $task_id === '') {
+    if ($input_path !== '') image_storage_delete($input_path);
+    http_response_code(502);
+    echo json_encode(['success' => false, 'error' => $provider['error'] ?: 'NanoBanana did not return a task ID.']);
+    exit;
 }
 
-$nodeCmd = 'node';
-$script = escapeshellarg(__DIR__ . '/gen_image.js');
-$escapedPrompt = escapeshellarg($prompt);
-$escapedOutput = escapeshellarg($outputPath);
-$escapedInput = escapeshellarg($inputPath);
-$escapedWidth = escapeshellarg((string) $dimensions[$aspectRatio][0]);
-$escapedHeight = escapeshellarg((string) $dimensions[$aspectRatio][1]);
-
-$safeNanoBananaKey = str_replace('"', '\\"', (string) getenv('NANOBANANA_API_KEY'));
-$safeProvider = 'nanobanana';
-
-$prefix = '';
-if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-    $prefix = 'set "AI_IMAGE_PROVIDER=' . $safeProvider . '" && set "NANOBANANA_API_KEY=' . $safeNanoBananaKey . '" && ';
-} else {
-    $prefix = 'AI_IMAGE_PROVIDER=' . escapeshellarg($safeProvider) . ' NANOBANANA_API_KEY=' . escapeshellarg((string) getenv('NANOBANANA_API_KEY')) . ' ';
-}
-
-$cmd = $prefix . "$nodeCmd $script $escapedPrompt $escapedOutput $escapedWidth $escapedHeight $escapedInput 2>&1";
-
-// Execute and capture output
+$output_path = $owner . '/generated_' . bin2hex(random_bytes(16)) . '.png';
+$token = image_task_token([
+    'task_id' => $task_id,
+    'owner' => $owner,
+    'input_path' => $input_path,
+    'output_path' => $output_path,
+    'expires_at' => time() + 3600,
+]);
+echo json_encode(['success' => true, 'status' => 'processing', 'task_token' => $token]);
+?>
 exec($cmd, $outputLines, $ret);
-$outText = implode("\n", $outputLines);
-
-if ($ret === 0) {
-    // Success: return URL
-    $urlPath = '/capstone-project-finals-catering/uploads/permits/' . $outName;
-    echo json_encode(['success' => true, 'url' => $urlPath]);
-    exit;
-} else {
-    // Try to parse JSON from stderr/text
-    $errorJson = null;
-    foreach ($outputLines as $line) {
-        $dec = json_decode($line, true);
-        if (is_array($dec) && isset($dec['success']) && $dec['success'] === false) {
-            $errorJson = $dec;
-            break;
-        }
-    }
-    if ($errorJson) {
-        $errorMessage = $errorJson['error'] ?? 'NanoBanana generation failed';
-        echo json_encode(['success' => false, 'error' => $errorMessage]);
-    } else {
-        echo json_encode(['success' => false, 'error' => 'NanoBanana generation failed', 'debug' => $outText]);
-    }
-    exit;
-}

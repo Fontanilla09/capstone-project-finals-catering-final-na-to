@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { API_BASE } from '../lib/api';
+import { useEffect, useRef, useState } from 'react';
+import { downloadGeneratedImage, generateImage, refreshGeneratedImageUrl } from '../lib/imageGeneration';
 import DashboardPage from '../components/DashboardPage.jsx';
 
 const previewSlots = ['A', 'B', 'C', 'D'];
@@ -12,13 +12,40 @@ export default function AiGeneratedPhoto() {
   const [history, setHistory] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('caterai-ai-image-history') || '[]');
-      return Array.isArray(saved) ? saved.filter((url) => typeof url === 'string') : [];
+      return Array.isArray(saved)
+        ? saved.map((entry) => typeof entry === 'string' ? { url: entry, path: '' } : entry).filter((entry) => typeof entry?.url === 'string')
+        : [];
     } catch {
       return [];
     }
   });
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const savedImages = history.filter((entry) => entry.path);
+    if (!savedImages.length) return undefined;
+
+    Promise.all(savedImages.map(async (entry) => {
+      try {
+        return { ...entry, url: await refreshGeneratedImageUrl(entry.path) };
+      } catch {
+        return entry;
+      }
+    })).then((refreshed) => {
+      if (!active) return;
+      const byPath = new Map(refreshed.map((entry) => [entry.path, entry]));
+      setHistory((current) => {
+        const next = current.map((entry) => byPath.get(entry.path) || entry);
+        localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
+        return next;
+      });
+    });
+
+    return () => { active = false; };
+  }, []);
+
   async function generate(event) {
     event.preventDefault();
     if (!prompt.trim()) {
@@ -40,20 +67,12 @@ export default function AiGeneratedPhoto() {
 
     try {
       async function requestGeneration(includeReference) {
-        const formData = new FormData();
-        if (includeReference && image) formData.append('image', image);
-        formData.append('prompt', prompt.trim());
-        formData.append('aspect_ratio', '1:1');
-        const response = await fetch(`${API_BASE}/backend/generate.php`, { method: 'POST', credentials: 'include', body: formData });
-        const rawResponse = await response.text();
-        let data;
-        try {
-          data = JSON.parse(rawResponse);
-        } catch {
-          throw new Error('The image service returned an invalid response. Check the NanoBanana API credits and server logs.');
-        }
-        if (!response.ok || !data.success) throw new Error(data.error || 'Photo generation failed.');
-        return data;
+        return generateImage({
+          image: includeReference ? image : null,
+          prompt: prompt.trim(),
+          aspectRatio: '1:1',
+          onStatus: setStatus,
+        });
       }
 
       let usedReference = Boolean(image);
@@ -67,16 +86,17 @@ export default function AiGeneratedPhoto() {
         setStatus('Reference image is not publicly reachable. Creating the image from your prompt instead...');
         data = await requestGeneration(false);
       }
-      const generatedUrl = new URL(data.url, `${API_BASE}/`).href;
+      const generatedUrl = data.url;
       setResult(generatedUrl);
       setHistory((current) => {
-        const next = [generatedUrl, ...current.filter((url) => url !== generatedUrl)].slice(0, 12);
+        const generated = { url: generatedUrl, path: data.path };
+        const next = [generated, ...current.filter((entry) => entry.path !== generated.path && entry.url !== generated.url)].slice(0, 12);
         localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
         return next;
       });
       setStatus(usedReference ? 'Photo generated successfully.' : 'Photo generated from your prompt.');
     } catch (error) {
-      setStatus(error instanceof TypeError ? 'AI backend is unavailable. Start Apache/XAMPP or deploy the PHP backend before generating an image.' : error.message);
+      setStatus(error.message);
     } finally {
       setLoading(false);
     }
@@ -88,29 +108,19 @@ export default function AiGeneratedPhoto() {
 
   async function downloadImage(url, index) {
     try {
-      const source = new URL(url, `${API_BASE}/`);
-      const file = source.pathname.split('/').pop();
-      const response = await fetch(`${API_BASE}/backend/download_image.php?file=${encodeURIComponent(file)}`);
-      if (!response.ok) throw new Error('Unable to download the generated photo.');
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = `caterai-generated-photo-${index + 1}.png`;
-      link.click();
-      URL.revokeObjectURL(objectUrl);
+      await downloadGeneratedImage(url, `caterai-generated-photo-${index + 1}.png`);
     } catch (error) {
       setStatus(error.message);
     }
   }
 
-  function removeImage(url) {
+  function removeImage(imageEntry) {
     setHistory((current) => {
-      const next = current.filter((item) => item !== url);
+      const next = current.filter((item) => item.path !== imageEntry.path || item.url !== imageEntry.url);
       localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
       return next;
     });
-    if (result === url) setResult('');
+    if (result === imageEntry.url) setResult('');
   }
 
   function resetResult() {
@@ -173,7 +183,7 @@ export default function AiGeneratedPhoto() {
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               {previewSlots.map((slot, index) => (
                 <div className={`ai-preview-card group relative overflow-hidden rounded-[24px] border border-[#e6dfd7] bg-white shadow-[0_10px_24px_rgba(83,68,54,0.04)] ${index === 0 ? 'ai-preview-primary col-span-2' : ''}`} key={slot}>
-                  {history[index] ? <><div className="ai-image-toolbar"><span>{index === 0 ? 'Primary' : `Variation 0${index}`}</span><div className="ai-image-actions"><button className="ai-image-action ai-image-download" onClick={() => downloadImage(history[index], index)} type="button" title="Download image" aria-label={`Download generated image ${index + 1}`}>↓</button><button className="ai-image-action ai-image-remove" onClick={() => removeImage(history[index])} type="button" title="Remove image" aria-label={`Remove generated image ${index + 1}`}>×</button></div></div><img className="ai-preview-image h-full w-full object-contain" src={history[index]} alt={`Generated catering package ${index + 1}`} /></> : (
+                  {history[index] ? <><div className="ai-image-toolbar"><span>{index === 0 ? 'Primary' : `Variation 0${index}`}</span><div className="ai-image-actions"><button className="ai-image-action ai-image-download" onClick={() => downloadImage(history[index].url, index)} type="button" title="Download image" aria-label={`Download generated image ${index + 1}`}>↓</button><button className="ai-image-action ai-image-remove" onClick={() => removeImage(history[index])} type="button" title="Remove image" aria-label={`Remove generated image ${index + 1}`}>×</button></div></div><img className="ai-preview-image h-full w-full object-contain" src={history[index].url} alt={`Generated catering package ${index + 1}`} /></> : (
                     <div className="flex h-full min-h-32 flex-col items-center justify-center bg-[linear-gradient(135deg,#f5f0ea_0%,#fbfaf8_48%,#edf1ea_100%)] p-4 text-center">
                       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#ddd6cd] bg-white text-[#c96d4b]">✦</div>
                       <span className="text-xs font-bold text-[#7e867e]">{loading && index === 0 ? 'Creating preview...' : 'Your preview will appear here'}</span>
