@@ -122,13 +122,13 @@ export default function CustomerDashboard() {
               <tbody>
                 {reservations.length ? reservations.map((item) => (
                   <tr key={item.id}>
-                    <td><strong>{item.package_name}</strong></td>
-                    <td>{item.business_name}</td>
-                    <td>{item.event_date}</td>
-                    <td>{item.guest_count}</td>
-                    <td>₱{Number(item.paid_amount).toLocaleString()} / ₱{Number(item.total_amount).toLocaleString()}</td>
-                    <td><span className={statusClass(item.reservation_status)}>{item.reservation_status}</span></td>
-                    <td>
+                    <td data-label="Package"><strong>{item.package_name}</strong></td>
+                    <td data-label="Caterer">{item.business_name}</td>
+                    <td data-label="Date">{item.event_date}</td>
+                    <td data-label="Guests">{item.guest_count}</td>
+                    <td data-label="Payment">₱{Number(item.paid_amount).toLocaleString()} / ₱{Number(item.total_amount).toLocaleString()}</td>
+                    <td data-label="Status"><span className={statusClass(item.reservation_status)}>{item.reservation_status}</span></td>
+                    <td data-label="Action">
                       {item.review_rating ? (
                         <span className="reviewed-label">★ {item.review_rating} rated</span>
                       ) : canReview(item) ? (

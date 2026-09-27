@@ -912,11 +912,125 @@ button:active, a:active { transform: scale(.98); }
 
 @media (max-width: 620px) {
   .metric-grid {
-    grid-template-columns: 1fr;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .customer-table {
-    min-width: 640px;
+  .customer-profile-card {
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .customer-profile-card h2 {
+    font-size: 1.65rem;
+  }
+
+  .customer-profile-card span {
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+  }
+
+  .metric-card {
+    border-radius: 12px;
+    gap: 6px;
+    min-height: 88px;
+    padding: 12px 9px;
+  }
+
+  .metric-card span {
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+  }
+
+  .metric-card strong {
+    font-size: 1.7rem;
+  }
+
+  .customer-dashboard-panel {
+    gap: 16px;
+  }
+
+  .customer-dashboard-panel .table-card {
+    border-radius: 12px;
+    padding: 16px 12px 10px;
+  }
+
+  .customer-dashboard-panel .section-header {
+    margin-bottom: 12px;
+  }
+
+  .customer-dashboard-panel .section-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .customer-dashboard-panel .table-wrap {
+    overflow: visible;
+  }
+
+  .customer-dashboard-panel .customer-table,
+  .customer-dashboard-panel .customer-table tbody {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .customer-dashboard-panel .customer-table thead {
+    display: none;
+  }
+
+  .customer-dashboard-panel .customer-table tbody tr {
+    background: #f8f5f0;
+    border: 1px solid rgba(26, 35, 30, 0.08);
+    border-radius: 10px;
+    display: grid;
+    gap: 12px 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 12px;
+    padding: 14px;
+  }
+
+  .customer-dashboard-panel .customer-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .customer-dashboard-panel .customer-table td {
+    border: 0;
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 0;
+  }
+
+  .customer-dashboard-panel .customer-table td::before {
+    color: #7b887e;
+    content: attr(data-label);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .customer-dashboard-panel .customer-table td[data-label="Package"],
+  .customer-dashboard-panel .customer-table td[data-label="Payment"],
+  .customer-dashboard-panel .customer-table td[data-label="Action"] {
+    grid-column: 1 / -1;
+  }
+
+  .customer-dashboard-panel .customer-table td[data-label="Action"] .button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .customer-dashboard-panel .customer-table .empty-cell {
+    background: transparent;
+    grid-column: 1 / -1;
+    padding: 12px 0;
+  }
+
+  .customer-dashboard-panel .customer-table .empty-cell::before {
+    content: none;
   }
 }
 

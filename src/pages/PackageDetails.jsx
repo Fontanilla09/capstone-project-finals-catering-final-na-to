@@ -20,7 +20,7 @@ export default function PackageDetails() {
         if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
         const { data, error } = await supabase
           .from('packages')
-          .select('id, package_name, event_type, price, guest_count_min, guest_count_max, max_bookings, description, includes, caterer_id, caterers!inner(id, business_name, city, rating, is_verified), package_images(image_path)')
+          .select('id, package_name, event_type, price, guest_count_min, guest_count_max, description, includes, caterer_id, caterers!inner(id, business_name, city, rating, is_verified), package_images(image_path)')
           .eq('id', packageId)
           .eq('caterer_id', query.get('caterer') || '')
           .eq('caterers.is_verified', true)
@@ -63,7 +63,7 @@ export default function PackageDetails() {
           <h1>{item.package_name}</h1>
           <p className="product-rating">★ {item.rating || 'New'} <span>·</span> Local catering service</p>
           <div className="product-price">₱{Number(item.price).toLocaleString()}</div>
-          <div className="product-meta"><span>Guest capacity</span><strong>{item.guest_count_min}-{item.guest_count_max} guests</strong></div><div className="product-meta"><span>Booking slots</span><strong>{item.max_bookings > 0 ? `${item.booking_count}/${item.max_bookings} booked` : 'Unlimited'}</strong></div>
+          <div className="product-meta"><span>Guest capacity</span><strong>{item.guest_count_min}-{item.guest_count_max} guests</strong></div><div className="product-meta"><span>Booking</span><strong>Available by request</strong></div>
           <div className="product-seller"><span>Prepared by</span><strong>{item.business_name}</strong><small>{item.city || 'Local caterer'}</small></div>
           <div className="product-actions">{Number(item.is_full) === 1 ? <strong className="package-full-label">Package full</strong> : <a className="button button-primary" href={`/book?package=${item.id}&caterer=${item.caterer_id}`}>Request booking <span>↗</span></a>}<p className="booking-message">Have questions about this package? <a href={`/dashboard/messages?package_id=${item.id}&caterer_id=${item.caterer_id}`}>Message the caterer</a>.</p></div>
         </article>
