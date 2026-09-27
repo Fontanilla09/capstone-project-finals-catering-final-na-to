@@ -56,6 +56,7 @@ if (!$claims || ($claims['owner'] ?? '') !== $owner || (int) ($claims['expires_a
 $task_id = (string) ($claims['task_id'] ?? '');
 $status = image_provider_request('GET', '/api/status?task_id=' . rawurlencode($task_id));
 if (!$status['ok']) {
+    log_image_failure('image_provider', 'NanoBanana task status could not be checked.', ['http_status' => $status['status']]);
     http_response_code(502);
     echo json_encode(['success' => false, 'error' => $status['error'] ?: 'Could not check the NanoBanana task.']);
     exit;
@@ -65,6 +66,7 @@ $task = $status['data']['data'] ?? $status['data'];
 $status_code = (int) ($task['status_code'] ?? 0);
 if ($status_code === 2) {
     if (!empty($claims['input_path'])) image_storage_delete($claims['input_path']);
+    log_image_failure('image_provider', 'NanoBanana reported image-generation failure.', ['provider_status' => $status_code]);
     http_response_code(502);
     echo json_encode(['success' => false, 'error' => $task['error_message'] ?? 'NanoBanana image generation failed.']);
     exit;
@@ -93,6 +95,7 @@ if (is_string($base64_image) && $base64_image !== '') {
         ? $image
         : (is_array($image) ? ($image['image_url'] ?? $image['url'] ?? $image['imageUrls'][0] ?? $image['images'][0]['url'] ?? '') : '');
     if (!is_string($image_url) || !preg_match('/^https:\/\//i', $image_url)) {
+        log_image_failure('image_provider', 'NanoBanana completed without a valid image URL.');
         http_response_code(502);
         echo json_encode(['success' => false, 'error' => 'NanoBanana completed without a valid image URL.']);
         exit;
@@ -114,6 +117,7 @@ if (is_string($base64_image) && $base64_image !== '') {
     $download_error = curl_error($ch);
     curl_close($ch);
     if ($download_error !== '' || $image_status < 200 || $image_status >= 300 || !is_string($image_contents)) {
+        log_image_failure('image_provider', 'The generated image could not be downloaded.', ['http_status' => $image_status]);
         http_response_code(502);
         echo json_encode(['success' => false, 'error' => 'Could not download the generated image from NanoBanana.']);
         exit;
@@ -122,6 +126,7 @@ if (is_string($base64_image) && $base64_image !== '') {
 }
 
 if ($image_contents === '' || strlen($image_contents) > 10485760) {
+    log_image_failure('image_provider', 'NanoBanana returned an empty or oversized image.');
     http_response_code(502);
     echo json_encode(['success' => false, 'error' => 'The generated image is empty or too large.']);
     exit;
@@ -130,6 +135,7 @@ if ($image_contents === '' || strlen($image_contents) > 10485760) {
 $content_type = mime_content_type_from_buffer($image_contents, $content_type);
 $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 if (!isset($extensions[$content_type])) {
+    log_image_failure('image_provider', 'NanoBanana returned an unsupported image format.');
     http_response_code(502);
     echo json_encode(['success' => false, 'error' => 'NanoBanana returned an unsupported image format.']);
     exit;
@@ -138,6 +144,7 @@ if (!isset($extensions[$content_type])) {
 $output_path = (string) $claims['output_path'] . '.' . $extensions[$content_type];
 $upload = image_storage_upload($output_path, $image_contents, $content_type);
 if (!$upload['ok']) {
+    log_image_failure('image_storage', 'Generated image upload failed.', ['http_status' => $upload['status']]);
     http_response_code(502);
     echo json_encode(['success' => false, 'error' => 'Could not save the generated image to Supabase Storage.']);
     exit;
@@ -146,6 +153,7 @@ if (!empty($claims['input_path'])) image_storage_delete($claims['input_path']);
 
 $signed_url = image_storage_signed_url($output_path);
 if ($signed_url === null) {
+    log_image_failure('image_storage', 'A preview link for the generated image could not be created.');
     http_response_code(502);
     echo json_encode(['success' => false, 'error' => 'The image was saved, but its preview link could not be created.']);
     exit;

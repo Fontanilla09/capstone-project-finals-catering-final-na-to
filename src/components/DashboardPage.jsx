@@ -85,6 +85,15 @@ export default function DashboardPage({ role, section = 'overview', children }) 
     };
   }, [authChecked, currentUserId, role, section]);
 
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [menuOpen]);
+
   async function signOut() {
     await supabase?.auth.signOut();
     window.location.href = '/login';
@@ -96,8 +105,8 @@ export default function DashboardPage({ role, section = 'overview', children }) 
     <main className="dashboard-page">
       <header className="dashboard-header">
         <div className="dashboard-header-left">
-          <button className="dashboard-menu-toggle" aria-expanded={menuOpen} aria-label="Open dashboard menu" onClick={() => setMenuOpen((open) => !open)} type="button">
-            &#9776;
+          <button className="dashboard-menu-toggle" aria-expanded={menuOpen} aria-controls="dashboard-navigation" aria-label={menuOpen ? 'Close dashboard menu' : 'Open dashboard menu'} onClick={() => setMenuOpen((open) => !open)} type="button">
+            {menuOpen ? <span aria-hidden="true">&#215;</span> : <span aria-hidden="true">&#9776;</span>}
           </button>
           <div className="dashboard-brand-block">
             <span className="dashboard-brand-small">CATERAI WORKSPACE</span>
@@ -117,8 +126,10 @@ export default function DashboardPage({ role, section = 'overview', children }) 
         </div>
       </header>
 
+      {menuOpen && <button className="dashboard-menu-backdrop" aria-label="Close dashboard menu" onClick={() => setMenuOpen(false)} type="button" />}
+
       <div className="dashboard-shell">
-        <aside className={menuOpen ? 'dashboard-nav open' : 'dashboard-nav'} aria-label="Dashboard navigation">
+        <aside id="dashboard-navigation" className={menuOpen ? 'dashboard-nav open' : 'dashboard-nav'} aria-label="Dashboard navigation">
           <div className="dashboard-menu-account">
             <div className="dashboard-user-pill" aria-label="Signed in user">
               {profileImage ? <img className="dashboard-user-avatar dashboard-user-avatar-image" src={`${API_BASE}${profileImage}`} alt="Profile" /> : <div className="dashboard-user-avatar" aria-hidden="true">{getInitials(displayName)}</div>}

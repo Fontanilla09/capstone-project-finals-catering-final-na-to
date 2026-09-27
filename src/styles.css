@@ -2,6 +2,36 @@
 @import "tailwindcss/utilities";
 
 :root { font-family: 'DM Sans', sans-serif; color: #213331; background: #f6f2ea; font-synthesis: none; }
+.system-health-panel { background: #fffdf8; border: 1px solid #cbd2c9; display: grid; gap: 16px; padding: 20px; }
+.system-health-heading, .system-health-events-heading { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
+.system-health-heading .eyebrow { margin-bottom: 5px; }
+.system-health-heading h3, .system-health-events-heading h4 { color: #213331; font-family: 'DM Sans', sans-serif; letter-spacing: 0; margin: 0; }
+.system-health-heading h3 { font-size: 20px; }
+.data-freshness { background: #e4ebe0; color: #35613d; font-size: 11px; padding: 6px 9px; white-space: nowrap; }
+.data-freshness.is-stale { background: #f9dfd6; color: #a74229; }
+.system-health-services { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.system-health-service { align-items: flex-start; background: #f6f2ea; display: flex; gap: 9px; min-width: 0; padding: 11px 12px; }
+.health-indicator { background: #aeb9b2; border-radius: 50%; flex: 0 0 8px; height: 8px; margin-top: 4px; }
+.health-healthy, .health-configured { background: #4d7a62; }
+.health-error, .health-not_configured, .health-unavailable { background: #cf5948; }
+.system-health-service-copy { flex: 1; min-width: 0; }
+.system-health-service-copy strong, .system-health-service-copy small { display: block; overflow-wrap: anywhere; }
+.system-health-service-copy strong { color: #213331; font-size: 12px; }
+.system-health-service-copy small { color: #65746c; font-size: 10px; line-height: 1.4; margin-top: 3px; }
+.health-status-text { color: #65746c; flex: 0 0 auto; font-size: 10px; }
+.health-text-healthy, .health-text-configured { color: #35613d; }
+.health-text-error, .health-text-not_configured, .health-text-unavailable { color: #a74229; }
+.system-health-events { border-top: 1px solid #d5ddd3; padding-top: 13px; }
+.system-health-events-heading { margin-bottom: 8px; }
+.system-health-events-heading h4 { font-size: 13px; }
+.system-health-events-heading > span { color: #65746c; font-size: 11px; }
+.health-event-list { display: grid; }
+.health-event { align-items: center; border-top: 1px solid #e3e7e1; display: flex; gap: 12px; justify-content: space-between; padding: 9px 0; }
+.health-event strong, .health-event small { display: block; }
+.health-event strong { color: #8f3f31; font-size: 11px; font-weight: 600; }
+.health-event small, .health-event time, .health-empty { color: #7b887e; font-size: 10px; }
+.health-event time { flex: 0 0 auto; text-align: right; }
+.health-empty { margin: 0; }
 *, *::before, *::after { font-family: 'DM Sans', sans-serif !important; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -61,6 +91,14 @@ footer { align-items: center; display: flex; justify-content: space-between; mar
   .admin-stat { align-content: start; gap: 5px; min-height: 88px; padding: 12px; }
   .admin-stat span, .admin-stat small { font-size: 10px; line-height: 1.35; }
   .admin-stat strong { font-size: 26px; }
+  .system-health-panel { gap: 12px; padding: 14px; }
+  .system-health-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .system-health-services { grid-template-columns: 1fr; }
+  .system-health-service { padding: 10px; }
+  .system-health-events-heading { align-items: flex-start; }
+  .system-health-events-heading h4 { font-size: 12px; }
+  .health-event { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .health-event time { text-align: left; }
   .admin-analytics { gap: 14px; padding: 14px; }
   .admin-analytics-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
   .admin-analytics-heading h3 { font-size: 19px; }
@@ -603,6 +641,10 @@ button:active, a:active { transform: scale(.98); }
   display: none;
 }
 
+.dashboard-menu-backdrop {
+  display: none;
+}
+
 .dashboard-menu-account,
 .dashboard-menu-signout {
   display: none;
@@ -850,6 +892,22 @@ button:active, a:active { transform: scale(.98); }
     line-height: 1;
     padding: 0;
     width: 44px;
+  }
+
+  .dashboard-menu-toggle span {
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1;
+  }
+
+  .dashboard-menu-backdrop {
+    background: rgba(18, 29, 27, .28);
+    border: 0;
+    display: block;
+    inset: 100px 0 0;
+    padding: 0;
+    position: fixed;
+    z-index: 25;
   }
 
   .dashboard-shell {

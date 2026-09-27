@@ -75,6 +75,24 @@ function image_storage_delete(string $path): void
     image_storage_request('DELETE', image_storage_path('ai-visualizations', $path));
 }
 
+function log_image_failure(string $component, string $message, array $details = []): void
+{
+    $safe_details = [];
+    foreach (['http_status', 'provider_status'] as $key) {
+        if (isset($details[$key]) && is_numeric($details[$key])) {
+            $safe_details[$key] = (int) $details[$key];
+        }
+    }
+
+    $result = supabase_request('POST', 'system_health_events', [], [
+        'component' => $component,
+        'severity' => 'error',
+        'message' => substr($message, 0, 255),
+        'details' => $safe_details,
+    ], 'return=minimal');
+    if (!$result['ok']) error_log('System health event could not be recorded.');
+}
+
 function image_provider_request(string $method, string $endpoint, ?array $payload = null): array
 {
     global $app_env;

@@ -62,6 +62,7 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE)
     }
     $upload = image_storage_upload($input_path, $contents, $mime);
     if (!$upload['ok']) {
+        log_image_failure('image_storage', 'Reference image upload failed.', ['http_status' => $upload['status']]);
         http_response_code(502);
         echo json_encode(['success' => false, 'error' => 'Could not save the reference image to Supabase Storage.']);
         exit;
@@ -70,6 +71,7 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE)
     $input_url = image_storage_signed_url($input_path, 3600) ?? '';
     if ($input_url === '') {
         image_storage_delete($input_path);
+        log_image_failure('image_storage', 'A temporary reference-image link could not be created.');
         http_response_code(502);
         echo json_encode(['success' => false, 'error' => 'Could not create a temporary link for the reference image.']);
         exit;
@@ -86,6 +88,7 @@ $provider = image_provider_request('POST', $endpoint, $payload);
 $task_id = $provider['data']['task_id'] ?? $provider['data']['data']['task_id'] ?? '';
 if (!$provider['ok'] || !is_string($task_id) || $task_id === '') {
     if ($input_path !== '') image_storage_delete($input_path);
+    log_image_failure('image_provider', 'NanoBanana did not start the image-generation task.', ['http_status' => $provider['status']]);
     http_response_code(502);
     echo json_encode(['success' => false, 'error' => $provider['error'] ?: 'NanoBanana did not return a task ID.']);
     exit;
