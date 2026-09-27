@@ -9,18 +9,8 @@ export default defineConfig({
     allowedHosts: ['slacker-denial-cure.ngrok-free.dev'],
     proxy: {
       '/backend': {
-        target: 'http://localhost/capstone-project-finals-catering',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-      },
-      '/uploads': {
-        target: 'http://localhost/capstone-project-finals-catering',
-        changeOrigin: true,
-        rewrite: (path) => `/backend/upload_file.php?path=${encodeURIComponent(path.replace(/^\/uploads\/?/, ''))}`,
-      },
-      '/capstone-project-finals-catering/backend': {
-        target: 'http://localhost/capstone-project-finals-catering',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/capstone-project-finals-catering/, ''),
       },
     },
   },

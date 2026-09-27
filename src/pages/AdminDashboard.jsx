@@ -23,6 +23,13 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     load();
+    const channel = supabase
+      .channel('admin-finance-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const pendingCount = Number(stats.pending || 0) + Number(stats.customer_pending || 0);
@@ -85,6 +92,11 @@ export default function AdminDashboard() {
               <span>Collected revenue</span>
               <strong>{money(analytics.revenue)}</strong>
               <small>{analytics.completed_payments || 0} completed payments</small>
+            </article>
+            <article>
+              <span>Platform commission</span>
+              <strong>{money(analytics.platform_commission)}</strong>
+              <small>2.5% admin earnings</small>
             </article>
             <article>
               <span>Average booking</span>

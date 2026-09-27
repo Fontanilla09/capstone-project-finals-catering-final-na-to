@@ -26,11 +26,11 @@ export default function CatererEarnings() {
   return <DashboardPage role="caterer" section="earnings">
     {error && <p className="form-alert error-alert">{error}</p>}{status && <p className="form-alert success-alert">{status}</p>}
     {!data ? <p>Loading earnings...</p> : <>
-      <section className="verification-panel"><h2>PayPal earnings</h2><p>Completed online payments are sent directly to your PayPal account.</p></section>
+      <section className="verification-panel"><h2>PayPal earnings</h2><p>Your earnings show the amount after the platform's 2.5% commission.</p></section>
       <div className="stats-grid">
         <article className="stat-card"><h3>Total earnings</h3><strong>{money(data.summary?.total)}</strong></article>
-        <article className="stat-card"><h3>Paid directly</h3><strong>{money(data.summary?.paid)}</strong></article>
-        <article className="stat-card"><h3>Pending direct payments</h3><strong>{money(data.summary?.pending)}</strong></article>
+        <article className="stat-card"><h3>Paid out</h3><strong>{money(data.summary?.paid)}</strong></article>
+        <article className="stat-card"><h3>Pending payout</h3><strong>{money(data.summary?.pending)}</strong></article>
       </div>
       <div className="reservation-list">
         {data.payouts.length ? data.payouts.map((payout) => <article className="package-card" key={payout.id}>

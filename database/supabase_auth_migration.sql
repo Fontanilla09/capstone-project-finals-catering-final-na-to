@@ -21,6 +21,10 @@ begin
         else 'customer'
     end;
 
+    if new_role = 'caterer' and nullif(trim(new.raw_user_meta_data->>'paypal_email'), '') is null then
+        raise exception 'PayPal email is required for caterer accounts';
+    end if;
+
     insert into public.users (auth_user_id, email, password, role)
     values (new.id, new.email, null, new_role)
     returning id into profile_id;

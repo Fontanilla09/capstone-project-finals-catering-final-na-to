@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE, requestJson } from '../lib/api';
+import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const dashboardSections = {
@@ -69,12 +69,7 @@ export default function DashboardPage({ role, section = 'overview', children }) 
         setUnreadMessages(Number(data || 0));
         return;
       }
-      try {
-        const legacyData = await requestJson('/backend/dashboard_api.php?action=unread_messages');
-        setUnreadMessages(Number(legacyData.unread_count || 0));
-      } catch {
-        setUnreadMessages(0);
-      }
+      setUnreadMessages(0);
     };
     loadUnread();
     const timer = setInterval(loadUnread, 3000);
@@ -149,7 +144,7 @@ export default function DashboardPage({ role, section = 'overview', children }) 
           {children || (
             <>
               <h2>{section === 'overview' ? 'Welcome back.' : current[1]}</h2>
-              <p>This React workspace is ready for your {role} tools. Your existing PHP session and database remain connected through the API layer.</p>
+              <p>This React workspace is ready for your {role} tools. Your account and workspace data are connected through Supabase.</p>
               {role === 'customer' && section === 'overview' && (
                 <a className="button button-primary" href="/packages">Browse packages <span>↗</span></a>
               )}

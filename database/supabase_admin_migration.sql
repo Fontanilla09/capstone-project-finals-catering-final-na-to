@@ -13,6 +13,11 @@ as $$
     );
 $$;
 
+drop policy if exists permits_select_admin on storage.objects;
+create policy permits_select_admin on storage.objects
+for select to authenticated
+using (bucket_id = 'permits' and public.is_admin());
+
 create or replace function public.get_admin_overview()
 returns jsonb
 language plpgsql
@@ -37,6 +42,8 @@ begin
         'analytics', jsonb_build_object(
             'bookings', (select count(*) from public.reservations where reservation_status <> 'cancelled'),
             'revenue', coalesce((select sum(amount) from public.payments where payment_status = 'completed'), 0),
+            'platform_commission', coalesce((select sum(platform_fee) from public.payouts), 0),
+            'caterer_payout', coalesce((select sum(caterer_amount) from public.payouts), 0),
             'completed_payments', (select count(*) from public.payments where payment_status = 'completed'),
             'average_booking', coalesce((select avg(total_amount) from public.reservations where reservation_status <> 'cancelled'), 0),
             'statuses', coalesce((select jsonb_object_agg(reservation_status, status_count) from (
@@ -51,6 +58,8 @@ begin
 end;
 $$;
 
+drop function if exists public.get_admin_accounts();
+
 create or replace function public.get_admin_accounts()
 returns table (
     id bigint,
@@ -62,6 +71,7 @@ returns table (
     phone varchar,
     address text,
     city varchar,
+    paypal_email varchar,
     customer_verified boolean,
     caterer_verified boolean,
     business_permit varchar,
@@ -82,6 +92,7 @@ begin
     select u.id, u.email, u.role, u.created_at,
         c.full_name, ca.business_name,
         coalesce(c.phone, ca.phone), coalesce(c.address, ca.address), coalesce(c.city, ca.city),
+        ca.paypal_email,
         c.is_verified, ca.is_verified, ca.business_permit,
         c.id, ca.id, ca.verification_submitted
     from public.users u
@@ -107,6 +118,9 @@ begin
         set is_verified = true,
             updated_at = now()
         where id = customer_id;
+        insert into public.admin_activity_log (admin_user_id, action, details)
+        select id, 'approve_customer', 'Customer profile #' || customer_id
+        from public.users where auth_user_id = auth.uid();
         return;
     end if;
 
@@ -114,6 +128,10 @@ begin
     if target_user_id is null then
         return;
     end if;
+
+    insert into public.admin_activity_log (admin_user_id, action, details)
+    select id, 'reject_customer', 'Customer profile #' || customer_id
+    from public.users where auth_user_id = auth.uid();
 
     select auth_user_id into target_auth_user_id from public.users where id = target_user_id;
 
@@ -143,6 +161,9 @@ begin
             verification_submitted = true,
             updated_at = now()
         where id = caterer_id;
+        insert into public.admin_activity_log (admin_user_id, action, details)
+        select id, 'approve_caterer', 'Caterer profile #' || caterer_id
+        from public.users where auth_user_id = auth.uid();
         return;
     end if;
 
@@ -150,6 +171,10 @@ begin
     if target_user_id is null then
         return;
     end if;
+
+    insert into public.admin_activity_log (admin_user_id, action, details)
+    select id, 'reject_caterer', 'Caterer profile #' || caterer_id
+    from public.users where auth_user_id = auth.uid();
 
     select auth_user_id into target_auth_user_id from public.users where id = target_user_id;
 
@@ -172,3 +197,20 @@ grant execute on function public.get_admin_overview() to authenticated;
 grant execute on function public.get_admin_accounts() to authenticated;
 grant execute on function public.set_customer_verification(bigint, boolean) to authenticated;
 grant execute on function public.set_caterer_verification(bigint, boolean) to authenticated;
+
+create or replace function public.get_admin_activity()
+returns table (id bigint, action varchar, details varchar, created_at timestamptz, admin_email varchar)
+language sql
+stable
+security definer set search_path = public
+as $$
+    select log.id, log.action, log.details, log.created_at, users.email
+    from public.admin_activity_log log
+    join public.users users on users.id = log.admin_user_id
+    where public.is_admin()
+    order by log.created_at desc
+    limit 100;
+$$;
+
+revoke all on function public.get_admin_activity() from public;
+grant execute on function public.get_admin_activity() to authenticated;

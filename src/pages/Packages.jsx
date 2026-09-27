@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { EVENT_TYPES } from '../lib/eventTypes';
 
 function imageUrl(path) {
   return /^https?:\/\//i.test(path) ? path : `${API_BASE}${path}`;
@@ -19,13 +20,14 @@ export default function Packages() {
       if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
       const { data, error } = await supabase
         .from('packages')
-        .select('id, package_name, event_type, price, guest_count_min, guest_count_max, max_bookings, description, caterers!inner(id, business_name, city, rating, is_verified), package_images(image_path)')
+        .select('id, package_name, event_type, price, guest_count_min, guest_count_max, description, caterers!inner(id, business_name, city, rating, is_verified), package_images(image_path)')
         .eq('caterers.is_verified', true)
         .order('created_at', { ascending: false });
       if (error) throw error;
       const search = nextFilters.search.trim().toLowerCase();
+      const selectedEventType = nextFilters.event_type.trim().toLowerCase();
       const filtered = (data || [])
-        .filter((item) => !nextFilters.event_type || item.event_type === nextFilters.event_type)
+        .filter((item) => !selectedEventType || String(item.event_type || '').trim().toLowerCase() === selectedEventType)
         .filter((item) => !search || `${item.package_name} ${item.caterers?.business_name || ''}`.toLowerCase().includes(search))
         .map((item) => ({
           ...item,
@@ -40,7 +42,7 @@ export default function Packages() {
       if (nextFilters.sort === 'price_high') filtered.sort((a, b) => Number(b.price) - Number(a.price));
       if (nextFilters.sort === 'rating') filtered.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
       setPackages(filtered);
-      setEventTypes([...new Set((data || []).map((item) => item.event_type).filter(Boolean))].sort().map((event_type) => ({ event_type })));
+      setEventTypes(EVENT_TYPES.map((event_type) => ({ event_type })));
     } catch (error) {
       setPackages([]);
       setEventTypes([]);

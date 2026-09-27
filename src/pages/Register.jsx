@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
-const emptyForm = { full_name: '', business_name: '', email: '', phone: '', address: '', city: '', description: '', paypal_email: '', password: '' };
+const emptyForm = { full_name: '', business_name: '', email: '', phone: '', address: '', city: '', paypal_email: '', password: '' };
 
 export default function Register() {
   const requestedType = new URLSearchParams(window.location.search).get('account_type');
@@ -34,7 +34,6 @@ export default function Register() {
             phone: values.phone || '',
             address: values.address || '',
             city: values.city || '',
-            description: values.description || '',
             paypal_email: values.paypal_email || '',
           },
         },
@@ -59,7 +58,7 @@ export default function Register() {
       }
 
       const confirmationNote = data.session ? '' : ' Check your email to confirm your account.';
-      setStatus({ error: '', success: `Account created.${confirmationNote}` });
+      setStatus({ error: '', success: `Account created. Sign in after admin approval.${confirmationNote}` });
       setForm(emptyForm);
     } catch (error) {
       setStatus({ error: error.message, success: '' });
@@ -81,7 +80,7 @@ export default function Register() {
             <button className={accountType === 'caterer' ? 'active' : ''} onClick={() => setAccountType('caterer')} type="button">Caterer</button>
           </div>
           {status.error && <p className="form-alert error-alert">{status.error}</p>}
-          {status.success && <p className="form-alert success-alert">{status.success} <a href="/login">Sign in</a></p>}
+          {status.success && <p className="form-alert success-alert">{status.success}</p>}
           <label htmlFor="register-name">{accountType === 'customer' ? 'Full name' : 'Business name'}</label>
           <input id="register-name" name={nameField} value={form[nameField]} onChange={update} placeholder={accountType === 'customer' ? 'Your full name' : 'Your catering business'} required />
           <label htmlFor="register-email">Email address</label>
@@ -92,8 +91,7 @@ export default function Register() {
             <div className="caterer-registration-fields">
               <label htmlFor="register-address">Address<input id="register-address" name="address" value={form.address} onChange={update} placeholder="Business address" required /></label>
               <label htmlFor="register-city">City<input id="register-city" name="city" value={form.city} onChange={update} placeholder="City" required /></label>
-              <label className="registration-field-wide" htmlFor="register-description">Description<textarea id="register-description" name="description" value={form.description} onChange={update} placeholder="Tell customers about your catering business" /></label>
-              <label className="registration-field-wide" htmlFor="register-paypal">PayPal email<input id="register-paypal" name="paypal_email" type="email" value={form.paypal_email} onChange={update} placeholder="PayPal account email (optional)" /></label>
+              <label className="registration-field-wide" htmlFor="register-paypal">PayPal email<input id="register-paypal" name="paypal_email" type="email" value={form.paypal_email} onChange={update} placeholder="PayPal account email" required /></label>
             </div>
           </>}
           {accountType === 'caterer' && <label htmlFor="business-permit">Business permit

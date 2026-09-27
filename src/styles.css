@@ -429,6 +429,22 @@ button:active, a:active { transform: scale(.98); }
   color: #5b6a63;
 }
 
+.service-card-meta > span:nth-child(2) { display: none; }
+
+/* Keep the package catalog heading compact and consistent across viewports. */
+.packages-content h1 {
+  color: #213331;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+@media (max-width: 767px) {
+  .packages-content h1 { font-size: 42px; }
+}
+
 .review-form label {
   display: grid;
   gap: 8px;

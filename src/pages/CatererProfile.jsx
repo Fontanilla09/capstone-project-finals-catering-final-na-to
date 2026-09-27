@@ -124,7 +124,31 @@ export default function CatererProfile() {
     event.target.value = '';
   }
 
+  async function uploadPermit(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setStatus(''); setError('');
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+      setError('Business permit must be PDF, JPG, or PNG.'); event.target.value = ''; return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Business permit must not exceed 10MB.'); event.target.value = ''; return;
+    }
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw new Error('Please sign in again before uploading the permit.');
+      const path = `${authData.user.id}/${crypto.randomUUID()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from('permits').upload(path, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { error: permitError } = await supabase.rpc('save_my_caterer_permit', { permit_path: path });
+      if (permitError) throw permitError;
+      setStatus('Business permit uploaded.');
+      await load();
+    } catch (reason) { setError(reason.message || 'Business permit upload failed.'); }
+    event.target.value = '';
+  }
+
   if (!profile) return <DashboardPage role="caterer" section="profile"><p>{error || 'Loading profile...'}</p></DashboardPage>;
 
-  return <DashboardPage role="caterer" section="profile"><>{status && <p className="form-alert success-alert">{status}</p>}{error && <p className="form-alert error-alert">{error}</p>}<section className="profile-photo-panel"><div className="profile-photo-preview">{profile.profile_image ? <img src={profile.profile_image} alt="Caterer profile" /> : <span>{profile.business_name?.charAt(0)?.toUpperCase() || 'C'}</span>}</div><div><p className="eyebrow">Approved caterer profile</p><h2>Profile photo</h2><p>Upload a clear photo or logo customers can recognize.</p><label className="button button-secondary profile-photo-upload">+ Upload photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadProfileImage} /></label><small>JPG, PNG, or WEBP · maximum 5MB</small></div></section><form className="profile-form" onSubmit={update}><label>Business name<input name="business_name" defaultValue={profile.business_name} required /></label><label>Phone<input name="phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength="15" defaultValue={profile.phone || ''} onChange={(event) => { event.target.value = event.target.value.replace(/\D/g, '').slice(0, 15); }} required /></label><label>Address<input name="address" defaultValue={profile.address || ''} required /></label><label>City<input name="city" defaultValue={profile.city || ''} required /></label><label>Description<textarea name="description" defaultValue={profile.description || ''} /></label><label>PayPal email<input name="paypal_email" type="email" defaultValue={profile.paypal_email || ''} /></label><button className="button button-primary" type="submit">Save profile</button></form></></DashboardPage>;
+  return <DashboardPage role="caterer" section="profile"><>{status && <p className="form-alert success-alert">{status}</p>}{error && <p className="form-alert error-alert">{error}</p>}<section className="profile-photo-panel"><div className="profile-photo-preview">{profile.profile_image ? <img src={profile.profile_image} alt="Caterer profile" /> : <span>{profile.business_name?.charAt(0)?.toUpperCase() || 'C'}</span>}</div><div><p className="eyebrow">Approved caterer profile</p><h2>Profile photo</h2><p>Upload a clear photo or logo customers can recognize.</p><label className="button button-secondary profile-photo-upload">+ Upload photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadProfileImage} /></label><small>JPG, PNG, or WEBP · maximum 5MB</small></div></section><form className="profile-form" onSubmit={update}><label>Business name<input name="business_name" defaultValue={profile.business_name} required /></label><label>Phone<input name="phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength="15" defaultValue={profile.phone || ''} onChange={(event) => { event.target.value = event.target.value.replace(/\D/g, '').slice(0, 15); }} required /></label><label>Address<input name="address" defaultValue={profile.address || ''} required /></label><label>City<input name="city" defaultValue={profile.city || ''} required /></label><label>PayPal email<input name="paypal_email" type="email" defaultValue={profile.paypal_email || ''} required /></label><label>Business permit<input type="file" accept="application/pdf,image/jpeg,image/png" onChange={uploadPermit} required={!profile.business_permit} /><small>{profile.business_permit ? 'Permit uploaded. Upload a new file to replace it.' : 'PDF, JPG, or PNG · maximum 10MB.'}</small></label><button className="button button-primary" type="submit">Save profile</button></form></></DashboardPage>;
 }

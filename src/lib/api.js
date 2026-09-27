@@ -1,11 +1,15 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost/capstone-project-finals-catering';
+import { supabase } from './supabase';
+
+export const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 export async function requestJson(path, options = {}) {
+  const { data: { session } = {} } = supabase ? await supabase.auth.getSession() : { data: {} };
   const response = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     ...options,
     headers: {
       ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       ...options.headers,
     },
   });

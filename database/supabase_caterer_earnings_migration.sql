@@ -8,36 +8,34 @@ stable
 security definer set search_path = public
 as $$
     with current_caterer as (
-        select caterer_id
-        from public.get_my_profile()
+        select caterer_id from public.get_my_profile()
     ),
-    paypal_payments as (
+    caterer_payouts as (
         select
-            pay.id,
-            pay.reservation_id,
+            po.id,
+            po.reservation_id,
             p.package_name,
             r.event_date,
-            pay.amount as gross_amount,
-            0::numeric as platform_fee,
-            pay.amount as caterer_amount,
-            pay.payment_status as payout_status,
-            pay.payment_date as paid_at,
-            pay.created_at
-        from public.payments pay
-        join public.reservations r on r.id = pay.reservation_id
+            po.gross_amount,
+            po.platform_fee,
+            po.caterer_amount,
+            po.payout_status,
+            po.paid_at,
+            po.created_at
+        from public.payouts po
+        join public.reservations r on r.id = po.reservation_id
         join public.packages p on p.id = r.package_id
-        join current_caterer cc on cc.caterer_id = r.caterer_id
-        where pay.provider = 'paypal'
+        join current_caterer cc on cc.caterer_id = po.caterer_id
     )
     select jsonb_build_object(
         'summary', jsonb_build_object(
-            'total', coalesce((select sum(gross_amount) from paypal_payments), 0),
-            'paid', coalesce((select sum(gross_amount) from paypal_payments where payout_status = 'completed'), 0),
-            'pending', 0
+            'total', coalesce((select sum(caterer_amount) from caterer_payouts), 0),
+            'paid', coalesce((select sum(caterer_amount) from caterer_payouts where payout_status = 'paid'), 0),
+            'pending', coalesce((select sum(caterer_amount) from caterer_payouts where payout_status in ('pending', 'processing')), 0)
         ),
         'payouts', coalesce((
             select jsonb_agg(to_jsonb(row) - 'created_at' order by row.created_at desc)
-            from paypal_payments row
+            from caterer_payouts row
         ), '[]'::jsonb)
     );
 $$;

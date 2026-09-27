@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { EVENT_TYPES } from '../lib/eventTypes';
 import DashboardPage from '../components/DashboardPage.jsx';
 
-const initialForm = { package_name: '', event_type: '', guest_range: '', price: '', max_bookings: '', description: '', features: '' };
+const initialForm = { package_name: '', event_type: '', guest_range: '', price: '', description: '', features: '' };
 
 function imageUrl(path) {
   return /^https?:\/\//i.test(path) ? path : `${API_BASE}${path}`;
@@ -21,7 +22,7 @@ export default function ManageServices() {
   async function load() {
     try {
       const catererId = await getCatererId();
-      const { data, error } = await supabase.from('packages').select('id, package_name, event_type, price, guest_count_min, guest_count_max, max_bookings, description, includes, package_images(image_path)').eq('caterer_id', catererId).order('id', { ascending: false });
+      const { data, error } = await supabase.from('packages').select('id, package_name, event_type, price, guest_count_min, guest_count_max, description, includes, package_images(image_path)').eq('caterer_id', catererId).order('id', { ascending: false });
       if (error) throw error;
       setServices((data || []).map((service) => ({ ...service, image_paths: (service.package_images || []).map((image) => image.image_path).join('||'), booking_count: 0, rating: 0, review_count: 0, review_comments: '' })));
     } catch (error) { setStatus(error.message); }
@@ -35,7 +36,7 @@ export default function ManageServices() {
       const parts = form.guest_range.replace(/\s+/g, '').split('-');
       const guestMin = Number(parts[0]);
       const guestMax = Number(parts[1] || parts[0]);
-      const payload = { package_name: form.package_name.trim(), event_type: form.event_type.trim(), guest_count_min: guestMin, guest_count_max: guestMax, price: Number(form.price), max_bookings: Number(form.max_bookings || 0), description: form.description.trim(), includes: form.features.trim(), caterer_id: catererId };
+      const payload = { package_name: form.package_name.trim(), event_type: form.event_type.trim(), guest_count_min: guestMin, guest_count_max: guestMax, price: Number(form.price), description: form.description.trim(), includes: form.features.trim(), caterer_id: catererId };
       if (!payload.package_name || !payload.event_type || guestMin <= 0 || guestMax <= 0 || payload.price <= 0) throw new Error('Complete the service fields with a valid guest range and price.');
       const query = wasEditing
         ? supabase.from('packages').update(payload).eq('id', editingId).eq('caterer_id', catererId).select('id').single()
@@ -55,16 +56,16 @@ export default function ManageServices() {
     } catch (error) { setStatus(error.message); }
   }
   async function remove(id) { try { const catererId = await getCatererId(); const { error } = await supabase.from('packages').delete().eq('id', id).eq('caterer_id', catererId); if (error) throw error; setStatus('Service deleted.'); load(); } catch (error) { setStatus(error.message); } }
-  function edit(service) { setEditingId(service.id); setImages([]); setForm({ package_name: service.package_name, event_type: service.event_type, guest_range: `${service.guest_count_min}-${service.guest_count_max}`, price: service.price, max_bookings: service.max_bookings || '', description: service.description || '', features: service.includes || '' }); }
-  const fields = [['package_name', 'Package name'], ['event_type', 'Event type'], ['guest_range', 'Guest range, e.g. 50-100'], ['price', 'Price'], ['max_bookings', 'Maximum bookings, 0 means unlimited']];
+  function edit(service) { setEditingId(service.id); setImages([]); setForm({ package_name: service.package_name, event_type: service.event_type, guest_range: `${service.guest_count_min}-${service.guest_count_max}`, price: service.price, description: service.description || '', features: service.includes || '' }); }
+  const fields = [['package_name', 'Package name'], ['event_type', 'Event type'], ['guest_range', 'Guest range, e.g. 50-100'], ['price', 'Price']];
   return <DashboardPage role="caterer" section="services"><div className="services-workspace">
     {status && <p className="form-alert success-alert">{status}</p>}
     <div className="services-heading"><div><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><span className="services-count">{services.length} package{services.length === 1 ? '' : 's'}</span></div>
     <div className="services-layout">
       <form className="profile-form service-form" onSubmit={create}>
         <div className="service-form-heading"><div><p className="eyebrow">{editingId ? 'Edit package' : 'New package'}</p><h3>{editingId ? 'Update service package' : 'Add service package'}</h3></div>{editingId && <button className="service-cancel" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); }} type="button">Cancel</button>}</div>
-        <fieldset><legend>Package details</legend><div className="service-fields">{fields.slice(0, 2).map(([name, label]) => <label key={name}>{label}<input name={name} type="text" value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required /></label>)}</div></fieldset>
-        <fieldset><legend>Capacity and pricing</legend><div className="service-fields service-fields-three">{fields.slice(2).map(([name, label]) => <label key={name}>{label}<input name={name} type={name === 'price' || name === 'max_bookings' ? 'number' : 'text'} min={name === 'max_bookings' ? '0' : undefined} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required={name !== 'max_bookings'} /></label>)}</div></fieldset>
+        <fieldset><legend>Package details</legend><div className="service-fields">{fields.slice(0, 2).map(([name, label]) => <label key={name}>{label}{name === 'event_type' ? <select name={name} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required><option value="">Select event type</option>{EVENT_TYPES.map((eventType) => <option key={eventType} value={eventType}>{eventType}</option>)}</select> : <input name={name} type="text" value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required />}</label>)}</div></fieldset>
+        <fieldset><legend>Capacity and pricing</legend><div className="service-fields service-fields-three">{fields.slice(2).map(([name, label]) => <label key={name}>{label}<input name={name} type={name === 'price' ? 'number' : 'text'} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required /></label>)}</div></fieldset>
         <fieldset><legend>Package presentation</legend><div className="service-fields"><label>Package description<textarea name="description" value={form.description} onChange={(event) => setForm({ ...form, [event.target.name]: event.target.value })} placeholder="Describe the service, setup, styling, or event experience." /></label><label>What's included in this package?<textarea name="features" value={form.features} onChange={(event) => setForm({ ...form, [event.target.name]: event.target.value })} placeholder="List the setup, equipment, staff, styling, or other inclusions." /></label></div><div className="service-upload"><span className="service-upload-label">Package photos</span><div className="service-upload-control"><label className="service-file-button" htmlFor="service-images" title="Add package photos" aria-label="Add package photos">+</label><input id="service-images" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setImages(Array.from(event.target.files || []))} /><span>{images.length ? `${images.length} photo${images.length === 1 ? '' : 's'} selected` : 'Add photos of your setup or service'}</span></div><small>Show customers the setup, styling, equipment, or service experience.</small></div></fieldset>
         <button className="button button-primary service-submit" type="submit">{editingId ? 'Update service' : 'Create service'} <span>↗</span></button>
       </form>

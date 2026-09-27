@@ -1,29 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-function load_env(string $path): array
-{
-    $values = [];
-    if (!is_file($path)) {
-        return $values;
-    }
-
-    foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        $line = trim($line);
-        if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) {
-            continue;
-        }
-        [$key, $value] = explode('=', $line, 2);
-        $key = trim($key);
-        $value = trim($value);
-        if ($key !== '') {
-            $values[$key] = trim($value, "\"'");
-        }
-    }
-    return $values;
-}
-
-$paypal_env = load_env(__DIR__ . '/../.env');
+$paypal_env = $app_env;
 $paypal_mode = $paypal_env['PAYPAL_MODE'] ?? getenv('PAYPAL_MODE') ?: 'sandbox';
 $paypal_client_id = $paypal_env['PAYPAL_CLIENT_ID'] ?? getenv('PAYPAL_CLIENT_ID') ?: '';
 $paypal_client_secret = $paypal_env['PAYPAL_CLIENT_SECRET'] ?? getenv('PAYPAL_CLIENT_SECRET') ?: '';
@@ -90,6 +68,37 @@ function paypal_access_token(): array
     return ['ok' => true, 'token' => $data['access_token']];
 }
 
+function get_platform_commission_rate(): float
+{
+    global $paypal_env;
+    $rate = $paypal_env['PAYPAL_COMMISSION_RATE'] ?? getenv('PAYPAL_COMMISSION_RATE') ?: '0.025';
+    $value = (float) $rate;
+    if ($value < 0) {
+        return 0.0;
+    }
+    return min($value, 1.0);
+}
+
+function get_platform_commission_amount(float $amount): float
+{
+    return round($amount * get_platform_commission_rate(), 2);
+}
+
+function get_caterer_payout_amount(float $amount): float
+{
+    return round($amount - get_platform_commission_amount($amount), 2);
+}
+
+function get_admin_paypal_email(string $fallback_email = ''): string
+{
+    global $paypal_env;
+    $admin_email = trim((string) ($paypal_env['PAYPAL_ADMIN_EMAIL'] ?? getenv('PAYPAL_ADMIN_EMAIL') ?: ''));
+    if ($admin_email !== '') {
+        return $admin_email;
+    }
+    return trim((string) $fallback_email);
+}
+
 function create_paypal_order(int $reservation_id, float $amount, string $description, string $payment_type = 'down_payment', string $payee_email = ''): array
 {
     global $paypal_base_url, $paypal_client_secret;
@@ -117,7 +126,7 @@ function create_paypal_order(int $reservation_id, float $amount, string $descrip
             'brand_name' => 'CaterAI',
             'user_action' => 'PAY_NOW',
             'return_url' => $app_url . '/backend/paypal_return.php?reservation_id=' . $reservation_id . '&payment_type=' . rawurlencode($payment_type) . '&signature=' . $callback_signature . '&ngrok-skip-browser-warning=1',
-            'cancel_url' => $frontend_url . '/book?payment=cancelled',
+            'cancel_url' => $app_url . '/backend/paypal_cancel.php?reservation_id=' . $reservation_id . '&payment_type=' . rawurlencode($payment_type) . '&signature=' . $callback_signature . '&ngrok-skip-browser-warning=1',
         ],
     ], $token['token']);
 
@@ -174,59 +183,6 @@ function paypal_request_with_token(string $method, string $endpoint, ?array $bod
         'error' => $error,
         'data' => json_decode($response ?: '', true),
     ];
-}
-
-function trigger_auto_payout_for_reservation(mysqli $conn, int $reservation_id): array
-{
-    $query = $conn->prepare("SELECT po.id, po.reservation_id, po.caterer_amount, po.payout_status, c.paypal_email FROM payouts po JOIN caterers c ON c.id = po.caterer_id WHERE po.reservation_id = ? LIMIT 1");
-    if (!$query) {
-        return ['ok' => false, 'error' => 'Unable to prepare payout lookup.'];
-    }
-    $query->bind_param('i', $reservation_id);
-    $query->execute();
-    $payout = $query->get_result()->fetch_assoc();
-    $query->close();
-
-    if (!$payout) {
-        return ['ok' => true, 'skipped' => true, 'status' => 'not_found'];
-    }
-
-    if (!in_array($payout['payout_status'], ['pending', 'failed'], true)) {
-        return ['ok' => true, 'skipped' => true, 'status' => $payout['payout_status']];
-    }
-
-    if (!filter_var(trim((string) ($payout['paypal_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
-        $error = 'Caterer PayPal email is missing or invalid.';
-        $update = $conn->prepare("UPDATE payouts SET payout_status = 'failed', payout_error = ? WHERE id = ? AND payout_status IN ('pending', 'failed')");
-        $update->bind_param('si', $error, $payout['id']);
-        $update->execute();
-        $update->close();
-        return ['ok' => false, 'error' => $error, 'skipped' => false];
-    }
-
-    $claim = $conn->prepare("UPDATE payouts SET payout_status = 'processing', payout_error = NULL WHERE id = ? AND payout_status IN ('pending', 'failed')");
-    $claim->bind_param('i', $payout['id']);
-    $claim->execute();
-    $claim->close();
-
-    $result = create_paypal_payout($payout['paypal_email'], (float) $payout['caterer_amount'], (int) $payout['reservation_id']);
-    if (!$result['ok']) {
-        $error = $result['error'] ?? 'PayPal payout failed.';
-        $update = $conn->prepare("UPDATE payouts SET payout_status = 'failed', payout_error = ? WHERE id = ?");
-        $update->bind_param('si', $error, $payout['id']);
-        $update->execute();
-        $update->close();
-        return ['ok' => false, 'error' => $error, 'skipped' => false];
-    }
-
-    $status = strtoupper($result['item_status'] ?? '') === 'SUCCESS' ? 'paid' : 'processing';
-    $reference = $result['item_id'] ?: $result['batch_id'];
-    $update = $conn->prepare("UPDATE payouts SET payout_status = ?, payout_reference = ?, payout_batch_id = ?, payout_item_id = ?, paid_at = IF(? = 'paid', NOW(), NULL) WHERE id = ?");
-    $update->bind_param('sssssi', $status, $reference, $result['batch_id'], $result['item_id'], $status, $payout['id']);
-    $update->execute();
-    $update->close();
-
-    return ['ok' => true, 'status' => $status, 'skipped' => false];
 }
 
 function create_paypal_payout(string $recipient_email, float $amount, int $reservation_id): array

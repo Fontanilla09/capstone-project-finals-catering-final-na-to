@@ -53,7 +53,6 @@ create table if not exists public.packages (
     price numeric(10,2) not null,
     guest_count_min integer,
     guest_count_max integer,
-    max_bookings integer not null default 0,
     includes text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
@@ -82,10 +81,6 @@ create table if not exists public.reservations (
     payment_status varchar(20) not null default 'pending' check (payment_status in ('pending', 'partial', 'completed')),
     reservation_status varchar(20) not null default 'pending' check (reservation_status in ('pending', 'confirmed', 'completed', 'cancelled')),
     special_requests text,
-    paymongo_checkout_session_id varchar(100),
-    paymongo_payment_intent_id varchar(100),
-    paymongo_payment_id varchar(100),
-    webhook_received_at timestamptz,
     accepted_by bigint references public.users(id) on delete set null,
     accepted_at timestamptz,
     created_at timestamptz not null default now(),
@@ -101,7 +96,7 @@ create table if not exists public.payments (
     reference_number varchar(100),
     receipt_image varchar(255),
     payment_status varchar(20) not null default 'pending' check (payment_status in ('pending', 'completed', 'failed')),
-    provider varchar(50) default 'paymongo',
+    provider varchar(50) default 'paypal',
     external_id varchar(100),
     webhook_payload text,
     payment_type varchar(30) default 'down_payment',
@@ -200,8 +195,6 @@ create index if not exists idx_payment_reservation_id on public.payments(reserva
 create index if not exists idx_messages_sender_id on public.messages(sender_id);
 create index if not exists idx_reviews_caterer_id on public.reviews(caterer_id);
 create index if not exists idx_payments_external_id on public.payments(external_id);
-create index if not exists idx_paymongo_session on public.reservations(paymongo_checkout_session_id);
-create index if not exists idx_paymongo_payment on public.reservations(paymongo_payment_id);
 
 -- Keep updated_at current when rows are modified.
 create or replace function public.set_updated_at()
