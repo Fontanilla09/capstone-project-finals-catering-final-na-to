@@ -19,14 +19,25 @@ function load_env(string $path): array
     return $values;
 }
 
+function app_env_value(string $key, string $fallback = ''): string
+{
+    global $app_env;
+
+    $value = $app_env[$key] ?? getenv($key) ?: ($_ENV[$key] ?? $_SERVER[$key] ?? $fallback);
+    return is_string($value) ? trim($value) : $fallback;
+}
+
 $app_env = load_env(__DIR__ . '/../.env');
-$supabase_url = rtrim($app_env['VITE_SUPABASE_URL'] ?? getenv('SUPABASE_URL') ?: '', '/');
-$supabase_service_role_key = $app_env['SUPABASE_SERVICE_ROLE_KEY'] ?? getenv('SUPABASE_SERVICE_ROLE_KEY') ?: '';
+$supabase_url = rtrim(app_env_value('VITE_SUPABASE_URL', app_env_value('SUPABASE_URL')), '/');
+$supabase_service_role_key = app_env_value('SUPABASE_SERVICE_ROLE_KEY');
 
 if ($supabase_url === '' || $supabase_service_role_key === '') {
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Supabase server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY to .env.']);
+    $missing = [];
+    if ($supabase_url === '') $missing[] = 'VITE_SUPABASE_URL';
+    if ($supabase_service_role_key === '') $missing[] = 'SUPABASE_SERVICE_ROLE_KEY';
+    echo json_encode(['error' => 'Supabase server configuration is incomplete.', 'missing' => $missing]);
     exit;
 }
 
@@ -67,7 +78,7 @@ function supabase_current_user(): array
     $ch = curl_init($supabase_url . '/auth/v1/user');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['apikey: ' . ($app_env['VITE_SUPABASE_ANON_KEY'] ?? getenv('VITE_SUPABASE_ANON_KEY') ?: ''), 'Authorization: Bearer ' . $token],
+        CURLOPT_HTTPHEADER => ['apikey: ' . app_env_value('VITE_SUPABASE_ANON_KEY'), 'Authorization: Bearer ' . $token],
         CURLOPT_TIMEOUT => 20,
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
