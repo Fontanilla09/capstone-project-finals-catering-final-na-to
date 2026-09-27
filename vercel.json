@@ -9,6 +9,7 @@
   },
   "routes": [
     { "src": "^/backend/(.*)$", "dest": "/api/backend/$1" },
+    { "handle": "filesystem" },
     { "src": "^/(.*)$", "dest": "/index.html" }
   ]
 }
