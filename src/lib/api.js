@@ -32,7 +32,10 @@ export async function requestJson(path, options = {}) {
   try {
     data = JSON.parse(body);
   } catch {
-    throw new Error(response.ok ? 'The server returned an invalid response.' : `Server error (${response.status}). Please try again.`);
+    if (!response.ok) throw new Error(`Server error (${response.status}). Please try again.`);
+    const contentType = response.headers.get('content-type') || 'unknown content type';
+    const requestId = response.headers.get('x-vercel-id');
+    throw new Error(`The server returned an invalid response (HTTP ${response.status}, ${contentType}${requestId ? `, request ${requestId}` : ''}).`);
   }
 
   if (!response.ok) {
