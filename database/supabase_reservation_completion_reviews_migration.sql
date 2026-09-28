@@ -23,10 +23,11 @@ begin
     where id = p_reservation_id
       and caterer_id = v_caterer_id
       and reservation_status = 'confirmed'
-    and event_date <= (now() at time zone 'Asia/Manila')::date;
+            and payment_status = 'completed'
+            and event_date <= (now() at time zone 'Asia/Manila')::date;
 
     if not found then
-        raise exception 'Only your confirmed events on or after the event date can be marked completed.';
+                raise exception 'Only your fully paid confirmed events on or after the event date can be marked completed.';
     end if;
 end;
 $$;
@@ -73,6 +74,7 @@ begin
     where r.id = p_reservation_id
       and r.customer_id = v_customer_id
       and r.reservation_status = 'completed'
+    and r.payment_status = 'completed'
     for update;
 
     if v_caterer_id is null then

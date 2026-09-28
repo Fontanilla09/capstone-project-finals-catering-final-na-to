@@ -87,8 +87,10 @@ export default function ViewReservations() {
                   <button className="button button-primary" onClick={() => accept(item.id)} type="button">Accept reservation</button>
                 ) : item.reservation_status === 'pending' && item.payment_status === 'pending' ? (
                   <button className="button reservation-reject-button" onClick={() => { setRejectingReservation(item); setRejectionReason(''); setStatus(''); }} type="button"><X size={16} aria-hidden="true" /> Reject</button>
-                ) : item.reservation_status === 'confirmed' && eventIsTodayOrPast(item.event_date) ? (
+                ) : item.reservation_status === 'confirmed' && item.payment_status === 'completed' && eventIsTodayOrPast(item.event_date) ? (
                   <button className="button button-primary" onClick={() => complete(item.id)} type="button"><CheckCircle2 size={16} aria-hidden="true" /> Mark as completed</button>
+                ) : item.reservation_status === 'confirmed' && eventIsTodayOrPast(item.event_date) && item.payment_status !== 'completed' ? (
+                  <span className="muted-label">Awaiting full payment</span>
                 ) : item.reservation_status === 'cancelled' && item.payment_status === 'pending' ? (
                   <button className="button reservation-dismiss-button" onClick={() => dismissCancelled(item.id)} type="button" title="Remove unpaid cancelled booking" aria-label="Remove unpaid cancelled booking"><X size={16} aria-hidden="true" /></button>
                 ) : (

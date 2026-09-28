@@ -9,7 +9,7 @@ function statusClass(status) {
 }
 
 function canReview(item) {
-  return item.reservation_status === 'completed';
+  return item.reservation_status === 'completed' && Number(item.paid_amount) >= Number(item.total_amount);
 }
 
 export default function CustomerDashboard() {
