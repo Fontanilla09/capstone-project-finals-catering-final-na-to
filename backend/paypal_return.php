@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/paypal_handler.php';
 
-$frontend_url = rtrim($paypal_env['FRONTEND_URL'] ?? 'http://localhost:5173', '/');
+$frontend_url = rtrim(app_env_value('FRONTEND_URL', 'http://localhost:5173'), '/');
 $reservation_id = (int) ($_GET['reservation_id'] ?? 0);
 $order_id = trim((string) ($_GET['token'] ?? ''));
 $payment_type = $_GET['payment_type'] ?? 'down_payment';

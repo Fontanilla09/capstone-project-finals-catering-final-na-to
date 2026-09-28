@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-$frontend_url = rtrim($app_env['FRONTEND_URL'] ?? 'http://localhost:5173', '/');
+$frontend_url = rtrim(app_env_value('FRONTEND_URL', 'http://localhost:5173'), '/');
 $reservation_id = (int) ($_GET['reservation_id'] ?? 0);
 $payment_type = (string) ($_GET['payment_type'] ?? 'down_payment');
 $signature = (string) ($_GET['signature'] ?? '');
