@@ -185,7 +185,7 @@ function paypal_request_with_token(string $method, string $endpoint, ?array $bod
     ];
 }
 
-function create_paypal_payout(string $recipient_email, float $amount, int $reservation_id): array
+function create_paypal_payout(string $recipient_email, float $amount, int $reservation_id, int $payout_id): array
 {
     global $paypal_env;
     $payouts_enabled = $paypal_env['PAYPAL_PAYOUTS_ENABLED'] ?? getenv('PAYPAL_PAYOUTS_ENABLED') ?: 'false';
@@ -197,7 +197,7 @@ function create_paypal_payout(string $recipient_email, float $amount, int $reser
         return $token;
     }
 
-    $batch_id = 'CATERAI-' . $reservation_id . '-' . strtoupper(bin2hex(random_bytes(5)));
+    $batch_id = 'CATERAI-' . substr(hash('sha256', (string) $payout_id), 0, 22);
     $response = paypal_request_with_token('POST', '/v1/payments/payouts', [
         'sender_batch_header' => [
             'sender_batch_id' => $batch_id,
@@ -209,7 +209,7 @@ function create_paypal_payout(string $recipient_email, float $amount, int $reser
             'amount' => ['value' => number_format($amount, 2, '.', ''), 'currency' => 'PHP'],
             'receiver' => $recipient_email,
             'note' => 'CaterAI payout for reservation #' . $reservation_id,
-            'sender_item_id' => 'RES-' . $reservation_id,
+            'sender_item_id' => 'PAYOUT-' . $payout_id,
         ]],
     ], $token['token']);
 
@@ -224,6 +224,32 @@ function create_paypal_payout(string $recipient_email, float $amount, int $reser
     return [
         'ok' => true,
         'batch_id' => $payout_batch_id,
+        'batch_status' => $batch['batch_status'] ?? 'PENDING',
+        'item_status' => $item['transaction_status'] ?? 'UNCLAIMED',
+        'item_id' => $item['payout_item_id'] ?? null,
+    ];
+}
+
+function get_paypal_payout_status(string $batch_id): array
+{
+    $token = paypal_access_token();
+    if (!$token['ok']) return $token;
+
+    $response = paypal_request_with_token(
+        'GET',
+        '/v1/payments/payouts/' . rawurlencode($batch_id),
+        null,
+        $token['token']
+    );
+    if (!$response['ok']) {
+        return ['ok' => false, 'error' => $response['data']['message'] ?? 'Unable to check payout status.'];
+    }
+
+    $batch = $response['data']['batch_header'] ?? [];
+    $item = $response['data']['items'][0] ?? [];
+    return [
+        'ok' => true,
+        'batch_id' => $batch['payout_batch_id'] ?? $batch_id,
         'batch_status' => $batch['batch_status'] ?? 'PENDING',
         'item_status' => $item['transaction_status'] ?? 'UNCLAIMED',
         'item_id' => $item['payout_item_id'] ?? null,

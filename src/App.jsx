@@ -11,7 +11,6 @@ import ManageServices from './pages/ManageServices.jsx';
 import PackageDetails from './pages/PackageDetails.jsx';
 import Packages from './pages/Packages.jsx';
 import Register from './pages/Register.jsx';
-import VenueVisualizer from './pages/VenueVisualizer.jsx';
 import ViewReservations from './pages/ViewReservations.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminActivity from './pages/AdminActivity.jsx';
@@ -25,9 +24,8 @@ export default function App() {
   if (path === '/packages') return <Packages />;
   if (path.startsWith('/packages/')) return <PackageDetails />;
   if (path === '/book') return <Book />;
-  if (path === '/dashboard/customer') return <CustomerDashboard />;
+  if (path === '/dashboard/customer' || path === '/dashboard/venue') return <CustomerDashboard />;
   if (path === '/dashboard/messages') return <CustomerMessages />;
-  if (path === '/dashboard/venue') return <VenueVisualizer />;
   if (path === '/dashboard/caterer') return <CatererDashboard />;
   if (path === '/dashboard/caterer/profile') return <CatererProfile />;
   if (path === '/dashboard/caterer/services') return <ManageServices />;

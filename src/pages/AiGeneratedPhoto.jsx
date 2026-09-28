@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Download, Trash2 } from 'lucide-react';
 import { downloadGeneratedImage, generateImage, refreshGeneratedImageUrl } from '../lib/imageGeneration';
 import DashboardPage from '../components/DashboardPage.jsx';
 
@@ -21,6 +22,16 @@ export default function AiGeneratedPhoto() {
   });
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  useEffect(() => {
+    if (!selectedImage) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setSelectedImage(null);
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedImage]);
 
   useEffect(() => {
     let active = true;
@@ -165,6 +176,7 @@ export default function AiGeneratedPhoto() {
               <button className="flex min-h-11 items-center gap-2 rounded-2xl border border-dashed border-[#cfc8bf] bg-[#fcfbf9] px-3 py-2 text-xs font-bold text-[#667168] transition hover:border-[#c96d4b] hover:bg-[#fffaf7] hover:text-[#c96d4b]" onClick={() => fileInputRef.current?.click()} type="button">
                 <span className="text-lg leading-none">+</span> {image ? image.name : 'Add reference image'}
               </button>
+              {image && <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#e5c8bd] bg-white text-lg font-bold text-[#a34f3a] transition hover:bg-[#f7e5dd]" onClick={() => { setImage(null); fileInputRef.current.value = ''; setStatus(''); }} type="button" title="Remove reference image" aria-label="Remove reference image">×</button>}
               <button className="ml-auto flex min-h-11 items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#c96d4b_0%,#b95c3d_100%)] px-5 py-2 text-sm font-bold text-white shadow-[0_12px_20px_rgba(201,109,75,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_16px_24px_rgba(201,109,75,0.24)] disabled:cursor-wait disabled:opacity-60" disabled={loading} type="submit">
                 {loading ? 'Creating...' : 'Generate photo'} <span aria-hidden="true">↗</span>
               </button>
@@ -183,7 +195,7 @@ export default function AiGeneratedPhoto() {
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               {previewSlots.map((slot, index) => (
                 <div className={`ai-preview-card group relative overflow-hidden rounded-[24px] border border-[#e6dfd7] bg-white shadow-[0_10px_24px_rgba(83,68,54,0.04)] ${index === 0 ? 'ai-preview-primary col-span-2' : ''}`} key={slot}>
-                  {history[index] ? <><div className="ai-image-toolbar"><span>{index === 0 ? 'Primary' : `Variation 0${index}`}</span><div className="ai-image-actions"><button className="ai-image-action ai-image-download" onClick={() => downloadImage(history[index].url, index)} type="button" title="Download image" aria-label={`Download generated image ${index + 1}`}>↓</button><button className="ai-image-action ai-image-remove" onClick={() => removeImage(history[index])} type="button" title="Remove image" aria-label={`Remove generated image ${index + 1}`}>×</button></div></div><img className="ai-preview-image h-full w-full object-contain" src={history[index].url} alt={`Generated catering package ${index + 1}`} /></> : (
+                  {history[index] ? <><div className="ai-image-toolbar"><span>{index === 0 ? 'Primary' : `Variation 0${index}`}</span><div className="ai-image-actions"><button className="ai-image-action ai-image-download" onClick={() => downloadImage(history[index].url, index)} type="button" title="Download image" aria-label={`Download generated image ${index + 1}`}><Download size={16} strokeWidth={2} aria-hidden="true" /></button><button className="ai-image-action ai-image-remove" onClick={() => removeImage(history[index])} type="button" title="Remove image" aria-label={`Remove generated image ${index + 1}`}><Trash2 size={16} strokeWidth={2} aria-hidden="true" /></button></div></div><img className="ai-preview-image h-full w-full cursor-zoom-in object-contain" src={history[index].url} alt={`Generated catering package ${index + 1}`} onClick={() => setSelectedImage(history[index].url)} /></> : (
                     <div className="flex h-full min-h-32 flex-col items-center justify-center bg-[linear-gradient(135deg,#f5f0ea_0%,#fbfaf8_48%,#edf1ea_100%)] p-4 text-center">
                       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#ddd6cd] bg-white text-[#c96d4b]">✦</div>
                       <span className="text-xs font-bold text-[#7e867e]">{loading && index === 0 ? 'Creating preview...' : 'Your preview will appear here'}</span>
@@ -197,6 +209,7 @@ export default function AiGeneratedPhoto() {
           </section>
         </div>
       </div>
+      {selectedImage && <div className="image-lightbox" role="dialog" aria-modal="true" aria-label="Enlarged generated image" onClick={() => setSelectedImage(null)}><button className="image-lightbox-close" type="button" aria-label="Close image viewer" onClick={() => setSelectedImage(null)}>×</button><img src={selectedImage} alt="Enlarged generated catering image" onClick={(event) => event.stopPropagation()} /></div>}
     </DashboardPage>
   );
 }

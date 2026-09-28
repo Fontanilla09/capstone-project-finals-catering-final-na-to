@@ -19,7 +19,7 @@ if (!$user['ok'] || $user['role'] !== 'customer' || empty($user['customer_id']))
 $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
 $reservation_id = (int) ($input['reservation_id'] ?? 0);
 $reservation_response = supabase_request('GET', 'reservations', [
-    'select' => 'id,balance_amount,package_id,reservation_status,payment_status',
+    'select' => 'id,balance_amount,package_id,caterer_id,reservation_status,payment_status',
     'id' => 'eq.' . $reservation_id,
     'customer_id' => 'eq.' . $user['customer_id'],
     'reservation_status' => 'eq.confirmed',
@@ -31,14 +31,36 @@ $package_response = $reservation
     ? supabase_request('GET', 'packages', ['select' => 'package_name', 'id' => 'eq.' . $reservation['package_id'], 'limit' => '1'])
     : ['data' => []];
 $package = supabase_row($package_response);
+$caterer_response = $reservation
+    ? supabase_request('GET', 'caterers', ['select' => 'paypal_email', 'id' => 'eq.' . $reservation['caterer_id'], 'limit' => '1'])
+    : ['data' => []];
+$caterer = supabase_row($caterer_response);
 
-if (!$reservation || !$package || (float) $reservation['balance_amount'] <= 0) {
+if (!$reservation || !$package || !$caterer || (float) $reservation['balance_amount'] <= 0) {
     http_response_code(422);
     echo json_encode(['error' => 'Balance payment is not available.']);
     exit;
 }
 
-$admin_paypal_email = get_admin_paypal_email();
+$completed_balance = supabase_request('GET', 'payments', [
+    'select' => 'id',
+    'reservation_id' => 'eq.' . $reservation_id,
+    'payment_type' => 'eq.balance',
+    'payment_status' => 'eq.completed',
+    'limit' => '1',
+]);
+if (!$completed_balance['ok']) {
+    http_response_code(502);
+    echo json_encode(['error' => 'Could not verify the existing balance payment.']);
+    exit;
+}
+if (supabase_row($completed_balance)) {
+    http_response_code(409);
+    echo json_encode(['error' => 'The balance for this reservation has already been paid.']);
+    exit;
+}
+
+$admin_paypal_email = get_admin_paypal_email((string) ($caterer['paypal_email'] ?? ''));
 if (!filter_var(trim($admin_paypal_email), FILTER_VALIDATE_EMAIL)) {
     http_response_code(422);
     echo json_encode(['error' => 'The platform PayPal email is not configured yet.']);

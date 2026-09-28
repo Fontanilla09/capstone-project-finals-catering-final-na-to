@@ -33,6 +33,12 @@ if ($prompt === '' || strlen($prompt) > 2000) {
     echo json_encode(['success' => false, 'error' => 'Enter a prompt under 2,000 characters.']);
     exit;
 }
+$blocked_prompt_terms = '\\b(?:people|persons?|guests?|humans?|man|men|woman|women|boys?|girls?|child|children|kids?|family|families|male|female|couples?|brides?|grooms?|models?|faces?|bodies?|silhouettes?|portraits?|customers?|audiences?|crowds?|waiters?|waitresses?|waitstaff|chefs?|staff|servers?|caterers?|hosts?|characters?|figures?)\\b';
+if (preg_match('/' . $blocked_prompt_terms . '/i', $prompt)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'This generator creates catering decor and themes only. Remove requests for people, guests, staff, or human figures.']);
+    exit;
+}
 if (!in_array($aspect_ratio, ['1:1', '4:5', '16:9'], true)) $aspect_ratio = '1:1';
 
 $owner = (string) $user['auth_user']['id'];
@@ -79,6 +85,7 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE)
 }
 
 $app_env = $app_env ?? [];
+$prompt .= '. Theme-only catering design: show decor, tablescapes, linens, centerpieces, floral arrangements, balloons, lighting, venue styling, food presentation, trays, and event ambiance. Do not include people, human figures, faces, bodies, or silhouettes.';
 $model = (string) ($app_env['NANOBANANA_MODEL'] ?? getenv('NANOBANANA_MODEL') ?: 'nano2');
 $endpoint = $input_url !== '' ? '/api/edit' : '/api/generate';
 $payload = $input_url !== ''

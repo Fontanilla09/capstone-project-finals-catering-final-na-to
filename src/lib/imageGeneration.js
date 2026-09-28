@@ -1,5 +1,6 @@
 import { API_BASE } from './api';
 import { supabase } from './supabase';
+import { blockedPromptMessage, isPromptBlocked } from './themePromptGuard.js';
 
 const pollIntervalMs = 3000;
 const maxPollAttempts = 180;
@@ -38,6 +39,10 @@ async function postImageRequest(path, body, accessToken) {
 }
 
 export async function generateImage({ image, prompt, aspectRatio = '1:1', onStatus = () => {} }) {
+  const normalizedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+  if (!normalizedPrompt) throw new Error('Enter a description first.');
+  if (isPromptBlocked(normalizedPrompt)) throw new Error(blockedPromptMessage);
+
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
   const accessToken = data.session?.access_token;
@@ -45,7 +50,7 @@ export async function generateImage({ image, prompt, aspectRatio = '1:1', onStat
 
   const form = new FormData();
   if (image) form.append('image', image);
-  form.append('prompt', prompt);
+  form.append('prompt', normalizedPrompt);
   form.append('aspect_ratio', aspectRatio);
   const task = await postImageRequest('/backend/generate.php', form, accessToken);
   if (!task.task_token) throw new Error('The image service did not return a task token.');

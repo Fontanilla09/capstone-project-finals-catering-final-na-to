@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { API_BASE } from '../lib/api';
 import DashboardPage from '../components/DashboardPage.jsx';
 
-const money = (value) => `₱${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({});
