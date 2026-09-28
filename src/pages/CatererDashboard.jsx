@@ -28,18 +28,22 @@ export default function CatererDashboard() {
 
     async function load() {
       try {
-        const { data: profileData, error: profileError } = await supabase.rpc('get_my_profile');
-        if (profileError) {
-          throw profileError;
-        }
-
-        const fallback = {
-          ...emptyStats,
-          analytics: { ...emptyStats.analytics },
-        };
+        const { data, error: reservationsError } = await supabase.rpc('get_caterer_reservations');
+        if (reservationsError) throw reservationsError;
+        const reservations = data || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const pending = reservations.filter((item) => item.reservation_status === 'pending').length;
+        const confirmed = reservations.filter((item) => item.reservation_status === 'confirmed').length;
+        const completed = reservations.filter((item) => item.reservation_status === 'completed').length;
 
         if (active) {
-          setStats(fallback);
+          setStats((current) => ({
+            ...current,
+            reservations: reservations.filter((item) => ['pending', 'confirmed'].includes(item.reservation_status)).length,
+            upcoming: reservations.filter((item) => item.reservation_status === 'confirmed' && new Date(`${item.event_date}T00:00:00`) >= today).length,
+            analytics: { ...current.analytics, pending, confirmed, completed },
+          }));
           setError('');
         }
       } catch (reason) {

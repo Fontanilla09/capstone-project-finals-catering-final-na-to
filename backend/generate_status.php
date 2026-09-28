@@ -115,7 +115,6 @@ if (is_string($base64_image) && $base64_image !== '') {
     $image_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $content_type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
     $download_error = curl_error($ch);
-    curl_close($ch);
     if ($download_error !== '' || $image_status < 200 || $image_status >= 300 || !is_string($image_contents)) {
         log_image_failure('image_provider', 'The generated image could not be downloaded.', ['http_status' => $image_status]);
         http_response_code(502);

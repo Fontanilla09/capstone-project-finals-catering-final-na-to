@@ -9,8 +9,7 @@ function statusClass(status) {
 }
 
 function canReview(item) {
-  return Number(item.paid_amount) >= Number(item.total_amount) &&
-    (item.reservation_status === 'completed' || new Date(`${item.event_date}T23:59:59`) < new Date());
+  return item.reservation_status === 'completed';
 }
 
 export default function CustomerDashboard() {
@@ -193,11 +192,19 @@ export default function CustomerDashboard() {
 
   async function submitReview(event) {
     event.preventDefault();
+    if (!reviewingId) return;
     try {
-      setStatus('Review submission is not yet connected to Supabase.');
+      const { error } = await supabase.rpc('submit_catering_review', {
+        p_reservation_id: reviewingId,
+        p_rating: rating,
+        p_review_text: reviewText.trim(),
+      });
+      if (error) throw error;
       setReviewingId(null);
       setReviewText('');
       setRating(5);
+      await load();
+      setStatus('Review submitted. Thank you for sharing your experience.');
     } catch (error) {
       setStatus(error.message);
     }
@@ -289,7 +296,7 @@ export default function CustomerDashboard() {
           <div className="section-header">
             <div>
               <p className="eyebrow eyebrow-soft">Booking requests</p>
-              <h3>Upcoming reservations</h3>
+              <h3>Your reservations</h3>
             </div>
           </div>
 
@@ -328,16 +335,21 @@ export default function CustomerDashboard() {
                     <td data-label="Action">
                       {item.reservation_status === 'cancelled' ? (
                         <button className="button reservation-dismiss-button" onClick={() => removeRejectedReservation(item.id)} type="button" title="Remove cancelled booking" aria-label="Remove cancelled booking"><X size={16} aria-hidden="true" /></button>
-                      ) : item.review_rating ? (
-                        <span className="reviewed-label">★ {item.review_rating} rated</span>
-                      ) : canReview(item) ? (
-                        <button className="button button-primary button-small" onClick={() => setReviewingId(item.id)} type="button">Rate caterer</button>
-                      ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) >= Number(item.total_amount) ? (
-                        <span className="muted-label">Event upcoming</span>
-                      ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) < Number(item.total_amount) ? (
-                        <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : 'Pay balance'}</button>
                       ) : (
-                        <span className="muted-label">Awaiting</span>
+                        <>
+                          {['confirmed', 'completed'].includes(item.reservation_status) && Number(item.paid_amount) < Number(item.total_amount) && (
+                            <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : 'Pay balance'}</button>
+                          )}
+                          {item.review_rating ? (
+                            <span className="reviewed-label">★ {item.review_rating} rated</span>
+                          ) : canReview(item) ? (
+                            <button className="button button-primary button-small" onClick={() => setReviewingId(item.id)} type="button">Rate catering</button>
+                          ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) >= Number(item.total_amount) ? (
+                            <span className="muted-label">Event upcoming</span>
+                          ) : !['confirmed', 'completed'].includes(item.reservation_status) ? (
+                            <span className="muted-label">Awaiting</span>
+                          ) : null}
+                        </>
                       )}
                     </td>
                   </tr>
@@ -374,7 +386,7 @@ export default function CustomerDashboard() {
 
             <label>
               Review
-              <textarea value={reviewText} onChange={(event) => setReviewText(event.target.value)} placeholder="Tell us about your event experience..." />
+              <textarea value={reviewText} onChange={(event) => setReviewText(event.target.value)} maxLength={1000} placeholder="Tell us about your event experience..." />
             </label>
 
             <div className="review-actions">

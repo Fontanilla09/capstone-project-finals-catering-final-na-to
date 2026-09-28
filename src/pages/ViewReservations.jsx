@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { CheckCircle2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+
+function eventIsTodayOrPast(eventDate) {
+  const date = new Date(`${eventDate}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date <= today;
+}
 
 export default function ViewReservations() {
   const [reservations, setReservations] = useState([]); const [status, setStatus] = useState('');
@@ -25,6 +32,15 @@ export default function ViewReservations() {
   }
   useEffect(() => { load(); }, []);
   async function accept(id) { try { const { error } = await supabase.rpc('accept_caterer_reservation', { reservation_id: id }); if (error) throw error; setStatus('Reservation accepted.'); await load(); } catch (error) { setStatus(error.message); } }
+  async function complete(id) {
+    if (!window.confirm('Mark this catering event as completed? The customer will be able to leave a review.')) return;
+    try {
+      const { error } = await supabase.rpc('complete_caterer_reservation', { p_reservation_id: id });
+      if (error) throw error;
+      await load();
+      setStatus('Event marked as completed. The customer can now leave a review.');
+    } catch (error) { setStatus(error.message); }
+  }
   async function dismissCancelled(id) {
     if (!window.confirm('Remove this unpaid cancelled booking from your reservations list?')) return;
     try {
@@ -71,6 +87,8 @@ export default function ViewReservations() {
                   <button className="button button-primary" onClick={() => accept(item.id)} type="button">Accept reservation</button>
                 ) : item.reservation_status === 'pending' && item.payment_status === 'pending' ? (
                   <button className="button reservation-reject-button" onClick={() => { setRejectingReservation(item); setRejectionReason(''); setStatus(''); }} type="button"><X size={16} aria-hidden="true" /> Reject</button>
+                ) : item.reservation_status === 'confirmed' && eventIsTodayOrPast(item.event_date) ? (
+                  <button className="button button-primary" onClick={() => complete(item.id)} type="button"><CheckCircle2 size={16} aria-hidden="true" /> Mark as completed</button>
                 ) : item.reservation_status === 'cancelled' && item.payment_status === 'pending' ? (
                   <button className="button reservation-dismiss-button" onClick={() => dismissCancelled(item.id)} type="button" title="Remove unpaid cancelled booking" aria-label="Remove unpaid cancelled booking"><X size={16} aria-hidden="true" /></button>
                 ) : (

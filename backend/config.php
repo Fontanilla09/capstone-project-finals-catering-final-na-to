@@ -1,4 +1,9 @@
 <?php
+if (getenv('VERCEL') === '1') {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+}
+
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (preg_match('/^https?:\/\/localhost:\d+$/', $origin)) {
     header('Access-Control-Allow-Origin: ' . $origin);
@@ -64,7 +69,6 @@ function supabase_request(string $method, string $table, array $query = [], ?arr
     $response = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
     $data = json_decode($response ?: '', true);
     return ['ok' => $error === '' && $status >= 200 && $status < 300, 'status' => $status, 'error' => $error, 'data' => $data];
 }
@@ -84,7 +88,6 @@ function supabase_current_user(): array
     ]);
     $response = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
     $user = json_decode($response ?: '', true);
     if ($status !== 200 || empty($user['id'])) return ['ok' => false, 'error' => 'Your Supabase session has expired. Please sign in again.'];
 

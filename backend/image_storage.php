@@ -33,7 +33,6 @@ function image_storage_request(string $method, string $path, ?string $body = nul
     $response = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
 
     $data = json_decode($response ?: '', true);
     $message = is_array($data) ? ($data['message'] ?? $data['error'] ?? '') : '';
@@ -117,7 +116,6 @@ function image_provider_request(string $method, string $endpoint, ?array $payloa
     $response = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
 
     $data = json_decode($response ?: '', true);
     $provider_error = is_array($data)

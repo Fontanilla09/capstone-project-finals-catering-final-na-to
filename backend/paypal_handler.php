@@ -31,7 +31,6 @@ function paypal_request(string $method, string $endpoint, ?array $body = null): 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
 
     return [
         'ok' => $error === '' && $http_code >= 200 && $http_code < 300,
@@ -59,7 +58,6 @@ function paypal_access_token(): array
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
 
     $data = json_decode($response ?: '', true);
     if ($error !== '' || $http_code !== 200 || empty($data['access_token'])) {
@@ -176,7 +174,6 @@ function paypal_request_with_token(string $method, string $endpoint, ?array $bod
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
     return [
         'ok' => $error === '' && $http_code >= 200 && $http_code < 300,
         'status' => $http_code,
