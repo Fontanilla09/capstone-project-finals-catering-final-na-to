@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, ImagePlus, LoaderCircle, Sparkles, Trash2, WandSparkles } from 'lucide-react';
 import { downloadGeneratedImage, generateImage, refreshGeneratedImageUrl } from '../lib/imageGeneration';
 import DashboardPage from '../components/DashboardPage.jsx';
-
-const previewSlots = ['A', 'B', 'C', 'D'];
 
 export default function AiGeneratedPhoto() {
   const fileInputRef = useRef(null);
@@ -14,7 +12,7 @@ export default function AiGeneratedPhoto() {
     try {
       const saved = JSON.parse(localStorage.getItem('caterai-ai-image-history') || '[]');
       return Array.isArray(saved)
-        ? saved.map((entry) => typeof entry === 'string' ? { url: entry, path: '' } : entry).filter((entry) => typeof entry?.url === 'string')
+        ? saved.map((entry) => typeof entry === 'string' ? { url: entry, path: '', prompt: '' } : entry).filter((entry) => typeof entry?.url === 'string')
         : [];
     } catch {
       return [];
@@ -100,7 +98,7 @@ export default function AiGeneratedPhoto() {
       const generatedUrl = data.url;
       setResult(generatedUrl);
       setHistory((current) => {
-        const generated = { url: generatedUrl, path: data.path };
+        const generated = { url: generatedUrl, path: data.path, prompt: prompt.trim(), createdAt: new Date().toISOString() };
         const next = [generated, ...current.filter((entry) => entry.path !== generated.path && entry.url !== generated.url)].slice(0, 12);
         localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
         return next;
@@ -114,7 +112,7 @@ export default function AiGeneratedPhoto() {
   }
 
   async function downloadResult() {
-    await downloadImage(result, 0);
+    await downloadImage(result || history[0]?.url, 0);
   }
 
   async function downloadImage(url, index) {
@@ -134,80 +132,46 @@ export default function AiGeneratedPhoto() {
     if (result === imageEntry.url) setResult('');
   }
 
-  function resetResult() {
-    setResult('');
-    setStatus('');
-  }
+  const latestImage = history[0];
+  const latestUrl = result || latestImage?.url;
+  const displayedImage = history.find((entry) => entry.url === latestUrl) || latestImage;
 
   return (
     <DashboardPage role="caterer" section="ai-photos">
-      <div className="ai-studio-shell relative min-h-[620px] overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(201,109,75,0.10),transparent_28%),linear-gradient(180deg,#f7f1ed_0%,#f2ece6_100%)]">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_top,_rgba(201,109,75,0.08),transparent_65%)]" />
-        <div className="relative mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-[#e8e2da] pb-6">
-          <div>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="rounded-full border border-[#e2d7ce] bg-white/70 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#c96d4b]">CaterAI Studio</span>
-            </div>
-            <h2 className="!mb-2 !font-sans !text-[clamp(2rem,4vw,3.5rem)] !leading-none !tracking-[-0.05em]">Create your next visual.</h2>
-            <p className="!mb-0 max-w-xl text-sm text-[#6f776f]">Turn a catering idea into a polished package image ready to share with your customers.</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-[#e3ddd5] bg-white/80 px-3 py-2 text-xs font-semibold text-[#68736a] shadow-[0_8px_20px_rgba(83,68,54,0.04)] backdrop-blur-sm">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#8eaf86] shadow-[0_0_0_4px_rgba(142,175,134,0.12)]" /> Studio ready
-          </div>
-        </div>
-
-        {status && <p className={`mb-5 rounded-2xl border px-4 py-3 text-sm shadow-[0_10px_24px_rgba(83,68,54,0.04)] ${loading ? 'border-[#dfe8d9] bg-[#edf4ea] text-[#4c684b]' : 'border-[#ecd6ca] bg-[#f7e5dd] text-[#9d503b]'}`}>{status}</p>}
-
-        <div className="ai-generator-grid grid gap-6 xl:grid-cols-[minmax(0,0.82fr)_minmax(420px,1.18fr)]">
-          <form className="ai-control-panel rounded-[28px] border border-[#e6dfd7] bg-white/90 p-5 shadow-[0_18px_40px_rgba(83,68,54,0.06)] backdrop-blur-sm sm:p-6" onSubmit={generate}>
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.17em] text-[#c96d4b]">01 / Describe</p>
-                <h3 className="!m-0 !font-sans !text-lg !font-bold !tracking-[-0.02em]">What should we create?</h3>
-              </div>
-              <span className="rounded-full border border-[#eadfce] bg-[#f7f2ee] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7e867e]">AI image</span>
-            </div>
-
-            <label className="mb-2 block text-xs font-bold text-[#414b43]" htmlFor="studio-prompt">Image prompt</label>
-            <textarea id="studio-prompt" className="min-h-36 w-full resize-y rounded-2xl border border-[#ded8d0] bg-[#fcfbf9] p-4 text-sm leading-6 text-[#283129] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] outline-none transition focus:border-[#c96d4b] focus:ring-2 focus:ring-[#c96d4b]/15" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Describe a venue setup, service style, mood, or event atmosphere..." required />
-
-            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#eee9e2] pt-5">
+      <div className="ai-studio-shell">
+        <header className="ai-studio-heading">
+          <div><span className="ai-studio-kicker"><Sparkles size={14} /> CATERAI IMAGE STUDIO</span><h2>Create visuals for your next event</h2><p>Describe the scene you want. CaterAI will turn your idea into a polished catering photo.</p></div>
+          <span className="ai-studio-ready"><i /> AI image generator</span>
+        </header>
+        {status && <p className={`ai-studio-status ${loading ? 'is-loading' : ''}`} role="status">{status}</p>}
+        <div className="ai-generator-grid">
+          <form className="ai-control-panel" onSubmit={generate}>
+            <div className="ai-panel-title"><span>01</span><div><h3>Describe your image</h3><p>A little detail helps create a more useful result.</p></div></div>
+            <label htmlFor="studio-prompt">Your prompt</label>
+            <textarea id="studio-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Example: An elegant wedding buffet with white florals, candlelight, and beautifully arranged dishes..." required />
+            <div className="ai-prompt-tip"><WandSparkles size={15} /><span>Try describing the event, setting, colors, and mood.</span></div>
+            <div className="ai-reference-wrap">
               <input ref={fileInputRef} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { setImage(event.target.files[0] || null); setStatus(''); }} />
-              <button className="flex min-h-11 items-center gap-2 rounded-2xl border border-dashed border-[#cfc8bf] bg-[#fcfbf9] px-3 py-2 text-xs font-bold text-[#667168] transition hover:border-[#c96d4b] hover:bg-[#fffaf7] hover:text-[#c96d4b]" onClick={() => fileInputRef.current?.click()} type="button">
-                <span className="text-lg leading-none">+</span> {image ? image.name : 'Add reference image'}
-              </button>
-              {image && <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#e5c8bd] bg-white text-lg font-bold text-[#a34f3a] transition hover:bg-[#f7e5dd]" onClick={() => { setImage(null); fileInputRef.current.value = ''; setStatus(''); }} type="button" title="Remove reference image" aria-label="Remove reference image">×</button>}
-              <button className="ml-auto flex min-h-11 items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#c96d4b_0%,#b95c3d_100%)] px-5 py-2 text-sm font-bold text-white shadow-[0_12px_20px_rgba(201,109,75,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_16px_24px_rgba(201,109,75,0.24)] disabled:cursor-wait disabled:opacity-60" disabled={loading} type="submit">
-                {loading ? 'Creating...' : 'Generate photo'} <span aria-hidden="true">↗</span>
-              </button>
+              <button className="ai-reference-button" onClick={() => fileInputRef.current?.click()} type="button"><ImagePlus size={17} /><span>{image ? image.name : 'Add a reference photo'}</span></button>
+              {image && <button className="ai-reference-remove" onClick={() => { setImage(null); fileInputRef.current.value = ''; setStatus(''); }} type="button" aria-label="Remove reference photo">×</button>}
+              <small>JPG, PNG or WEBP · up to 5 MB</small>
             </div>
+            <button className="ai-generate-button" disabled={loading} type="submit">{loading ? <><LoaderCircle className="ai-spin" size={18} /> Creating your image…</> : <><Sparkles size={17} /> Generate image</>}</button>
+            <p className="ai-generate-note">Your generated images will be saved in your history.</p>
           </form>
-
-          <section className="ai-preview-panel">
-            <div className="mb-4 flex items-end justify-between gap-3">
-              <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.17em] text-[#c96d4b]">02 / Preview</p>
-                <h3 className="!m-0 !font-sans !text-lg !font-bold !tracking-[-0.02em]">Generated images</h3>
-              </div>
-              {result && <div className="flex gap-2"><button className="rounded-full border border-[#ded8d0] bg-white px-3 py-2 text-xs font-bold text-[#59655c] shadow-sm transition hover:border-[#bfc8be]" onClick={downloadResult} type="button">Download</button><button className="rounded-full border border-[#ded8d0] bg-white px-3 py-2 text-xs font-bold text-[#59655c] shadow-sm transition hover:border-[#bfc8be]" onClick={resetResult} type="button">Clear</button></div>}
+          <section className="ai-result-section" aria-label="Image preview">
+            <div className="ai-section-heading"><div><span>02</span><div><h3>Preview</h3><p>Your latest generated image</p></div></div>{latestUrl && <button className="ai-download-button" onClick={downloadResult} type="button"><Download size={15} /> Download</button>}</div>
+            <div className={`ai-result-frame ${loading ? 'is-generating' : ''}`}>
+              {latestUrl ? <><img src={latestUrl} alt="Latest generated catering image" onClick={() => setSelectedImage(latestUrl)} /><button className="ai-zoom-hint" type="button" onClick={() => setSelectedImage(latestUrl)}>View full size</button></> : <div className="ai-result-empty"><div className="ai-empty-icon"><Sparkles size={22} /></div><strong>{loading ? 'Creating your image' : 'Your image will appear here'}</strong><span>{loading ? 'This can take a little while. Keep this page open.' : 'Write a prompt and generate your first visual.'}</span>{loading && <LoaderCircle className="ai-spin ai-loading-icon" size={20} />}</div>}
+              {loading && latestUrl && <div className="ai-generating-overlay"><LoaderCircle className="ai-spin" size={20} /> Creating a new image…</div>}
             </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              {previewSlots.map((slot, index) => (
-                <div className={`ai-preview-card group relative overflow-hidden rounded-[24px] border border-[#e6dfd7] bg-white shadow-[0_10px_24px_rgba(83,68,54,0.04)] ${index === 0 ? 'ai-preview-primary col-span-2' : ''}`} key={slot}>
-                  {history[index] ? <><div className="ai-image-toolbar"><span>{index === 0 ? 'Primary' : `Variation 0${index}`}</span><div className="ai-image-actions"><button className="ai-image-action ai-image-download" onClick={() => downloadImage(history[index].url, index)} type="button" title="Download image" aria-label={`Download generated image ${index + 1}`}><Download size={16} strokeWidth={2} aria-hidden="true" /></button><button className="ai-image-action ai-image-remove" onClick={() => removeImage(history[index])} type="button" title="Remove image" aria-label={`Remove generated image ${index + 1}`}><Trash2 size={16} strokeWidth={2} aria-hidden="true" /></button></div></div><img className="ai-preview-image h-full w-full cursor-zoom-in object-contain" src={history[index].url} alt={`Generated catering package ${index + 1}`} onClick={() => setSelectedImage(history[index].url)} /></> : (
-                    <div className="flex h-full min-h-32 flex-col items-center justify-center bg-[linear-gradient(135deg,#f5f0ea_0%,#fbfaf8_48%,#edf1ea_100%)] p-4 text-center">
-                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#ddd6cd] bg-white text-[#c96d4b]">✦</div>
-                      <span className="text-xs font-bold text-[#7e867e]">{loading && index === 0 ? 'Creating preview...' : 'Your preview will appear here'}</span>
-                      <span className="mt-1 text-[10px] text-[#a0a59e]">{index === 0 ? 'Primary composition' : `Variation 0${index}`}</span>
-                    </div>
-                  )}
-                  <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2 py-1 text-[10px] font-bold text-[#7c857d] backdrop-blur">{index === 0 ? 'Primary' : `0${index}`}</span>
-                </div>
-              ))}
-            </div>
+            {latestUrl && displayedImage?.prompt && <p className="ai-latest-prompt"><span>Prompt</span>{displayedImage.prompt}</p>}
           </section>
         </div>
+        <section className="ai-history-section">
+          <div className="ai-section-heading ai-history-heading"><div><span>03</span><div><h3>Your image history</h3><p>Revisit, download, or remove a previous creation.</p></div></div><span className="ai-history-count">{history.length} {history.length === 1 ? 'image' : 'images'}</span></div>
+          {history.length ? <div className="ai-history-grid">{history.map((entry, index) => <article className="ai-history-card" key={`${entry.path || entry.url}-${index}`}><button className="ai-history-image-button" type="button" onClick={() => { setResult(entry.url); setSelectedImage(entry.url); }} aria-label="View generated image"><img src={entry.url} alt={`Generated catering image ${index + 1}`} /></button><div className="ai-history-copy"><div className="ai-history-meta"><span>{index === 0 ? 'LATEST' : 'GENERATED IMAGE'}</span>{entry.createdAt && <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleDateString()}</time>}</div><p>{entry.prompt || 'Prompt details are unavailable for this saved image.'}</p><div className="ai-history-actions"><button type="button" onClick={() => { setPrompt(entry.prompt || prompt); setResult(entry.url); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><WandSparkles size={14} /> Use prompt</button><button type="button" onClick={() => downloadImage(entry.url, index)} aria-label="Download image"><Download size={15} /></button><button type="button" onClick={() => removeImage(entry)} aria-label="Remove image from history"><Trash2 size={15} /></button></div></div></article>)}</div> : <div className="ai-history-empty"><ImagePlus size={19} /><span>Your generated images will be collected here.</span></div>}
+        </section>
       </div>
       {selectedImage && <div className="image-lightbox" role="dialog" aria-modal="true" aria-label="Enlarged generated image" onClick={() => setSelectedImage(null)}><button className="image-lightbox-close" type="button" aria-label="Close image viewer" onClick={() => setSelectedImage(null)}>×</button><img src={selectedImage} alt="Enlarged generated catering image" onClick={(event) => event.stopPropagation()} /></div>}
     </DashboardPage>

@@ -44,7 +44,33 @@ function VenueAddressPicker({ value, onChange }) {
     const latitude = Number(location.lat); const longitude = Number(location.lon);
     const address = location.display_name || '';
     const addressParts = location.address || {};
-    const nextParts = { city: addressParts.city || addressParts.town || addressParts.municipality || '', barangay: addressParts.village || addressParts.suburb || addressParts.neighbourhood || '', postal: addressParts.postcode || '', street: [addressParts.house_number, addressParts.road].filter(Boolean).join(' ') };
+
+    const normalize = (value) => (typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '');
+    const rawBarangay = [
+      addressParts.barangay,
+      addressParts.village,
+      addressParts.suburb,
+      addressParts.neighbourhood,
+      addressParts.hamlet,
+      addressParts.city_district,
+    ].map(normalize).find(Boolean) || '';
+    const rawStreet = [
+      addressParts.house_number,
+      addressParts.road,
+      addressParts.pedestrian,
+      addressParts.path,
+      addressParts.footway,
+      addressParts.cycleway,
+    ].map(normalize).filter(Boolean).join(' ');
+    const isPurokLike = /(?:^|\s)(purok|sitio|zone|subdivision|block|blkg)(?:\s|$)/i.test(rawBarangay);
+
+    const nextParts = {
+      city: addressParts.city || addressParts.town || addressParts.municipality || '',
+      barangay: isPurokLike && !addressParts.barangay ? '' : rawBarangay,
+      postal: addressParts.postcode || '',
+      street: isPurokLike && !addressParts.barangay ? `${rawBarangay}${rawStreet ? `, ${rawStreet}` : ''}` : rawStreet,
+    };
+
     setParts(nextParts); onChange(address); setQuery(address); setResults([]); setStatus('');
     placeMarker(latitude, longitude);
   }

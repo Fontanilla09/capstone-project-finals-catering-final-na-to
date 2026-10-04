@@ -105,6 +105,12 @@ create policy caterers_select_own on public.caterers
 for select to authenticated
 using (user_id = (select user_id from public.get_my_profile()));
 
+drop policy if exists caterers_update_own on public.caterers;
+create policy caterers_update_own on public.caterers
+for update to authenticated
+using (user_id = (select user_id from public.get_my_profile()))
+with check (user_id = (select user_id from public.get_my_profile()));
+
 create or replace function public.save_my_caterer_permit(permit_path varchar)
 returns void
 language sql

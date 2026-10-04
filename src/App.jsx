@@ -14,6 +14,8 @@ import Register from './pages/Register.jsx';
 import ViewReservations from './pages/ViewReservations.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminActivity from './pages/AdminActivity.jsx';
+import AdminCaterManagement from './pages/AdminCaterManagement.jsx';
+import AdminReports from './pages/AdminReports.jsx';
 import AiGeneratedPhoto from './pages/AiGeneratedPhoto.jsx';
 
 export default function App() {
@@ -33,6 +35,8 @@ export default function App() {
   if (path === '/dashboard/caterer/reservations') return <ViewReservations />;
   if (path === '/dashboard/caterer/earnings') return <CatererEarnings />;
   if (path === '/dashboard/admin') return <AdminDashboard />;
+  if (path === '/dashboard/admin/cater-management') return <AdminCaterManagement />;
+  if (path === '/dashboard/admin/reports') return <AdminReports />;
   if (path === '/dashboard/admin/users') return <AdminUsers />;
   if (path === '/dashboard/admin/activity') return <AdminActivity />;
 

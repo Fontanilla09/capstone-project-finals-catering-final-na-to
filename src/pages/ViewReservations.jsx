@@ -10,6 +10,10 @@ function eventIsTodayOrPast(eventDate) {
   return date <= today;
 }
 
+function formatCurrency(amount) {
+  return `₱${Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function ViewReservations() {
   const [reservations, setReservations] = useState([]); const [status, setStatus] = useState('');
   const [rejectingReservation, setRejectingReservation] = useState(null);
@@ -80,7 +84,10 @@ export default function ViewReservations() {
                 <p><strong>Event date</strong>{item.event_date} at {item.event_time}</p>
                 <p><strong>Guests</strong>{item.guest_count}</p>
                 <p className="reservation-location"><strong>Venue</strong>{item.location}</p>
-                <p><strong>Payment</strong>{item.payment_status} · Down payment: ₱{Number(item.advance_payment || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p><strong>Payment status</strong>{item.payment_status}</p>
+                <p><strong>Total amount</strong>{formatCurrency(item.total_amount)}</p>
+                <p><strong>Down payment</strong>{formatCurrency(item.advance_payment)}</p>
+                <p className="reservation-balance"><strong>Balance to pay</strong>{formatCurrency(item.payment_status === 'completed' ? 0 : item.balance_amount)}</p>
               </div>
               <div className="reservation-actions">
                 {item.reservation_status === 'pending' && item.payment_status === 'partial' ? (

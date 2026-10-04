@@ -22,6 +22,7 @@ create table if not exists public.customers (
     address text,
     city varchar(50),
     is_verified boolean not null default false,
+    rejection_reason text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
@@ -40,6 +41,7 @@ create table if not exists public.caterers (
     paypal_email varchar(150),
     is_verified boolean not null default false,
     verification_submitted boolean not null default false,
+    rejection_reason text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );

@@ -74,14 +74,46 @@ export default function AdminDashboard() {
   const pendingCount = Number(stats.pending || 0) + Number(stats.customer_pending || 0);
   const statusRows = useMemo(() => {
     const statuses = analytics.statuses || {};
-    const total = Object.values(statuses).reduce((sum, value) => sum + Number(value), 0) || 1;
-    return [
-      ['Confirmed', statuses.confirmed || 0, 'confirmed'],
-      ['Pending', statuses.pending || 0, 'pending'],
-      ['Completed', statuses.completed || 0, 'completed'],
-      ['Cancelled', statuses.cancelled || 0, 'cancelled'],
-    ].map(([label, value, key]) => ({ label, value: Number(value), key, percentage: Math.round((Number(value) / total) * 100) }));
+    const knownStatuses = [
+      ['Confirmed', 'confirmed', '#4d7a62'],
+      ['Pending', 'pending', '#d29a4d'],
+      ['Completed', 'completed', '#6b87a3'],
+      ['Cancelled', 'cancelled', '#cf775f'],
+    ];
+    const rows = knownStatuses.map(([label, key, color]) => ({
+      label,
+      key,
+      color,
+      value: Number(statuses[key] || 0),
+    }));
+    const knownKeys = new Set(knownStatuses.map(([, key]) => key));
+    Object.entries(statuses)
+      .filter(([key]) => !knownKeys.has(key))
+      .forEach(([key, value], index) => rows.push({
+        label: key.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        key,
+        color: ['#8774a8', '#65a2a0', '#b78153'][index % 3],
+        value: Number(value || 0),
+      }));
+    const total = rows.reduce((sum, row) => sum + row.value, 0);
+    return rows.map((row) => ({ ...row, percentage: total ? Math.round((row.value / total) * 100) : 0 }));
   }, [analytics.statuses]);
+  const statusTotal = statusRows.reduce((sum, row) => sum + row.value, 0);
+  const statusChartRows = useMemo(() => {
+    const circumference = 2 * Math.PI * 42;
+    let offset = 0;
+    return statusRows.map((row) => {
+      const length = statusTotal ? (row.value / statusTotal) * circumference : 0;
+      const segment = { ...row, length, offset: -offset };
+      offset += length;
+      return segment;
+    });
+  }, [statusRows, statusTotal]);
+  const financialMax = Math.max(Number(analytics.revenue) || 0, Number(analytics.platform_commission) || 0, 1);
+  const financialRows = [
+    ['Collected revenue', Number(analytics.revenue) || 0, '#4d7a62'],
+    ['Platform commission', Number(analytics.platform_commission) || 0, '#d29a4d'],
+  ];
 
   const ageMs = lastUpdatedAt === null ? null : Math.max(0, clock - lastUpdatedAt);
   const stale = ageMs !== null && ageMs > 5 * 60 * 1000;
@@ -106,7 +138,7 @@ export default function AdminDashboard() {
         <div className="admin-intro">
           <div>
             <p className="eyebrow">Operations center</p>
-            <h2>Keep CaterAI moving.</h2>
+            <h2>Admin dashboard</h2>
             <p>Review accounts, monitor payouts, and handle the actions that need your attention.</p>
           </div>
           <button className="admin-refresh" onClick={refreshAll} type="button">Refresh data</button>
@@ -126,6 +158,104 @@ export default function AdminDashboard() {
             </article>
           ))}
         </div>
+
+        <section className="admin-analytics">
+          <div className="admin-analytics-heading">
+            <div>
+              <p className="eyebrow">Platform insights</p>
+              <h3>Dashboard analytics</h3>
+            </div>
+            <span>Live database summary</span>
+          </div>
+
+          <div className="analytics-metrics">
+            <article>
+              <span>Total bookings</span>
+              <strong>{analytics.bookings || 0}</strong>
+              <small>Excluding cancelled requests</small>
+            </article>
+            <article>
+              <span>Collected revenue</span>
+              <strong>{money(analytics.revenue)}</strong>
+              <small>{analytics.completed_payments || 0} completed payments</small>
+            </article>
+            <article>
+              <span>Platform commission</span>
+              <strong>{money(analytics.platform_commission)}</strong>
+              <small>2.5% admin earnings</small>
+            </article>
+            <article>
+              <span>Average booking</span>
+              <strong>{money(analytics.average_booking)}</strong>
+              <small>Across active bookings</small>
+            </article>
+          </div>
+
+          <div className="admin-chart-grid">
+            <section className="admin-chart-panel" aria-labelledby="reservation-chart-title">
+              <div className="analytics-status-title">
+                <div>
+                  <p className="eyebrow">Bookings</p>
+                  <h4 id="reservation-chart-title">Reservation status</h4>
+                </div>
+                <span>{statusTotal} total reservations</span>
+              </div>
+              <div className="reservation-chart-content">
+                <div className="reservation-donut-wrap">
+                  <svg className="reservation-donut" viewBox="0 0 100 100" role="img" aria-label={`Reservation status breakdown for ${statusTotal} reservations`}>
+                    <circle className="reservation-donut-track" cx="50" cy="50" r="42" />
+                    {statusChartRows.map((row) => (
+                      <circle
+                        className="reservation-donut-segment"
+                        cx="50"
+                        cy="50"
+                        key={row.key}
+                        r="42"
+                        stroke={row.color}
+                        strokeDasharray={`${row.length} ${2 * Math.PI * 42 - row.length}`}
+                        strokeDashoffset={row.offset}
+                      />
+                    ))}
+                  </svg>
+                  <div className="reservation-donut-total"><strong>{statusTotal}</strong><span>Bookings</span></div>
+                </div>
+                <div className="reservation-chart-legend">
+                  {statusRows.map((row) => (
+                    <div className="reservation-chart-legend-row" key={row.key}>
+                      <span className="reservation-chart-legend-label"><i style={{ backgroundColor: row.color }} />{row.label}</span>
+                      <strong>{row.value}<small>{row.percentage}%</small></strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="admin-chart-panel" aria-labelledby="revenue-chart-title">
+              <div className="analytics-status-title">
+                <div>
+                  <p className="eyebrow">Platform finances</p>
+                  <h4 id="revenue-chart-title">Revenue snapshot</h4>
+                </div>
+                <span>All-time totals</span>
+              </div>
+              <div className="revenue-chart">
+                {financialRows.map(([label, value, color]) => (
+                  <div className="revenue-chart-row" key={label}>
+                    <div className="revenue-chart-label"><span>{label}</span><strong>{money(value)}</strong></div>
+                    <div
+                      className="revenue-chart-track"
+                      role="img"
+                      aria-label={`${label}: ${money(value)}`}
+                    >
+                      <span style={{ backgroundColor: color, width: `${Math.min((value / financialMax) * 100, 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+                <p className="revenue-chart-note">Amounts compared against the larger total.</p>
+              </div>
+            </section>
+          </div>
+        </section>
 
         <section className="system-health-panel" aria-labelledby="system-health-title">
           <div className="system-health-heading">
@@ -174,54 +304,6 @@ export default function AdminDashboard() {
             ) : (
               <p className="health-empty">No image-generation failures recorded.</p>
             )}
-          </div>
-        </section>
-
-        <section className="admin-analytics">
-          <div className="admin-analytics-heading">
-            <div>
-              <p className="eyebrow">Platform insights</p>
-              <h3>Analytics overview</h3>
-            </div>
-            <span>Live database summary</span>
-          </div>
-
-          <div className="analytics-metrics">
-            <article>
-              <span>Total bookings</span>
-              <strong>{analytics.bookings || 0}</strong>
-              <small>Excluding cancelled requests</small>
-            </article>
-            <article>
-              <span>Collected revenue</span>
-              <strong>{money(analytics.revenue)}</strong>
-              <small>{analytics.completed_payments || 0} completed payments</small>
-            </article>
-            <article>
-              <span>Platform commission</span>
-              <strong>{money(analytics.platform_commission)}</strong>
-              <small>2.5% admin earnings</small>
-            </article>
-            <article>
-              <span>Average booking</span>
-              <strong>{money(analytics.average_booking)}</strong>
-              <small>Across active bookings</small>
-            </article>
-          </div>
-
-          <div className="analytics-status-panel">
-            <div className="analytics-status-title">
-              <h4>Reservation status</h4>
-              <span>{analytics.bookings || 0} active records</span>
-            </div>
-            <div className="analytics-status-list">
-              {statusRows.map((row) => (
-                <div className="analytics-status-row" key={row.key}>
-                  <div className="analytics-status-label"><span>{row.label}</span><strong>{row.value}</strong></div>
-                  <div className="analytics-bar"><span className={`analytics-bar-fill analytics-bar-${row.key}`} style={{ width: `${row.percentage}%` }} /></div>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
 

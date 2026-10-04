@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { EVENT_TYPES } from '../lib/eventTypes';
@@ -11,7 +12,7 @@ function imageUrl(path) {
 }
 
 export default function ManageServices() {
-  const [services, setServices] = useState([]); const [form, setForm] = useState(initialForm); const [images, setImages] = useState([]); const [editingId, setEditingId] = useState(null); const [status, setStatus] = useState('');
+  const [services, setServices] = useState([]); const [form, setForm] = useState(initialForm); const [images, setImages] = useState([]); const [editingId, setEditingId] = useState(null); const [expandedServiceId, setExpandedServiceId] = useState(null); const [searchTerm, setSearchTerm] = useState(''); const [currentPage, setCurrentPage] = useState(1); const [pageSize, setPageSize] = useState(5); const [showForm, setShowForm] = useState(false); const [status, setStatus] = useState('');
   async function getCatererId() {
     if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
     const { data, error } = await supabase.rpc('get_my_profile');
@@ -28,6 +29,7 @@ export default function ManageServices() {
     } catch (error) { setStatus(error.message); }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, [showForm]);
   async function create(event) {
     event.preventDefault();
     const wasEditing = Boolean(editingId);
@@ -52,24 +54,148 @@ export default function ManageServices() {
         const { error: imageError } = await supabase.from('package_images').insert({ package_id: packageId, image_path: publicImage.publicUrl });
         if (imageError) throw imageError;
       }
-      setForm(initialForm); setImages([]); setEditingId(null); setStatus(wasEditing ? 'Service updated.' : 'Service created.'); load();
+      setForm(initialForm); setImages([]); setEditingId(null); setShowForm(false); setStatus(wasEditing ? 'Service updated.' : 'Service created.'); load();
     } catch (error) { setStatus(error.message); }
   }
-  async function remove(id) { try { const catererId = await getCatererId(); const { error } = await supabase.from('packages').delete().eq('id', id).eq('caterer_id', catererId); if (error) throw error; setStatus('Service deleted.'); load(); } catch (error) { setStatus(error.message); } }
-  function edit(service) { setEditingId(service.id); setImages([]); setForm({ package_name: service.package_name, event_type: service.event_type, guest_range: `${service.guest_count_min}-${service.guest_count_max}`, price: service.price, description: service.description || '', features: service.includes || '' }); }
+  async function remove(id) { try { const catererId = await getCatererId(); const { error } = await supabase.from('packages').delete().eq('id', id).eq('caterer_id', catererId); if (error) throw error; setExpandedServiceId(null); setCurrentPage(1); setStatus('Service deleted.'); load(); } catch (error) { setStatus(error.message); } }
+  function edit(service) { setEditingId(service.id); setShowForm(true); setImages([]); setForm({ package_name: service.package_name, event_type: service.event_type, guest_range: `${service.guest_count_min}-${service.guest_count_max}`, price: service.price, description: service.description || '', features: service.includes || '' }); }
+  const filteredServices = services.filter((service) => `${service.id} ${service.package_name} ${service.event_type}`.toLowerCase().includes(searchTerm.trim().toLowerCase()));
+  const pageCount = Math.ceil(filteredServices.length / pageSize);
+  const pagedServices = filteredServices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const firstVisibleService = filteredServices.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const lastVisibleService = Math.min(currentPage * pageSize, filteredServices.length);
   const fields = [['package_name', 'Package name'], ['event_type', 'Event type'], ['guest_range', 'Guest range, e.g. 50-100'], ['price', 'Price']];
   return <DashboardPage role="caterer" section="services"><div className="services-workspace">
     {status && <p className="form-alert success-alert">{status}</p>}
-    <div className="services-heading"><div><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><span className="services-count">{services.length} package{services.length === 1 ? '' : 's'}</span></div>
-    <div className="services-layout">
+    <div className="services-heading"><div><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><div className="services-heading-actions"><span className="services-count">{services.length} package{services.length === 1 ? '' : 's'}</span>{!showForm && <button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Add package</button>}</div></div>
+    <div className={`services-layout${showForm ? '' : ' services-layout-catalog'}`}>
+      {showForm && (
       <form className="profile-form service-form" onSubmit={create}>
-        <div className="service-form-heading"><div><p className="eyebrow">{editingId ? 'Edit package' : 'New package'}</p><h3>{editingId ? 'Update service package' : 'Add service package'}</h3></div>{editingId && <button className="service-cancel" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); }} type="button">Cancel</button>}</div>
+        <div className="service-form-heading"><div><p className="eyebrow">{editingId ? 'Edit package' : 'New package'}</p><h3>{editingId ? 'Update service package' : 'Add service package'}</h3></div><button className="service-cancel" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(false); }} type="button">Cancel</button></div>
         <fieldset><legend>Package details</legend><div className="service-fields">{fields.slice(0, 2).map(([name, label]) => <label key={name}>{label}{name === 'event_type' ? <select name={name} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required><option value="">Select event type</option>{EVENT_TYPES.map((eventType) => <option key={eventType} value={eventType}>{eventType}</option>)}</select> : <input name={name} type="text" value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required />}</label>)}</div></fieldset>
         <fieldset><legend>Capacity and pricing</legend><div className="service-fields service-fields-three">{fields.slice(2).map(([name, label]) => <label key={name}>{label}<input name={name} type={name === 'price' ? 'number' : 'text'} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required /></label>)}</div></fieldset>
         <fieldset><legend>Package presentation</legend><div className="service-fields"><label>Package description<textarea name="description" value={form.description} onChange={(event) => setForm({ ...form, [event.target.name]: event.target.value })} placeholder="Describe the service, setup, styling, or event experience." /></label><label>What's included in this package?<textarea name="features" value={form.features} onChange={(event) => setForm({ ...form, [event.target.name]: event.target.value })} placeholder="List the setup, equipment, staff, styling, or other inclusions." /></label></div><div className="service-upload"><span className="service-upload-label">Package photos</span><div className="service-upload-control"><label className="service-file-button" htmlFor="service-images" title="Add package photos" aria-label="Add package photos">+</label><input id="service-images" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setImages(Array.from(event.target.files || []))} /><span>{images.length ? `${images.length} photo${images.length === 1 ? '' : 's'} selected` : 'Add photos of your setup or service'}</span></div><small>Show customers the setup, styling, equipment, or service experience.</small></div></fieldset>
         <button className="button button-primary service-submit" type="submit">{editingId ? 'Update service' : 'Create service'} <span>↗</span></button>
       </form>
-      <section className="services-catalog"><div className="catalog-heading"><div><p className="eyebrow">Your catalog</p><h3>Created packages</h3></div><span>Manage availability and details</span></div>{services.length === 0 ? <p className="service-empty">No packages yet. Your created packages will appear here.</p> : <div className="service-list">{services.map((service) => { const imagePaths = service.image_paths ? service.image_paths.split('||') : []; const reviewComments = service.review_comments ? service.review_comments.split('||').slice(0, 3) : []; return <article className="package-card service-card" key={service.id}>{imagePaths.length > 0 ? <div className="service-card-gallery">{imagePaths.slice(0, 4).map((path) => <img key={path} src={imageUrl(path)} alt={`${service.package_name} sample`} />)}</div> : <div className="service-card-gallery service-card-gallery-empty"><span>✦</span><small>Add package photos to showcase this offer</small></div>}<div className="service-card-top"><div><span className="service-type">{service.event_type}</span><h3>{service.package_name}</h3></div><strong>₱{Number(service.price).toLocaleString()}</strong></div><div className="service-card-meta"><span><b>{service.guest_count_min}-{service.guest_count_max}</b> guests</span><span><b>{service.max_bookings > 0 ? `${service.booking_count}/${service.max_bookings}` : 'Unlimited'}</b> bookings</span><span className="service-card-rating"><b>★ {Number(service.rating || 0) > 0 ? Number(service.rating).toFixed(1) : 'New'}</b> {service.review_count || 0} review{Number(service.review_count || 0) === 1 ? '' : 's'}</span></div>{service.description && <p className="service-description">{service.description}</p>}<div className="service-review-comments"><span className="service-review-title">Customer comments</span>{reviewComments.length > 0 ? reviewComments.map((comment, index) => <p key={`${service.id}-review-${index}`}>“{comment}”</p>) : <p className="service-review-empty">No customer comments yet.</p>}</div>{service.max_bookings > 0 && Number(service.booking_count) >= Number(service.max_bookings) && <strong className="package-full-label">Package full</strong>}<div className="service-actions"><button className="button service-edit" onClick={() => edit(service)} type="button">Edit package</button><button className="button service-delete" onClick={() => remove(service.id)} type="button">Delete</button></div></article>; })}</div>}</section>
+      )}
+      <section className="services-catalog">
+        <div className="catalog-heading">
+          <div><p className="eyebrow">Your catalog</p><h3>Created packages</h3></div>
+          <span>{services.length} package{services.length === 1 ? '' : 's'} in your catalog</span>
+        </div>
+        {services.length === 0 ? (
+          <p className="service-empty">No packages yet. Select “Add package” to create your first one.</p>
+        ) : (
+          <>
+          <div className="service-catalog-tools">
+            <p>Select a package to see its details, photos, and actions.</p>
+            <label className="service-search">
+              <Search size={16} aria-hidden="true" />
+              <input aria-label="Search packages" onChange={(event) => { setSearchTerm(event.target.value); setCurrentPage(1); setExpandedServiceId(null); }} placeholder="Search packages" type="search" value={searchTerm} />
+            </label>
+          </div>
+          <div className="table-wrap service-table-wrap">
+            <table className="customer-table service-table">
+              <thead>
+                <tr><th>Package</th><th>Event type</th><th>Guest capacity</th><th>Price</th><th aria-label="Actions"></th></tr>
+              </thead>
+              <tbody>
+                {pagedServices.length ? pagedServices.map((service) => {
+                  const imagePaths = service.image_paths ? service.image_paths.split('||') : [];
+                  const isExpanded = expandedServiceId === service.id;
+                  const guestCapacity = Number(service.guest_count_min) === Number(service.guest_count_max)
+                    ? `${service.guest_count_min} guests`
+                    : `${service.guest_count_min}–${service.guest_count_max} guests`;
+                  return (
+                    <Fragment key={service.id}>
+                      <tr className={isExpanded ? 'service-package-row expanded' : 'service-package-row'}>
+                        <td data-label="Package">
+                          <div className="service-package-cell">
+                            <span className="service-package-id">#{service.id}</span>
+                            <button className="service-package-name" aria-expanded={isExpanded} onClick={() => setExpandedServiceId(isExpanded ? null : service.id)} type="button">{service.package_name}</button>
+                          </div>
+                        </td>
+                        <td data-label="Event type"><span className="service-event-chip">{service.event_type}</span></td>
+                        <td data-label="Guest capacity">{guestCapacity}</td>
+                        <td data-label="Price"><strong className="service-price">₱{Number(service.price).toLocaleString()}</strong></td>
+                        <td data-label="Details">
+                          <button
+                            className="service-table-toggle"
+                            aria-expanded={isExpanded}
+                            onClick={() => setExpandedServiceId(isExpanded ? null : service.id)}
+                            type="button"
+                          >
+                            {isExpanded ? <>Hide <ChevronUp size={15} aria-hidden="true" /></> : <>Details <ChevronDown size={15} aria-hidden="true" /></>}
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="service-table-detail-row">
+                          <td colSpan="5">
+                            <div className="service-table-details">
+                              <div className="service-table-detail-copy">
+                                <p><strong>Description</strong><br />{service.description || 'No description provided.'}</p>
+                                <p><strong>What's included</strong><br />{service.includes || 'No inclusions listed.'}</p>
+                              </div>
+                              {imagePaths.length > 0 && (
+                                <div className="service-table-photos">
+                                  {imagePaths.slice(0, 4).map((path) => (
+                                    <img key={path} src={imageUrl(path)} alt={`${service.package_name} sample`} />
+                                  ))}
+                                </div>
+                              )}
+                              <div className="service-actions">
+                                <button className="button service-edit" onClick={() => edit(service)} type="button">Edit package</button>
+                                <button className="button service-delete" onClick={() => remove(service.id)} type="button">Delete package</button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                }) : (
+                  <tr className="service-table-empty"><td colSpan="5">{searchTerm ? `No packages match “${searchTerm}”.` : 'No packages found.'}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {filteredServices.length > 0 && (
+            <div className="service-pagination" aria-label="Package table pagination">
+              <div className="service-pagination-info">
+                <label htmlFor="service-page-size">Rows per page</label>
+                <select
+                  id="service-page-size"
+                  onChange={(event) => { setPageSize(Number(event.target.value)); setCurrentPage(1); setExpandedServiceId(null); }}
+                  value={pageSize}
+                >
+                  {[5, 10, 20].map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+                <span>{firstVisibleService}–{lastVisibleService} of {filteredServices.length}</span>
+              </div>
+              {pageCount > 1 && (
+                <nav className="service-pagination-controls" aria-label="Package pages">
+                  <button aria-label="Previous page" disabled={currentPage === 1} onClick={() => { setCurrentPage(currentPage - 1); setExpandedServiceId(null); }} type="button">Previous</button>
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                    <button
+                      aria-current={currentPage === page ? 'page' : undefined}
+                      aria-label={`Page ${page}`}
+                      className={currentPage === page ? 'active' : ''}
+                      key={page}
+                      onClick={() => { setCurrentPage(page); setExpandedServiceId(null); }}
+                      type="button"
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => { setCurrentPage(currentPage + 1); setExpandedServiceId(null); }} type="button">Next</button>
+                </nav>
+              )}
+            </div>
+          )}
+          </>
+        )}
+      </section>
     </div>
   </div></DashboardPage>;
 }
