@@ -29,6 +29,8 @@ export default function DashboardPage({ role, section = 'overview', children }) 
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadReservations, setUnreadReservations] = useState(0);
+  const [pendingAccountCount, setPendingAccountCount] = useState(0);
+  const [openReportCount, setOpenReportCount] = useState(0);
   const [reservationNotice, setReservationNotice] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentCustomerId, setCurrentCustomerId] = useState(null);
@@ -164,6 +166,41 @@ export default function DashboardPage({ role, section = 'overview', children }) 
   }, [authChecked, currentCatererId, role]);
 
   useEffect(() => {
+    if (!authChecked || role !== 'admin') return undefined;
+    let active = true;
+    const loadAdminCounts = async () => {
+      const [accountsResult, reportsResult] = await Promise.all([
+        supabase.rpc('get_admin_accounts'),
+        supabase.from('customer_reports').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_review']),
+      ]);
+      if (!active) return;
+      if (!accountsResult.error) {
+        const accounts = accountsResult.data || [];
+        const pendingCount = accounts.filter((user) => (
+          (user.role === 'customer' && !user.customer_verified && !user.rejection_reason)
+          || (user.role === 'caterer' && user.caterer_verification_submitted === true && !user.caterer_verified && !user.rejection_reason)
+        )).length;
+        setPendingAccountCount(pendingCount);
+      }
+      if (!reportsResult.error) setOpenReportCount(reportsResult.count || 0);
+    };
+    loadAdminCounts();
+    const timer = setInterval(loadAdminCounts, 15000);
+    const channel = supabase
+      .channel('admin-navigation-counts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, loadAdminCounts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, loadAdminCounts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'caterers' }, loadAdminCounts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_reports' }, loadAdminCounts)
+      .subscribe();
+    return () => {
+      active = false;
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [authChecked, role]);
+
+  useEffect(() => {
     if (!menuOpen) return undefined;
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') setMenuOpen(false);
@@ -233,6 +270,8 @@ export default function DashboardPage({ role, section = 'overview', children }) 
               {key === 'notifications' && unreadNotifications > 0 && <span className="message-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}
               {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
               {key === 'messages' && unreadMessages > 0 && <span className="message-badge">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
+              {key === 'users' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending account approvals`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
+              {key === 'reports' && openReportCount > 0 && <span className="message-badge" aria-label={`${openReportCount} open or in-review reports`}>{openReportCount > 99 ? '99+' : openReportCount}</span>}
             </a>
           ))}
           <button className="dashboard-menu-signout" onClick={signOut} type="button">Sign out</button>

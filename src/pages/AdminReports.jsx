@@ -192,7 +192,10 @@ export default function AdminReports() {
                   <p className="eyebrow">{report.target_type === 'package' ? 'Package report' : 'Caterer report'}</p>
                   <h3>{report.target_name}</h3>
                 </div>
-                <time dateTime={report.created_at}>{new Date(report.created_at).toLocaleString()}</time>
+                <time className="report-reported-at" dateTime={report.created_at}>
+                  <span>Reported</span>
+                  <strong>{new Date(report.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</strong>
+                </time>
               </div>
               <div className="report-card-meta">
                 <span><strong>Reported by</strong> {report.reporter_name}{report.reporter_email ? ` · ${report.reporter_email}` : ''}</span>
