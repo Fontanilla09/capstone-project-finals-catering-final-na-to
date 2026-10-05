@@ -11,6 +11,7 @@ export default function CatererEarnings() {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [busyPayoutId, setBusyPayoutId] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   async function load() {
     try {
@@ -48,6 +49,11 @@ export default function CatererEarnings() {
     }
   }
 
+  const payouts = data?.payouts || [];
+  const activePayouts = payouts.filter((payout) => ['pending', 'processing'].includes(payout.payout_status));
+  const payoutHistory = payouts.filter((payout) => ['paid', 'failed'].includes(payout.payout_status));
+  const visiblePayouts = showHistory ? payoutHistory : activePayouts;
+
   return <DashboardPage role="caterer" section="earnings">
     {error && <p className="form-alert error-alert">{error}</p>}{status && <p className="form-alert success-alert">{status}</p>}
     {!data ? <p>Loading earnings...</p> : <>
@@ -57,8 +63,14 @@ export default function CatererEarnings() {
         <article className="stat-card"><h3>Paid out</h3><strong>{money(data.summary?.paid)}</strong></article>
         <article className="stat-card"><h3>Pending payout</h3><strong>{money(data.summary?.pending)}</strong></article>
       </div>
+      <div className="analytics-status-title">
+        <h2>{showHistory ? 'Payout history' : 'Payouts'}</h2>
+        <button className="button button-secondary button-small" onClick={() => setShowHistory((show) => !show)} type="button" aria-pressed={showHistory}>
+          {showHistory ? 'Back to payouts' : `History (${payoutHistory.length})`}
+        </button>
+      </div>
       <div className="reservation-list">
-        {data.payouts.length ? data.payouts.map((payout) => <article className="package-card caterer-payout-card" key={payout.id}>
+        {visiblePayouts.length ? visiblePayouts.map((payout) => <article className="package-card caterer-payout-card" key={payout.id}>
           <h3>{payout.package_name}</h3>
           <p>Reservation #{payout.reservation_id} · {payout.event_date}</p>
           <p>Gross {money(payout.gross_amount)} · Platform fee {money(payout.platform_fee)}</p>
@@ -67,7 +79,7 @@ export default function CatererEarnings() {
           {payout.payout_status === 'pending' && <button className="button button-primary button-small" disabled={busyPayoutId !== null} onClick={() => handlePayout(payout, 'request')} type="button"><BanknoteArrowUp size={15} aria-hidden="true" />{busyPayoutId === payout.id ? 'Requesting...' : 'Request payout'}</button>}
           {payout.payout_status === 'processing' && <button className="button button-secondary button-small" disabled={busyPayoutId !== null} onClick={() => handlePayout(payout, 'status')} type="button"><RefreshCw size={15} aria-hidden="true" />{busyPayoutId === payout.id ? 'Checking...' : 'Check payout status'}</button>}
           {payout.payout_status === 'failed' && <small className="payout-follow-up">Payout failed. Contact support before requesting another transfer.</small>}
-        </article>) : <p>No earnings recorded yet.</p>}
+        </article>) : <p>{showHistory ? 'No completed payouts yet.' : 'No payouts are waiting for a payout request.'}</p>}
       </div>
     </>}
   </DashboardPage>;

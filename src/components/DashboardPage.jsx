@@ -29,6 +29,7 @@ export default function DashboardPage({ role, section = 'overview', children }) 
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadReservations, setUnreadReservations] = useState(0);
+  const [pendingPayoutCount, setPendingPayoutCount] = useState(0);
   const [pendingAccountCount, setPendingAccountCount] = useState(0);
   const [openReportCount, setOpenReportCount] = useState(0);
   const [reservationNotice, setReservationNotice] = useState(null);
@@ -166,6 +167,25 @@ export default function DashboardPage({ role, section = 'overview', children }) 
   }, [authChecked, currentCatererId, role]);
 
   useEffect(() => {
+    if (!authChecked || role !== 'caterer' || !currentCatererId) return undefined;
+    let active = true;
+    const loadPendingPayouts = async () => {
+      const { data, error } = await supabase.rpc('get_caterer_earnings');
+      if (!active || error) return;
+      const payouts = data?.payouts || [];
+      setPendingPayoutCount(payouts.filter((payout) => payout.payout_status === 'pending').length);
+    };
+    loadPendingPayouts();
+    const timer = setInterval(loadPendingPayouts, 15000);
+    window.addEventListener('focus', loadPendingPayouts);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener('focus', loadPendingPayouts);
+    };
+  }, [authChecked, currentCatererId, role]);
+
+  useEffect(() => {
     if (!authChecked || role !== 'admin') return undefined;
     let active = true;
     const loadAdminCounts = async () => {
@@ -269,6 +289,7 @@ export default function DashboardPage({ role, section = 'overview', children }) 
               {label}
               {key === 'notifications' && unreadNotifications > 0 && <span className="message-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}
               {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
+              {key === 'earnings' && pendingPayoutCount > 0 && <span className="message-badge" aria-label={`${pendingPayoutCount} payouts awaiting request`}>{pendingPayoutCount > 99 ? '99+' : pendingPayoutCount}</span>}
               {key === 'messages' && unreadMessages > 0 && <span className="message-badge">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
               {key === 'users' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending account approvals`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
               {key === 'reports' && openReportCount > 0 && <span className="message-badge" aria-label={`${openReportCount} open or in-review reports`}>{openReportCount > 99 ? '99+' : openReportCount}</span>}
