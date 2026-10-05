@@ -9,7 +9,7 @@ const dashboardSections = {
   admin: [['overview', 'Dashboard', '/dashboard/admin'], ['cater-management', 'Cater Management', '/dashboard/admin/cater-management'], ['reports', 'Reports & complaints', '/dashboard/admin/reports'], ['users', 'User management', '/dashboard/admin/users'], ['activity', 'Activity log', '/dashboard/admin/activity']],
 };
 
-const dashboardTitles = { customer: 'Customer dashboard', caterer: 'Caterer dashboard', admin: 'Admin dashboard' };
+const dashboardTitles = { customer: 'Customer', caterer: 'Caterer', admin: 'Admin' };
 
 function getInitials(name) {
   if (!name) return 'C';
