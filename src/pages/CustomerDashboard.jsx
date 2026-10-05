@@ -18,6 +18,7 @@ export default function CustomerDashboard() {
   const [reservations, setReservations] = useState([]);
   const [statusAlerts, setStatusAlerts] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(notificationRoute);
+  const [showBookingHistory, setShowBookingHistory] = useState(false);
   const [status, setStatus] = useState('');
   const [reviewingId, setReviewingId] = useState(null);
   const [payingBalanceId, setPayingBalanceId] = useState(null);
@@ -216,6 +217,10 @@ export default function CustomerDashboard() {
     confirmed: reservations.filter((item) => item.reservation_status === 'confirmed').length,
     paid: reservations.filter((item) => Number(item.paid_amount) >= Number(item.total_amount)).length,
   }), [reservations]);
+  const visibleReservations = useMemo(
+    () => reservations.filter((item) => (item.reservation_status === 'completed') === showBookingHistory),
+    [reservations, showBookingHistory],
+  );
 
   const reminders = useMemo(() => reservations.flatMap((item) => {
     const notices = [];
@@ -295,9 +300,12 @@ export default function CustomerDashboard() {
         <div className="table-card">
           <div className="section-header">
             <div>
-              <p className="eyebrow eyebrow-soft">Booking requests</p>
-              <h3>Your reservations</h3>
+              <p className="eyebrow eyebrow-soft">{showBookingHistory ? 'Past bookings' : 'Booking requests'}</p>
+              <h3>{showBookingHistory ? 'Booking history' : 'Your reservations'}</h3>
             </div>
+            <button className="button button-secondary button-small" onClick={() => setShowBookingHistory((show) => !show)} type="button" aria-pressed={showBookingHistory}>
+              {showBookingHistory ? 'Back to reservations' : `History (${reservations.filter((item) => item.reservation_status === 'completed').length})`}
+            </button>
           </div>
 
           <div className="table-wrap">
@@ -314,7 +322,7 @@ export default function CustomerDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {reservations.length ? reservations.map((item) => (
+                {visibleReservations.length ? visibleReservations.map((item) => (
                   <tr key={item.id}>
                     <td data-label="Package"><strong>{item.package_name}</strong></td>
                     <td data-label="Caterer">{item.business_name}</td>
@@ -357,8 +365,8 @@ export default function CustomerDashboard() {
                   <tr>
                     <td colSpan="7" className="empty-cell">
                       <div className="customer-empty-state">
-                        <p>No booking requests yet.</p>
-                        <a className="button button-primary" href="/packages">Explore caterers <ArrowRight size={16} aria-hidden="true" /></a>
+                        <p>{showBookingHistory ? 'No completed bookings yet.' : 'No active booking requests.'}</p>
+                        {!showBookingHistory && <a className="button button-primary" href="/packages">Explore caterers <ArrowRight size={16} aria-hidden="true" /></a>}
                       </div>
                     </td>
                   </tr>
