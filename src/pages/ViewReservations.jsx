@@ -16,6 +16,7 @@ function formatCurrency(amount) {
 
 export default function ViewReservations() {
   const [reservations, setReservations] = useState([]); const [status, setStatus] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
   const [rejectingReservation, setRejectingReservation] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   async function load() {
@@ -68,12 +69,22 @@ export default function ViewReservations() {
       setStatus('Reservation rejected. The customer can now see the reason.');
     } catch (error) { setStatus(error.message); }
   }
+  const completedReservations = reservations.filter((item) => item.reservation_status === 'completed');
+  const visibleReservations = reservations.filter((item) => (
+    (item.reservation_status === 'completed') === showHistory
+  ));
   return (
     <DashboardPage role="caterer" section="reservations">
       <>
         {status && <p className="form-alert success-alert">{status}</p>}
+        <div className="analytics-status-title">
+          <h2>{showHistory ? 'Reservation history' : 'Active reservations'}</h2>
+          <button className="button button-secondary button-small" onClick={() => setShowHistory((show) => !show)} type="button" aria-pressed={showHistory}>
+            {showHistory ? 'Back to reservations' : `History (${completedReservations.length})`}
+          </button>
+        </div>
         <div className="reservation-list">
-          {reservations.length ? reservations.map((item) => (
+          {visibleReservations.length ? visibleReservations.map((item) => (
             <article className="package-card reservation-card" key={item.id}>
               <div className="reservation-card-header">
                 <div><p className="eyebrow">Booking request</p><h3>{item.package_name}</h3></div>
@@ -105,7 +116,7 @@ export default function ViewReservations() {
                 )}
               </div>
             </article>
-          )) : <p>No reservations found.</p>}
+          )) : <p>{showHistory ? 'No completed services yet.' : 'No active reservations found.'}</p>}
         </div>
         {rejectingReservation && (
           <div className="reservation-reject-overlay" role="dialog" aria-modal="true" aria-label="Reject booking request" onClick={() => setRejectingReservation(null)}>
