@@ -99,8 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 $request = json_decode(file_get_contents('php://input') ?: '', true);
 $path = is_array($request) ? (string) ($request['path'] ?? '') : '';
-$path_pattern = '/^' . preg_quote($owner, '/') . '\/generated_[a-f0-9]{32}\.(png|jpg|webp)$/i';
-if (!preg_match($path_pattern, $path)) {
+if ($path === '' || strlen($path) > 1024 || preg_match('/[\x00-\x1f\x7f]/', $path)) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid image path.']);
     exit;
