@@ -14,8 +14,18 @@ export default function ResetPassword() {
       return undefined;
     }
 
+    const callbackParams = new URLSearchParams(window.location.hash.slice(1));
+    const callbackError = callbackParams.get('error_code') || callbackParams.get('error');
+    if (callbackError) {
+      const message = callbackError === 'otp_expired'
+        ? 'This reset link has expired or was already used. Request a new link and open the latest email.'
+        : 'This reset link is invalid. Request a new one and try again.';
+      setStatus({ error: message, success: '' });
+      return undefined;
+    }
+
     let active = true;
-    const recoveryLink = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+    const recoveryLink = callbackParams.get('type') === 'recovery';
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (event === 'PASSWORD_RECOVERY' && session) {

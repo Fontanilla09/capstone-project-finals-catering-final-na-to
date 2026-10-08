@@ -22,10 +22,14 @@ import AiGeneratedPhoto from './pages/AiGeneratedPhoto.jsx';
 
 export default function App() {
   const path = window.location.pathname;
+  const callbackParams = new URLSearchParams(window.location.hash.slice(1));
+  const isPasswordRecoveryCallback = callbackParams.get('type') === 'recovery'
+    || callbackParams.has('error_code')
+    || callbackParams.has('error');
 
   if (path === '/login') return <Login />;
   if (path === '/forgot-password') return <ForgotPassword />;
-  if (path === '/reset-password') return <ResetPassword />;
+  if (path === '/reset-password' || (path === '/' && isPasswordRecoveryCallback)) return <ResetPassword />;
   if (path === '/register') return <Register />;
   if (path === '/packages') return <Packages />;
   if (path.startsWith('/packages/')) return <PackageDetails />;
