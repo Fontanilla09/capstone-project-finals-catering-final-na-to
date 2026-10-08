@@ -135,11 +135,9 @@ export default function AiGeneratedPhoto() {
   }
 
   async function removeImage(imageEntry) {
-    let storageDeleted = true;
     if (imageEntry.path) {
       try {
-        const deletion = await deleteGeneratedImage(imageEntry.path);
-        storageDeleted = deletion.storageDeleted !== false;
+        await deleteGeneratedImage(imageEntry.path);
       } catch (error) {
         setStatus(error.message);
         return;
@@ -151,7 +149,7 @@ export default function AiGeneratedPhoto() {
       return next;
     });
     if (result === imageEntry.url) setResult('');
-    if (!storageDeleted) setStatus('Removed from history, but the stored image file could not be deleted.');
+    setStatus('');
   }
 
   const latestImage = history[0];
