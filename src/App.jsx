@@ -7,6 +7,8 @@ import CustomerMessages from './pages/CustomerMessages.jsx';
 import CatererEarnings from './pages/CatererEarnings.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import ManageServices from './pages/ManageServices.jsx';
 import PackageDetails from './pages/PackageDetails.jsx';
 import Packages from './pages/Packages.jsx';
@@ -22,6 +24,8 @@ export default function App() {
   const path = window.location.pathname;
 
   if (path === '/login') return <Login />;
+  if (path === '/forgot-password') return <ForgotPassword />;
+  if (path === '/reset-password') return <ResetPassword />;
   if (path === '/register') return <Register />;
   if (path === '/packages') return <Packages />;
   if (path.startsWith('/packages/')) return <PackageDetails />;
