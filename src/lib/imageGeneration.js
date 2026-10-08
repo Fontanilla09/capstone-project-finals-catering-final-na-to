@@ -97,7 +97,7 @@ export async function deleteGeneratedImage(path) {
   if (error) throw new Error(error.message);
   const accessToken = data.session?.access_token;
   if (!accessToken) throw new Error('Sign in again to remove generated images.');
-  await postImageRequest('/backend/image_history.php', { path }, accessToken, 'DELETE');
+  return postImageRequest('/backend/image_history.php', { path }, accessToken, 'DELETE');
 }
 
 export async function downloadGeneratedImage(url, filename) {

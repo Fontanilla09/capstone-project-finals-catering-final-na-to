@@ -119,15 +119,19 @@ if (!$deleted['ok']) {
 // Old history entries may point to files owned by a previous account. Only
 // delete a Storage object when its path is safely inside this user's folder.
 $owned_path_pattern = '/^' . preg_quote($owner, '/') . '\/[A-Za-z0-9][A-Za-z0-9._-]{0,254}\.(png|jpg|webp)$/i';
+$storage_deleted = !preg_match($owned_path_pattern, $path);
 if (preg_match($owned_path_pattern, $path)) {
     $storage_delete = image_storage_delete($path);
     if (!$storage_delete['ok'] && $storage_delete['status'] !== 404) {
         error_log('AI generated image object could not be deleted from storage: ' . ($storage_delete['error'] ?: 'Supabase request failed.'));
-        http_response_code(502);
-        echo json_encode(['error' => 'The image was removed from history, but its stored file could not be deleted.']);
-        exit;
+    } else {
+        $storage_deleted = true;
     }
 }
 
-echo json_encode(['success' => true]);
+echo json_encode([
+    'success' => true,
+    'storageDeleted' => $storage_deleted,
+    'warning' => $storage_deleted ? null : 'The image was removed from history, but its stored file could not be deleted.',
+]);
 ?>
