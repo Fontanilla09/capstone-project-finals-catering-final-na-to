@@ -109,11 +109,11 @@ export default function CatererProfile() {
 
       const path = `${currentProfile.caterer_id}/profile-${crypto.randomUUID()}.${file.type.split('/')[1]}`;
       const { error: uploadError } = await supabase.storage.from('package-images').upload(path, file, { contentType: file.type, upsert: true });
-      if (uploadError) throw uploadError;
+      if (uploadError) throw new Error(`Photo storage upload failed: ${uploadError.message}`);
 
       const { data: publicImage } = supabase.storage.from('package-images').getPublicUrl(path);
       const { error: updateError } = await supabase.from('caterers').update({ profile_image: publicImage.publicUrl }).eq('user_id', currentProfile.user_id);
-      if (updateError) throw updateError;
+      if (updateError) throw new Error(`Photo uploaded, but saving it to the caterer profile failed: ${updateError.message}`);
 
       setStatus('Profile photo updated.');
       await load();
