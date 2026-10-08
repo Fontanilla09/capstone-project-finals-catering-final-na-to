@@ -108,7 +108,7 @@ export default function CatererProfile() {
       if (!currentProfile?.caterer_id) throw new Error('Caterer profile not found.');
 
       const path = `${currentProfile.caterer_id}/profile-${crypto.randomUUID()}.${file.type.split('/')[1]}`;
-      const { error: uploadError } = await supabase.storage.from('package-images').upload(path, file, { contentType: file.type, upsert: true });
+      const { error: uploadError } = await supabase.storage.from('package-images').upload(path, file, { contentType: file.type });
       if (uploadError) throw new Error(`Photo storage upload failed: ${uploadError.message}`);
 
       const { data: publicImage } = supabase.storage.from('package-images').getPublicUrl(path);
