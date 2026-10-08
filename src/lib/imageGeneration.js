@@ -5,15 +5,15 @@ import { blockedPromptMessage, isPromptBlocked } from './themePromptGuard.js';
 const pollIntervalMs = 3000;
 const maxPollAttempts = 180;
 
-async function postImageRequest(path, body, accessToken) {
+async function postImageRequest(path, body, accessToken, method = 'POST') {
   const response = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
+    method,
     credentials: 'include',
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      ...(body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
     },
-    body: body instanceof FormData ? body : JSON.stringify(body),
+    ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
   });
   const raw = await response.text();
   let data;
@@ -73,6 +73,31 @@ export async function refreshGeneratedImageUrl(path) {
   if (!accessToken) throw new Error('Sign in again to view generated images.');
   const result = await postImageRequest('/backend/generate_status.php', { path }, accessToken);
   return result.url;
+}
+
+export async function loadGeneratedImages() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(error.message);
+  const accessToken = data.session?.access_token;
+  if (!accessToken) throw new Error('Sign in again to view generated images.');
+  const result = await postImageRequest('/backend/image_history.php', null, accessToken, 'GET');
+  return result.images;
+}
+
+export async function saveGeneratedImageToHistory(image) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(error.message);
+  const accessToken = data.session?.access_token;
+  if (!accessToken) throw new Error('Sign in again to save generated images.');
+  await postImageRequest('/backend/image_history.php', image, accessToken);
+}
+
+export async function deleteGeneratedImage(path) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(error.message);
+  const accessToken = data.session?.access_token;
+  if (!accessToken) throw new Error('Sign in again to remove generated images.');
+  await postImageRequest('/backend/image_history.php', { path }, accessToken, 'DELETE');
 }
 
 export async function downloadGeneratedImage(url, filename) {

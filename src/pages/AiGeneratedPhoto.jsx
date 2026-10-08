@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, ImagePlus, LoaderCircle, Sparkles, Trash2, WandSparkles } from 'lucide-react';
-import { downloadGeneratedImage, generateImage, refreshGeneratedImageUrl } from '../lib/imageGeneration';
+import { deleteGeneratedImage, downloadGeneratedImage, generateImage, loadGeneratedImages, refreshGeneratedImageUrl, saveGeneratedImageToHistory } from '../lib/imageGeneration';
 import DashboardPage from '../components/DashboardPage.jsx';
 
 export default function AiGeneratedPhoto() {
@@ -33,24 +33,35 @@ export default function AiGeneratedPhoto() {
 
   useEffect(() => {
     let active = true;
-    const savedImages = history.filter((entry) => entry.path);
-    if (!savedImages.length) return undefined;
-
-    Promise.all(savedImages.map(async (entry) => {
+    async function restoreHistory() {
       try {
-        return { ...entry, url: await refreshGeneratedImageUrl(entry.path) };
-      } catch {
-        return entry;
-      }
-    })).then((refreshed) => {
-      if (!active) return;
-      const byPath = new Map(refreshed.map((entry) => [entry.path, entry]));
-      setHistory((current) => {
-        const next = current.map((entry) => byPath.get(entry.path) || entry);
+        const localHistory = JSON.parse(localStorage.getItem('caterai-ai-image-history') || '[]');
+        const localEntries = Array.isArray(localHistory)
+          ? localHistory.map((entry) => typeof entry === 'string' ? { url: entry, path: '', prompt: '' } : entry).filter((entry) => typeof entry?.url === 'string')
+          : [];
+        const legacyEntries = localEntries.filter((entry) => entry.path);
+        await Promise.all(legacyEntries.map((entry) => saveGeneratedImageToHistory(entry)));
+        const savedImages = await loadGeneratedImages();
+        const savedPaths = new Set(savedImages.map((entry) => entry.path));
+        const olderImages = await Promise.all(localEntries
+          .filter((entry) => !entry.path || !savedPaths.has(entry.path))
+          .map(async (entry) => {
+            if (!entry.path) return entry;
+            try {
+              return { ...entry, url: await refreshGeneratedImageUrl(entry.path) };
+            } catch {
+              return null;
+            }
+          }));
+        if (!active) return;
+        const next = [...savedImages, ...olderImages.filter(Boolean)].slice(0, 12);
+        setHistory(next);
         localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
-        return next;
-      });
-    });
+      } catch (error) {
+        if (active) setStatus(`Could not load saved image history: ${error.message}`);
+      }
+    }
+    restoreHistory();
 
     return () => { active = false; };
   }, []);
@@ -123,7 +134,15 @@ export default function AiGeneratedPhoto() {
     }
   }
 
-  function removeImage(imageEntry) {
+  async function removeImage(imageEntry) {
+    if (imageEntry.path) {
+      try {
+        await deleteGeneratedImage(imageEntry.path);
+      } catch (error) {
+        setStatus(error.message);
+        return;
+      }
+    }
     setHistory((current) => {
       const next = current.filter((item) => item.path !== imageEntry.path || item.url !== imageEntry.url);
       localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));

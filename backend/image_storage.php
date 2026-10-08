@@ -69,9 +69,9 @@ function image_storage_signed_url(string $path, int $expires_in = 86400): ?strin
     return str_starts_with($signed_url, 'http') ? $signed_url : $supabase_url . '/storage/v1' . $signed_url;
 }
 
-function image_storage_delete(string $path): void
+function image_storage_delete(string $path): array
 {
-    image_storage_request('DELETE', image_storage_path('ai-visualizations', $path));
+    return image_storage_request('DELETE', image_storage_path('ai-visualizations', $path));
 }
 
 function log_image_failure(string $component, string $message, array $details = []): void

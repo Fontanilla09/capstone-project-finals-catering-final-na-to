@@ -107,8 +107,8 @@ $token = image_task_token([
     'owner' => $owner,
     'input_path' => $input_path,
     'output_path' => $output_path,
+    'prompt' => trim((string) ($_POST['prompt'] ?? '')),
     'expires_at' => time() + 3600,
 ]);
 echo json_encode(['success' => true, 'status' => 'processing', 'task_token' => $token]);
 ?>
-exec($cmd, $outputLines, $ret);

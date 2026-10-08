@@ -148,6 +148,18 @@ if (!$upload['ok']) {
     echo json_encode(['success' => false, 'error' => 'Could not save the generated image to Supabase Storage.']);
     exit;
 }
+$saved_image = supabase_request('POST', 'ai_generated_images', [], [
+    'user_id' => $owner,
+    'storage_path' => $output_path,
+    'prompt' => (string) ($claims['prompt'] ?? ''),
+], 'return=representation');
+if (!$saved_image['ok']) {
+    image_storage_delete($output_path);
+    log_image_failure('image_storage', 'Generated image history could not be saved.', ['http_status' => $saved_image['status']]);
+    http_response_code(502);
+    echo json_encode(['success' => false, 'error' => 'The image was generated but could not be saved to your history. Apply the AI image history database migration and try again.']);
+    exit;
+}
 if (!empty($claims['input_path'])) image_storage_delete($claims['input_path']);
 
 $signed_url = image_storage_signed_url($output_path);
