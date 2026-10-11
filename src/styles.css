@@ -630,7 +630,8 @@ button:active, a:active { transform: scale(.98); }
 }
 
 .review-form select,
-.review-form textarea {
+.review-form textarea,
+.review-form input[type="file"] {
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid #c9d2c7;
   border-radius: 12px;
@@ -641,6 +642,19 @@ button:active, a:active { transform: scale(.98); }
 .review-form textarea {
   min-height: 100px;
   resize: vertical;
+}
+
+.review-photo-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.review-photo-preview img {
+  border-radius: 12px;
+  display: block;
+  max-height: 220px;
+  object-fit: cover;
+  width: 100%;
 }
 
 .review-actions {

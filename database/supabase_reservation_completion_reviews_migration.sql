@@ -38,7 +38,8 @@ grant execute on function public.complete_caterer_reservation(bigint) to authent
 create or replace function public.submit_catering_review(
     p_reservation_id bigint,
     p_rating integer,
-    p_review_text text default ''
+    p_review_text text default '',
+    p_review_image text default null
 )
 returns void
 language plpgsql
@@ -54,6 +55,10 @@ begin
 
     if length(coalesce(p_review_text, '')) > 1000 then
         raise exception 'Review must be 1000 characters or fewer.';
+    end if;
+
+    if p_review_image is not null and length(trim(p_review_image)) > 255 then
+        raise exception 'Review photo URL is too long.';
     end if;
 
     select c.id
@@ -94,8 +99,15 @@ begin
     where id = v_caterer_id
     for update;
 
-    insert into public.reviews (reservation_id, customer_id, caterer_id, rating, review_text)
-    values (p_reservation_id, v_customer_id, v_caterer_id, p_rating, nullif(trim(coalesce(p_review_text, '')), ''));
+    insert into public.reviews (reservation_id, customer_id, caterer_id, rating, review_text, review_image)
+    values (
+        p_reservation_id,
+        v_customer_id,
+        v_caterer_id,
+        p_rating,
+        nullif(trim(coalesce(p_review_text, '')), ''),
+        nullif(trim(coalesce(p_review_image, '')), '')
+    );
 
     update public.caterers
     set rating = coalesce((
@@ -107,7 +119,50 @@ begin
 end;
 $$;
 
-revoke all on function public.submit_catering_review(bigint, integer, text) from public;
-grant execute on function public.submit_catering_review(bigint, integer, text) to authenticated;
+revoke all on function public.submit_catering_review(bigint, integer, text, text) from public;
+grant execute on function public.submit_catering_review(bigint, integer, text, text) to authenticated;
+
+alter table public.reviews enable row level security;
+
+drop policy if exists reviews_public_read on public.reviews;
+create policy reviews_public_read on public.reviews
+for select to anon, authenticated
+using (true);
+
+grant select on public.reviews to anon, authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'review-images',
+    'review-images',
+    true,
+    5242880,
+    array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = true,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists review_images_storage_insert on storage.objects;
+create policy review_images_storage_insert on storage.objects
+for insert to authenticated
+with check (
+    bucket_id = 'review-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists review_images_storage_delete on storage.objects;
+create policy review_images_storage_delete on storage.objects
+for delete to authenticated
+using (
+    bucket_id = 'review-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists review_images_storage_select on storage.objects;
+create policy review_images_storage_select on storage.objects
+for select to public
+using (bucket_id = 'review-images');
 
 revoke insert, update, delete on table public.reviews from public, anon, authenticated;

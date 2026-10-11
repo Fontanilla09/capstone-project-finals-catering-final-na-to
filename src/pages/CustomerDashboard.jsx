@@ -25,6 +25,8 @@ export default function CustomerDashboard() {
   const [receipt, setReceipt] = useState(null);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [reviewImage, setReviewImage] = useState(null);
+  const [reviewImagePreview, setReviewImagePreview] = useState('');
   const statusSnapshotRef = useRef(null);
 
   async function load() {
@@ -137,6 +139,16 @@ export default function CustomerDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!reviewImage) {
+      setReviewImagePreview('');
+      return undefined;
+    }
+    const previewUrl = URL.createObjectURL(reviewImage);
+    setReviewImagePreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [reviewImage]);
+
+  useEffect(() => {
     if (reviewingId) {
       document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -194,19 +206,58 @@ export default function CustomerDashboard() {
   async function submitReview(event) {
     event.preventDefault();
     if (!reviewingId) return;
+    let uploadedImagePath = null;
+    let uploadedImageUrl = null;
     try {
+      if (reviewImage) {
+        if (reviewImage.size > 5 * 1024 * 1024) {
+          throw new Error('The event photo must be 5 MB or smaller.');
+        }
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(reviewImage.type)) {
+          throw new Error('Upload a JPG, PNG, or WEBP event photo.');
+        }
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!authData.user) throw new Error('Sign in to upload a review photo.');
+        const extension = {
+          'image/jpeg': 'jpg',
+          'image/png': 'png',
+          'image/webp': 'webp',
+        }[reviewImage.type];
+        uploadedImagePath = `${authData.user.id}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from('review-images')
+          .upload(uploadedImagePath, reviewImage, { contentType: reviewImage.type, upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: publicUrlData } = supabase.storage.from('review-images').getPublicUrl(uploadedImagePath);
+        if (!publicUrlData?.publicUrl) throw new Error('Unable to generate the review photo URL.');
+        uploadedImageUrl = publicUrlData.publicUrl;
+      }
+
       const { error } = await supabase.rpc('submit_catering_review', {
         p_reservation_id: reviewingId,
         p_rating: rating,
         p_review_text: reviewText.trim(),
+        p_review_image: uploadedImageUrl,
       });
-      if (error) throw error;
+      if (error) {
+        if (uploadedImagePath) {
+          await supabase.storage.from('review-images').remove([uploadedImagePath]);
+        }
+        throw error;
+      }
       setReviewingId(null);
       setReviewText('');
       setRating(5);
+      setReviewImage(null);
+      setReviewImagePreview('');
       await load();
       setStatus('Review submitted. Thank you for sharing your experience.');
     } catch (error) {
+      if (uploadedImagePath) {
+        try { await supabase.storage.from('review-images').remove([uploadedImagePath]); } catch { /* cleanup failed */ }
+      }
       setStatus(error.message);
     }
   }
@@ -397,9 +448,20 @@ export default function CustomerDashboard() {
               <textarea value={reviewText} onChange={(event) => setReviewText(event.target.value)} maxLength={1000} placeholder="Tell us about your event experience..." />
             </label>
 
+            <label>
+              Event photo (optional)
+              <input accept="image/jpeg,image/png,image/webp" onChange={(event) => setReviewImage(event.target.files?.[0] || null)} type="file" />
+            </label>
+            {reviewImagePreview && (
+              <div className="review-photo-preview">
+                <img src={reviewImagePreview} alt="Selected event preview" />
+                <button className="button button-secondary button-small" onClick={() => { setReviewImage(null); setReviewImagePreview(''); }} type="button">Remove photo</button>
+              </div>
+            )}
+
             <div className="review-actions">
               <button className="button button-primary" type="submit">Submit review</button>
-              <button className="button button-secondary" onClick={() => setReviewingId(null)} type="button">Cancel</button>
+              <button className="button button-secondary" onClick={() => { setReviewingId(null); setReviewImage(null); setReviewImagePreview(''); }} type="button">Cancel</button>
             </div>
           </form>
         )}
