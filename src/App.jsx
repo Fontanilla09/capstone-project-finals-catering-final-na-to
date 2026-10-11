@@ -5,6 +5,7 @@ import CatererProfile from './pages/CatererProfile.jsx';
 import CustomerDashboard from './pages/CustomerDashboard.jsx';
 import CustomerMessages from './pages/CustomerMessages.jsx';
 import CatererEarnings from './pages/CatererEarnings.jsx';
+import CatererReviews from './pages/CatererReviews.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
@@ -41,6 +42,7 @@ export default function App() {
   if (path === '/dashboard/caterer/services') return <ManageServices />;
   if (path === '/dashboard/caterer/ai-photos') return <AiGeneratedPhoto />;
   if (path === '/dashboard/caterer/reservations') return <ViewReservations />;
+  if (path === '/dashboard/caterer/reviews') return <CatererReviews />;
   if (path === '/dashboard/caterer/earnings') return <CatererEarnings />;
   if (path === '/dashboard/admin') return <AdminDashboard />;
   if (path === '/dashboard/admin/cater-management') return <AdminCaterManagement />;

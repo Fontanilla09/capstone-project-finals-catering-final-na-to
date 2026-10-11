@@ -5,7 +5,7 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const dashboardSections = {
   customer: [['overview', 'Dashboard', '/dashboard/customer'], ['notifications', 'Notifications', '/dashboard/customer?notifications=1'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages']],
-  caterer: [['overview', 'Dashboard', '/dashboard/caterer'], ['profile', 'Business profile', '/dashboard/caterer/profile'], ['services', 'Manage services', '/dashboard/caterer/services'], ['ai-photos', 'AI generated photo', '/dashboard/caterer/ai-photos'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages']],
+  caterer: [['overview', 'Dashboard', '/dashboard/caterer'], ['profile', 'Business profile', '/dashboard/caterer/profile'], ['services', 'Manage services', '/dashboard/caterer/services'], ['ai-photos', 'AI generated photo', '/dashboard/caterer/ai-photos'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['reviews', 'Reviews & ratings', '/dashboard/caterer/reviews'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages']],
   admin: [['overview', 'Dashboard', '/dashboard/admin'], ['cater-management', 'Cater Management', '/dashboard/admin/cater-management'], ['reports', 'Reports & complaints', '/dashboard/admin/reports'], ['users', 'User management', '/dashboard/admin/users'], ['activity', 'Activity log', '/dashboard/admin/activity']],
 };
 
@@ -29,6 +29,7 @@ export default function DashboardPage({ role, section = 'overview', children }) 
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadReservations, setUnreadReservations] = useState(0);
+  const [unreadReviews, setUnreadReviews] = useState(0);
   const [pendingPayoutCount, setPendingPayoutCount] = useState(0);
   const [pendingAccountCount, setPendingAccountCount] = useState(0);
   const [openReportCount, setOpenReportCount] = useState(0);
@@ -39,7 +40,7 @@ export default function DashboardPage({ role, section = 'overview', children }) 
   const [menuOpen, setMenuOpen] = useState(false);
   const sections = dashboardSections[role];
   const current = sections.find(([key]) => key === section) || sections[0];
-  const totalUnread = unreadMessages + unreadNotifications + unreadReservations;
+  const totalUnread = unreadMessages + unreadNotifications + unreadReservations + unreadReviews;
 
   useEffect(() => {
     let active = true;
@@ -169,6 +170,28 @@ export default function DashboardPage({ role, section = 'overview', children }) 
   useEffect(() => {
     if (!authChecked || role !== 'caterer' || !currentCatererId) return undefined;
     let active = true;
+    const loadUnreadReviews = async () => {
+      const { data, error } = await supabase.rpc('get_unread_caterer_reviews_count');
+      if (active && !error) setUnreadReviews(Number(data || 0));
+    };
+    loadUnreadReviews();
+    const timer = setInterval(loadUnreadReviews, 15000);
+    const channel = supabase
+      .channel(`caterer-review-notifications-${currentCatererId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reviews', filter: `caterer_id=eq.${currentCatererId}` }, loadUnreadReviews)
+      .subscribe();
+    window.addEventListener('caterer-reviews-seen', loadUnreadReviews);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener('caterer-reviews-seen', loadUnreadReviews);
+      supabase.removeChannel(channel);
+    };
+  }, [authChecked, currentCatererId, role]);
+
+  useEffect(() => {
+    if (!authChecked || role !== 'caterer' || !currentCatererId) return undefined;
+    let active = true;
     const loadPendingPayouts = async () => {
       const { data, error } = await supabase.rpc('get_caterer_earnings');
       if (!active || error) return;
@@ -289,6 +312,7 @@ export default function DashboardPage({ role, section = 'overview', children }) 
               {label}
               {key === 'notifications' && unreadNotifications > 0 && <span className="message-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}
               {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
+              {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}
               {key === 'earnings' && pendingPayoutCount > 0 && <span className="message-badge" aria-label={`${pendingPayoutCount} payouts awaiting request`}>{pendingPayoutCount > 99 ? '99+' : pendingPayoutCount}</span>}
               {key === 'messages' && unreadMessages > 0 && <span className="message-badge">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
               {key === 'users' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending account approvals`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
