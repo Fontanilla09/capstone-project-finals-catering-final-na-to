@@ -4,7 +4,7 @@ import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const dashboardSections = {
-  customer: [['overview', 'Dashboard', '/dashboard/customer'], ['notifications', 'Notifications', '/dashboard/customer?notifications=1'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages']],
+  customer: [['overview', 'Dashboard', '/dashboard/customer'], ['notifications', 'Notifications', '/dashboard/customer?notifications=1'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages'], ['support', 'Help & Support', '/dashboard/customer/support'], ['settings', 'Settings', '/dashboard/customer/settings']],
   caterer: [['overview', 'Dashboard', '/dashboard/caterer'], ['profile', 'Business profile', '/dashboard/caterer/profile'], ['services', 'Manage services', '/dashboard/caterer/services'], ['ai-photos', 'AI generated photo', '/dashboard/caterer/ai-photos'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['reviews', 'Reviews & ratings', '/dashboard/caterer/reviews'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages']],
   admin: [['overview', 'Dashboard', '/dashboard/admin'], ['cater-management', 'Cater Management', '/dashboard/admin/cater-management'], ['reports', 'Reports & complaints', '/dashboard/admin/reports'], ['users', 'User management', '/dashboard/admin/users'], ['activity', 'Activity log', '/dashboard/admin/activity']],
 };

@@ -3,6 +3,8 @@ import Book from './pages/Book.jsx';
 import CatererDashboard from './pages/CatererDashboard.jsx';
 import CatererProfile from './pages/CatererProfile.jsx';
 import CustomerDashboard from './pages/CustomerDashboard.jsx';
+import CustomerSettings from './pages/CustomerSettings.jsx';
+import CustomerSupport from './pages/CustomerSupport.jsx';
 import CustomerMessages from './pages/CustomerMessages.jsx';
 import CatererEarnings from './pages/CatererEarnings.jsx';
 import CatererReviews from './pages/CatererReviews.jsx';
@@ -36,6 +38,8 @@ export default function App() {
   if (path.startsWith('/packages/')) return <PackageDetails />;
   if (path === '/book') return <Book />;
   if (path === '/dashboard/customer' || path === '/dashboard/venue') return <CustomerDashboard />;
+  if (path === '/dashboard/customer/settings') return <CustomerSettings />;
+  if (path === '/dashboard/customer/support') return <CustomerSupport />;
   if (path === '/dashboard/messages') return <CustomerMessages />;
   if (path === '/dashboard/caterer') return <CatererDashboard />;
   if (path === '/dashboard/caterer/profile') return <CatererProfile />;

@@ -27,7 +27,7 @@ export default function AdminReports() {
     try {
       const { data, error } = await supabase
         .from('customer_reports')
-        .select('id, customer_id, reporter_name, reporter_email, target_type, target_name, caterer_id, package_id, reason, details, proof_image_path, status, admin_note, created_at, handled_at, caterers(business_name, city, is_verified, is_suspended, suspension_reason)')
+        .select('id, customer_id, reporter_name, reporter_email, target_type, target_name, caterer_id, package_id, reservation_id, reason, details, proof_image_path, status, admin_note, created_at, handled_at, caterers(business_name, city, is_verified, is_suspended, suspension_reason)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const reportRows = data || [];
@@ -189,7 +189,9 @@ export default function AdminReports() {
               <div className="report-card-heading">
                 <div>
                   <span className={`report-status report-status-${report.status}`}>{statusLabels[report.status] || report.status}</span>
-                  <p className="eyebrow">{report.target_type === 'package' ? 'Package report' : 'Caterer report'}</p>
+                  <p className="eyebrow">
+                    {report.reservation_id ? 'Booking issue' : report.target_type === 'package' ? 'Package report' : 'Caterer report'}
+                  </p>
                   <h3>{report.target_name}</h3>
                 </div>
                 <time className="report-reported-at" dateTime={report.created_at}>
@@ -202,6 +204,7 @@ export default function AdminReports() {
                 <span><strong>Reason</strong> {report.reason}</span>
                 {report.caterer_id && <span><strong>Caterer</strong> {report.caterers?.business_name || report.target_name} · ID #{report.caterer_id}{report.caterers?.city ? ` · ${report.caterers.city}` : ''}</span>}
                 {report.package_id && <span><strong>Package ID</strong> #{report.package_id}</span>}
+                {report.reservation_id && <span><strong>Booking ID</strong> #{report.reservation_id}</span>}
               </div>
               {report.caterer_id && (
                 <div className="report-caterer-action">

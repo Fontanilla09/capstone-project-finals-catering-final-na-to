@@ -115,6 +115,48 @@ footer { align-items: center; display: flex; justify-content: space-between; mar
 .caterer-reviews-empty { align-items: center; background: #fffdf8; border: 1px dashed #cbd2c9; border-radius: 14px; color: #65746c; display: flex; flex-direction: column; gap: 9px; padding: 42px 20px; text-align: center; }
 .caterer-reviews-empty h3, .caterer-reviews-empty p { margin: 0; }
 .caterer-reviews-empty h3 { color: #213331; }
+.customer-settings-page { display: grid; gap: 18px; max-width: 920px; }
+.customer-settings-heading h2 { font-size: 30px; margin: 0 0 7px; }
+.customer-settings-heading > p:last-child { color: #65746c; margin: 0; }
+.customer-settings-card { background: #fffdf8; border: 1px solid #dce4da; border-radius: 12px; padding: 22px; }
+.customer-settings-card-heading { border-bottom: 1px solid #e8ece5; margin-bottom: 18px; padding-bottom: 14px; }
+.customer-settings-card-heading h3 { color: #213331; font-size: 18px; margin: 0 0 5px; }
+.customer-settings-card-heading p { color: #65746c; font-size: 13px; margin: 0; }
+.customer-settings-form { display: grid; gap: 9px; max-width: 520px; }
+.customer-settings-form label, .customer-settings-delete label { color: #213331; font-size: 13px; font-weight: 600; }
+.customer-settings-form input, .customer-settings-delete input { background: #fff; border: 1px solid #cbd2c9; border-radius: 8px; color: #213331; font: inherit; margin-bottom: 7px; min-height: 42px; padding: 9px 12px; width: 100%; }
+.customer-settings-form input:focus, .customer-settings-delete input:focus { border-color: #275b47; outline: 2px solid rgba(39, 91, 71, .15); }
+.customer-settings-form input[readonly] { background: #f2f5ef; color: #65746c; }
+.customer-settings-form .button { justify-self: start; margin-top: 4px; }
+.customer-settings-actions { margin-bottom: 22px; }
+.customer-settings-delete { border: 1px solid #eed3ce; border-radius: 9px; display: grid; gap: 9px; max-width: 520px; padding: 16px; }
+.customer-settings-delete > strong { color: #9f382f; }
+.customer-settings-delete p { color: #65746c; font-size: 13px; line-height: 1.5; margin: 0; }
+.customer-settings-delete-button { background: #a33d34; border: 0; color: #fff; cursor: pointer; justify-self: start; }
+.customer-settings-delete-button:hover { background: #872f28; }
+.customer-support-page { display: grid; gap: 18px; max-width: 920px; }
+.customer-support-heading h2 { font-size: 30px; margin: 0 0 7px; }
+.customer-support-heading > p:last-child { color: #65746c; margin: 0; }
+.customer-support-card { background: #fffdf8; border: 1px solid #dce4da; border-radius: 12px; padding: 22px; }
+.customer-support-section-heading { align-items: flex-start; border-bottom: 1px solid #e8ece5; display: flex; gap: 11px; margin-bottom: 16px; padding-bottom: 14px; }
+.customer-support-section-heading > svg { color: #275b47; flex: 0 0 auto; margin-top: 2px; }
+.customer-support-section-heading h3 { color: #213331; font-size: 18px; margin: 0 0 5px; }
+.customer-support-section-heading p { color: #65746c; font-size: 13px; margin: 0; }
+.customer-support-faq-list { display: grid; }
+.customer-support-faq { border-bottom: 1px solid #e8ece5; padding: 13px 0; }
+.customer-support-faq:last-child { border-bottom: 0; padding-bottom: 0; }
+.customer-support-faq summary { align-items: center; color: #213331; cursor: pointer; display: flex; font-size: 14px; font-weight: 600; gap: 12px; justify-content: space-between; list-style: none; }
+.customer-support-faq summary::-webkit-details-marker { display: none; }
+.customer-support-faq summary svg { color: #65746c; flex: 0 0 auto; transition: transform .15s ease; }
+.customer-support-faq[open] summary svg { transform: rotate(180deg); }
+.customer-support-faq > p { color: #65746c; font-size: 13px; line-height: 1.55; margin: 10px 28px 0 0; }
+.customer-support-form { display: grid; gap: 9px; max-width: 640px; }
+.customer-support-form label { color: #213331; font-size: 13px; font-weight: 600; }
+.customer-support-form select, .customer-support-form textarea { background: #fff; border: 1px solid #cbd2c9; border-radius: 8px; color: #213331; font: inherit; margin-bottom: 7px; padding: 10px 12px; width: 100%; }
+.customer-support-form textarea { min-height: 125px; resize: vertical; }
+.customer-support-form small { color: #65746c; font-size: 12px; line-height: 1.5; }
+.customer-support-form .button { justify-self: start; margin-top: 5px; }
+.customer-support-no-bookings { background: #f2f5ef; border-radius: 8px; color: #52625d; font-size: 13px; line-height: 1.55; margin: 0; padding: 14px; }
 @media (max-width: 600px) {
   .caterer-reviews-header { align-items: flex-start; flex-direction: column; }
   .caterer-reviews-summary { align-items: flex-start; }
