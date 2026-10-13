@@ -67,7 +67,7 @@ export default function ManageServices() {
   const fields = [['package_name', 'Package name'], ['event_type', 'Event type'], ['guest_range', 'Guest range, e.g. 50-100'], ['price', 'Price']];
   return <DashboardPage role="caterer" section="services"><div className="services-workspace">
     {status && <p className="form-alert success-alert">{status}</p>}
-    <div className="services-heading"><div><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><div className="services-heading-actions"><span className="services-count">{services.length} package{services.length === 1 ? '' : 's'}</span>{!showForm && <button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Add package</button>}</div></div>
+    <div className="services-heading"><div><p className="eyebrow">Services</p><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><div className="services-heading-actions">{!showForm && <button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Add package <span aria-hidden="true">+</span></button>}</div></div>
     <div className={`services-layout${showForm ? '' : ' services-layout-catalog'}`}>
       {showForm && (
       <form className="profile-form service-form" onSubmit={create}>
@@ -80,19 +80,84 @@ export default function ManageServices() {
       )}
       <section className="services-catalog">
         <div className="catalog-heading">
-          <div><p className="eyebrow">Your catalog</p><h3>Created packages</h3></div>
-          <span>{services.length} package{services.length === 1 ? '' : 's'} in your catalog</span>
+          <div><p className="eyebrow">Your catalog</p><h3>Your packages</h3></div>
+          <span>{services.length} package{services.length === 1 ? '' : 's'}</span>
         </div>
         {services.length === 0 ? (
-          <p className="service-empty">No packages yet. Select “Add package” to create your first one.</p>
+          <div className="service-empty">
+            <span className="service-empty-mark" aria-hidden="true">+</span>
+            <h4>No packages yet</h4>
+            <p>Create your first package so customers can discover what you offer.</p>
+            <button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Create your first package</button>
+          </div>
         ) : (
           <>
           <div className="service-catalog-tools">
-            <p>Select a package to see its details, photos, and actions.</p>
+            <p>Review your offers and keep package details up to date.</p>
             <label className="service-search">
               <Search size={16} aria-hidden="true" />
               <input aria-label="Search packages" onChange={(event) => { setSearchTerm(event.target.value); setCurrentPage(1); setExpandedServiceId(null); }} placeholder="Search packages" type="search" value={searchTerm} />
             </label>
+          </div>
+          <div className="service-list">
+            {pagedServices.length ? pagedServices.map((service) => {
+              const imagePaths = service.image_paths ? service.image_paths.split('||') : [];
+              const isExpanded = expandedServiceId === service.id;
+              const guestCapacity = Number(service.guest_count_min) === Number(service.guest_count_max)
+                ? `${service.guest_count_min} guests`
+                : `${service.guest_count_min}–${service.guest_count_max} guests`;
+              const detailsId = `service-details-${service.id}`;
+              return (
+                <article className={`service-package-card${isExpanded ? ' is-expanded' : ''}`} key={service.id}>
+                  <div className="service-package-card-main">
+                    <div className="service-package-card-title">
+                      {imagePaths.length > 0
+                        ? <img className="service-package-thumb" src={imageUrl(imagePaths[0])} alt="" />
+                        : <span className="service-package-thumb service-package-monogram" aria-hidden="true">{service.package_name.slice(0, 1).toUpperCase()}</span>}
+                      <div className="service-package-title-copy">
+                        <div className="service-package-kicker"><span>Package #{service.id}</span><span className="service-event-chip">{service.event_type}</span></div>
+                        <h4>{service.package_name}</h4>
+                      </div>
+                    </div>
+                    <div className="service-package-price"><span>Starting at</span><strong>₱{Number(service.price).toLocaleString()}</strong></div>
+                  </div>
+                  <div className="service-package-card-bottom">
+                    <div className="service-capacity"><span>Guest capacity</span><strong>{guestCapacity}</strong></div>
+                    <button
+                      className="service-details-toggle"
+                      aria-expanded={isExpanded}
+                      aria-controls={detailsId}
+                      onClick={() => setExpandedServiceId(isExpanded ? null : service.id)}
+                      type="button"
+                    >
+                      {isExpanded ? 'Hide details' : 'View details'}
+                      {isExpanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+                    </button>
+                  </div>
+                  {isExpanded && (
+                    <div className="service-package-details" id={detailsId}>
+                      <div className="service-detail-copy">
+                        <div><h5>Description</h5><p>{service.description || 'No description provided.'}</p></div>
+                        <div><h5>What's included</h5><p>{service.includes || 'No inclusions listed.'}</p></div>
+                      </div>
+                      {imagePaths.length > 0 && (
+                        <div className="service-package-photos" aria-label="Package photos">
+                          {imagePaths.slice(0, 4).map((path) => (
+                            <img key={path} src={imageUrl(path)} alt={`${service.package_name} sample`} />
+                          ))}
+                        </div>
+                      )}
+                      <div className="service-actions">
+                        <button className="button service-edit" onClick={() => edit(service)} type="button">Edit package</button>
+                        <button className="button service-delete" onClick={() => remove(service.id)} type="button">Delete package</button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            }) : (
+              <p className="service-search-empty">{searchTerm ? `No packages match “${searchTerm}”.` : 'No packages found.'}</p>
+            )}
           </div>
           <div className="table-wrap service-table-wrap">
             <table className="customer-table service-table">
@@ -163,7 +228,7 @@ export default function ManageServices() {
           {filteredServices.length > 0 && (
             <div className="service-pagination" aria-label="Package table pagination">
               <div className="service-pagination-info">
-                <label htmlFor="service-page-size">Rows per page</label>
+                <label htmlFor="service-page-size">Cards per page</label>
                 <select
                   id="service-page-size"
                   onChange={(event) => { setPageSize(Number(event.target.value)); setCurrentPage(1); setExpandedServiceId(null); }}

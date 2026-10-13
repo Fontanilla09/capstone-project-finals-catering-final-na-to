@@ -1545,6 +1545,69 @@ button:active, a:active { transform: scale(.98); }
 .service-pagination-controls button:hover:not(:disabled):not(.active) { background: #f4f7f1; border-color: #aebeb0; }
 .service-pagination-controls button.active { background: #28513f; border-color: #28513f; color: #fff; font-weight: 700; }
 .service-pagination-controls button:disabled { color: #a0aaa3; cursor: not-allowed; opacity: .65; }
+
+.services-heading { padding: 20px 24px; }
+.services-heading .eyebrow { margin: 0 0 7px; }
+.services-heading h2 { font-size: 26px; }
+.services-heading p:last-child { color: #65746c; margin: 6px 0 0; }
+.services-heading-actions .button { align-items: center; min-height: 42px; }
+.services-heading-actions .button span { color: #f0a685; font-size: 18px; line-height: 1; }
+.catalog-heading { align-items: center; }
+.catalog-heading h3 { font-size: 20px; }
+.catalog-heading > span { background: #f4f7f1; border-radius: 999px; color: #52625d; margin: 0; padding: 7px 11px; }
+.service-catalog-tools { margin-top: 14px; }
+.service-table-wrap { display: none; }
+.service-list { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 390px), 1fr)); margin-top: 18px; }
+.service-package-card { background: #fff; border: 1px solid #dfe6de; border-radius: 13px; min-width: 0; overflow: hidden; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.service-package-card:hover { border-color: #b9cbbd; box-shadow: 0 10px 24px rgba(26, 47, 38, .08); transform: translateY(-1px); }
+.service-package-card.is-expanded { border-color: #a9c1ae; box-shadow: 0 8px 22px rgba(26, 47, 38, .07); }
+.service-package-card-main { align-items: center; display: flex; gap: 16px; justify-content: space-between; padding: 18px 18px 15px; }
+.service-package-card-title { align-items: center; display: flex; gap: 13px; min-width: 0; }
+.service-package-thumb { background: #eaf0e8; border: 1px solid #dce6db; border-radius: 10px; flex: 0 0 58px; height: 58px; object-fit: cover; width: 58px; }
+.service-package-monogram { align-items: center; color: #315c49; display: inline-flex; font-family: 'Playfair Display', serif !important; font-size: 24px; justify-content: center; }
+.service-package-title-copy { min-width: 0; }
+.service-package-kicker { align-items: center; display: flex; flex-wrap: wrap; gap: 7px; }
+.service-package-kicker > span:first-child { color: #7b887e; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.service-package-kicker .service-event-chip { font-size: 10px; padding: 4px 8px; }
+.service-package-title-copy h4 { color: #213331; font-size: 18px; line-height: 1.25; margin: 6px 0 0; overflow-wrap: anywhere; }
+.service-package-price { display: grid; flex: 0 0 auto; gap: 3px; text-align: right; }
+.service-package-price span, .service-capacity > span { color: #7b887e; font-size: 10px; }
+.service-package-price strong { color: #28513f; font-size: 20px; letter-spacing: -.03em; white-space: nowrap; }
+.service-package-card-bottom { align-items: center; background: #f8faf7; border-top: 1px solid #e9eee8; display: flex; gap: 12px; justify-content: space-between; padding: 12px 18px; }
+.service-capacity { display: grid; gap: 3px; }
+.service-capacity strong { color: #34463e; font-size: 12px; }
+.service-details-toggle { align-items: center; background: transparent; border: 0; border-radius: 7px; color: #28513f; cursor: pointer; display: inline-flex; font: inherit; font-size: 12px; font-weight: 700; gap: 7px; min-height: 38px; padding: 7px 9px; }
+.service-details-toggle:hover { background: #eaf0e8; }
+.service-package-details { border-top: 1px solid #e9eee8; display: grid; gap: 16px; padding: 16px 18px 18px; }
+.service-detail-copy { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.service-detail-copy h5 { color: #34463e; font-size: 11px; margin: 0 0 5px; }
+.service-detail-copy p { color: #65746c; font-size: 12px; line-height: 1.6; margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+.service-package-photos { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.service-package-photos img { aspect-ratio: 4 / 3; background: #eaf0e8; border: 1px solid #dfe6de; border-radius: 8px; min-width: 0; object-fit: cover; width: 100%; }
+.service-package-details .service-actions { margin: 0; }
+.service-search-empty { background: #f8faf7; border: 1px dashed #cbd7cb; border-radius: 10px; color: #65746c; font-size: 13px; grid-column: 1 / -1; margin: 0; padding: 24px; text-align: center; }
+.service-empty { align-items: center; display: flex; flex-direction: column; padding: 36px 16px 12px; text-align: center; }
+.service-empty-mark { align-items: center; background: #eaf0e8; border-radius: 50%; color: #315c49; display: inline-flex; font-size: 26px; height: 52px; justify-content: center; width: 52px; }
+.service-empty h4 { color: #213331; font-size: 17px; margin: 14px 0 5px; }
+.service-empty p { color: #65746c; font-size: 13px; margin: 0; max-width: 340px; }
+.service-empty .button { margin-top: 16px; }
+
+@media (max-width: 600px) {
+  .services-heading { padding: 18px; }
+  .services-heading h2 { font-size: 23px; }
+  .services-heading-actions { width: 100%; }
+  .services-heading-actions .button { width: 100%; }
+  .catalog-heading { align-items: flex-start; }
+  .service-package-card-main { align-items: flex-start; gap: 10px; padding: 15px; }
+  .service-package-card-title { align-items: flex-start; gap: 10px; }
+  .service-package-thumb { flex-basis: 46px; height: 46px; width: 46px; }
+  .service-package-title-copy h4 { font-size: 16px; }
+  .service-package-price strong { font-size: 17px; }
+  .service-package-card-bottom { padding: 10px 15px; }
+  .service-detail-copy { grid-template-columns: 1fr; }
+  .service-package-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .service-package-details { padding: 14px 15px; }
+}
 @media (max-width: 600px) { .service-table-detail-copy { grid-template-columns: 1fr; }.service-table-photos img { max-width: 150px; width: calc(50% - 5px); }.service-table-details { padding: 14px; } }
 @media (max-width: 767px) {
   .services-workspace { gap: 16px; }
