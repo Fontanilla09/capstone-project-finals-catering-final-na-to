@@ -67,7 +67,7 @@ export default function ManageServices() {
   const fields = [['package_name', 'Package name'], ['event_type', 'Event type'], ['guest_range', 'Guest range, e.g. 50-100'], ['price', 'Price']];
   return <DashboardPage role="caterer" section="services"><div className="services-workspace">
     {status && <p className="form-alert success-alert">{status}</p>}
-    <div className="services-heading"><div><p className="eyebrow">Services</p><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><div className="services-heading-actions">{!showForm && <button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Add package <span aria-hidden="true">+</span></button>}</div></div>
+    <div className="services-heading"><div><p className="eyebrow">Services</p><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><div className="services-heading-actions">{!showForm && services.length > 0 && <button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Add package <span aria-hidden="true">+</span></button>}</div></div>
     <div className={`services-layout${showForm ? '' : ' services-layout-catalog'}`}>
       {showForm && (
       <form className="profile-form service-form" onSubmit={create}>
