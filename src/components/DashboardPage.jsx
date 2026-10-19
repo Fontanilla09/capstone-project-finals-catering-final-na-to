@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ClipboardList,
   CreditCard,
+  CircleDollarSign,
   Flag,
   Images,
   LifeBuoy,
@@ -28,7 +29,7 @@ import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const dashboardSections = {
-  customer: [['overview', 'Dashboard', '/dashboard/customer'], ['notifications', 'Notifications', '/dashboard/customer?notifications=1'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages'], ['support', 'Help & Support', '/dashboard/customer/support'], ['settings', 'Settings', '/dashboard/customer/settings']],
+  customer: [['overview', 'Dashboard', '/dashboard/customer'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages'], ['support', 'Help & Support', '/dashboard/customer/support'], ['settings', 'Settings', '/dashboard/customer/settings']],
   caterer: [['overview', 'Dashboard', '/dashboard/caterer'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['services', 'Manage services', '/dashboard/caterer/services'], ['ai-photos', 'AI generated photo', '/dashboard/caterer/ai-photos'], ['reviews', 'Reviews & ratings', '/dashboard/caterer/reviews'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages'], ['profile', 'Business profile', '/dashboard/caterer/profile']],
   admin: [['overview', 'Dashboard', '/dashboard/admin'], ['cater-management', 'Cater Management', '/dashboard/admin/cater-management'], ['customer-management', 'Customer Management', '/dashboard/admin/customers'], ['reports', 'Reports & complaints', '/dashboard/admin/reports'], ['users', 'User management', '/dashboard/admin/users'], ['activity', 'Activity log', '/dashboard/admin/activity']],
 };
@@ -36,7 +37,6 @@ const dashboardSections = {
 const dashboardTitles = { customer: 'Customer', caterer: 'Caterer', admin: 'Admin' };
 const navigationIcons = {
   overview: Activity,
-  notifications: Bell,
   packages: Package,
   messages: MessageCircle,
   support: LifeBuoy,
@@ -124,7 +124,7 @@ function getInitials(name) {
     .join('') || 'C';
 }
 
-export default function DashboardPage({ role, section = 'overview', children }) {
+export default function DashboardPage({ role, section = 'overview', children, balanceReminders = [] }) {
   const [initialProfile] = useState(() => getCachedDashboardProfile(role));
   const [displayName, setDisplayName] = useState(initialProfile?.displayName || '');
   const [displayEmail, setDisplayEmail] = useState(initialProfile?.displayEmail || '');
@@ -156,9 +156,20 @@ export default function DashboardPage({ role, section = 'overview', children }) 
     : role === 'caterer'
       ? '/dashboard/caterer/reservations'
       : '/dashboard/admin/reports';
-  const notificationCount = role === 'admin' ? openReportCount : totalUnread;
+  const notificationCount = role === 'admin'
+    ? openReportCount
+    : totalUnread + (role === 'customer' ? balanceReminders.length : 0);
   const notificationItems = role === 'customer'
     ? [
+      ...balanceReminders.map((reminder) => ({
+        id: reminder.id,
+        title: 'Balance payment due',
+        message: reminder.message,
+        href: '/dashboard/customer?notifications=1',
+        icon: CircleDollarSign,
+        tone: 'payout',
+        count: 1,
+      })),
       ...(unreadNotifications > 0 ? [{
         id: 'customer-bookings',
         title: `${unreadNotifications} booking update${unreadNotifications === 1 ? '' : 's'}`,
@@ -589,10 +600,10 @@ export default function DashboardPage({ role, section = 'overview', children }) 
     }
   }
 
-  if (!authChecked) return <main className={`dashboard-page${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><div className="dashboard-auth-loading">Checking your session...</div></main>;
+  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><div className="dashboard-auth-loading">Checking your session...</div></main>;
 
   return (
-    <main className={`dashboard-page${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>
+    <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>
       <header className="dashboard-header">
         <div className="dashboard-header-left">
           <button className="dashboard-menu-toggle" aria-expanded={menuOpen} aria-controls="dashboard-navigation" aria-label={`${menuOpen ? 'Close' : 'Open'} dashboard menu${totalUnread ? `, ${totalUnread} unread updates` : ''}`} onClick={() => setMenuOpen((open) => !open)} type="button">
@@ -707,17 +718,12 @@ export default function DashboardPage({ role, section = 'overview', children }) 
           {sections.map(([key, label, href]) => (
             <a className={section === key ? 'active' : ''} href={href} key={key} onClick={() => {
               setMenuOpen(false);
-              if (key === 'notifications' && currentCustomerId) {
-                localStorage.setItem(`caterai-reservation-notifications-unread-${currentCustomerId}`, '0');
-                setUnreadNotifications(0);
-              }
             }}>
               {(() => {
                 const Icon = navigationIcons[key] || Activity;
                 return <Icon className="dashboard-nav-icon" size={17} aria-hidden="true" />;
               })()}
               <span className="dashboard-nav-label">{label}</span>
-              {key === 'notifications' && unreadNotifications > 0 && <span className="message-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}
               {key === 'customer-management' && pendingCustomerCount > 0 && <span className="message-badge" aria-label={`${pendingCustomerCount} pending customer confirmations`}>{pendingCustomerCount > 99 ? '99+' : pendingCustomerCount}</span>}
               {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}

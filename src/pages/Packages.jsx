@@ -63,6 +63,7 @@ export default function Packages() {
   }, []);
 
   const update = (event) => setFilters({ ...filters, [event.target.name]: event.target.value });
+  const catererCount = new Set(packages.map((item) => item.caterer_id)).size;
 
   return <main className="packages-page">
     <nav className="packages-nav">
@@ -70,24 +71,50 @@ export default function Packages() {
       {session?.authenticated ? <a href={session.redirect}>Dashboard</a> : <a href="/login">Log in</a>}
     </nav>
     <section className="packages-content">
-      <p className="eyebrow">Find your table</p>
-      <h1>Packages made<br /><em>for the occasion.</em></h1>
+      <div className="packages-hero">
+        <div className="packages-hero-copy">
+          <p className="eyebrow">Find your table</p>
+          <h1>Packages made<br /><em>for the occasion.</em></h1>
+          <p className="packages-hero-description">Discover trusted local caterers and thoughtfully prepared menus for your next celebration.</p>
+        </div>
+        <aside className="packages-hero-note" aria-label="CaterAI package highlights">
+          <span className="packages-hero-note-mark" aria-hidden="true">✦</span>
+          <strong>Make room for a good gathering.</strong>
+          <span>Compare menus, guest capacity, and local caterers in one place.</span>
+        </aside>
+      </div>
       <form className="package-filters" onSubmit={(event) => { event.preventDefault(); load(); }}>
-        <input name="search" value={filters.search} onChange={update} placeholder="Search packages or caterers" />
-        <select name="event_type" value={filters.event_type} onChange={update}><option value="">All event types</option>{eventTypes.map((item) => <option key={item.event_type} value={item.event_type}>{item.event_type}</option>)}</select>
-        <select name="sort" value={filters.sort} onChange={update}><option value="newest">Newest</option><option value="price_low">Price: low to high</option><option value="price_high">Price: high to low</option><option value="rating">Top rated</option></select>
-        <button className="button button-primary" type="submit">Search <span>↗</span></button>
+        <input aria-label="Search packages or caterers" name="search" value={filters.search} onChange={update} placeholder="Search packages or caterers" />
+        <select aria-label="Filter by event type" name="event_type" value={filters.event_type} onChange={update}><option value="">All event types</option>{eventTypes.map((item) => <option key={item.event_type} value={item.event_type}>{item.event_type}</option>)}</select>
+        <select aria-label="Sort packages" name="sort" value={filters.sort} onChange={update}><option value="newest">Newest</option><option value="price_low">Price: low to high</option><option value="price_high">Price: high to low</option><option value="rating">Top rated</option></select>
+        <button className="button button-primary" disabled={loading} type="submit">{loading ? 'Searching...' : 'Find packages'} <span aria-hidden="true">↗</span></button>
       </form>
-      {loading ? <p className="package-empty">Loading packages...</p> : packages.length === 0 ? <p className="package-empty">No packages found.</p> : <div className="package-grid">
+      <div className="packages-results-heading">
+        <div>
+          <p className="eyebrow">Curated for your celebration</p>
+          <h2>Explore packages</h2>
+        </div>
+        {!loading && <span>{packages.length} {packages.length === 1 ? 'package' : 'packages'} · {catererCount} {catererCount === 1 ? 'caterer' : 'caterers'}</span>}
+      </div>
+      {loading ? <div className="packages-loading" role="status"><span className="packages-loading-spinner" aria-hidden="true" />Finding the right packages for you...</div> : packages.length === 0 ? (
+        <div className="packages-empty-state">
+          <span aria-hidden="true">✦</span>
+          <h2>No packages found</h2>
+          <p>Try another search or event type to discover more caterers.</p>
+          {(filters.search || filters.event_type) && <button className="button button-secondary" onClick={() => { const reset = { ...filters, search: '', event_type: '' }; setFilters(reset); load(reset); }} type="button">Clear filters</button>}
+        </div>
+      ) : <div className={`package-grid${packages.length === 1 ? ' package-grid-single' : ''}`}>
         {packages.map((item) => <article className="package-card" key={item.id}>
           {item.image_path ? <img className="package-card-image" src={imageUrl(item.image_path)} alt={`${item.package_name} sample`} /> : <div className="package-card-image package-card-image-empty">CaterAI</div>}
-          <div className="package-card-top"><span>{item.event_type || 'Catering package'}</span><strong>★ {item.rating || 'New'}</strong></div>
-          <h2>{item.package_name}</h2>
-          <p className="package-caterer">{item.business_name} · {item.city || 'Local caterer'}</p>
-          <p>{item.description || 'A thoughtfully prepared package for your event.'}</p>
-          {Number(item.is_full) === 1 && <strong className="package-full-label">Package full</strong>}
-          <div className="package-footer"><strong>₱{Number(item.price).toLocaleString()}</strong><span>{item.guest_count_min}-{item.guest_count_max} guests</span></div>
-          <a className="package-link" href={`/packages/${item.id}?caterer=${item.caterer_id}`}>View package ↗</a>
+          <div className="package-card-content">
+            <div className="package-card-top"><span>{item.event_type || 'Catering package'}</span><strong aria-label={item.rating ? `${item.rating} out of 5 stars` : 'Not rated yet'}>★ {item.rating || 'New'}</strong></div>
+            <h2>{item.package_name}</h2>
+            <p className="package-caterer">{item.business_name} <span>·</span> {item.city || 'Local caterer'}</p>
+            <p className="package-card-description">{item.description || 'A thoughtfully prepared package for your event.'}</p>
+            {Number(item.is_full) === 1 && <strong className="package-full-label">Package full</strong>}
+            <div className="package-footer"><div><strong>₱{Number(item.price).toLocaleString()}</strong><span>Starting price</span></div><span>{item.guest_count_min}-{item.guest_count_max} guests</span></div>
+            <a className="package-link" href={`/packages/${item.id}?caterer=${item.caterer_id}`}>View package <span aria-hidden="true">↗</span></a>
+          </div>
         </article>)}
       </div>}
     </section>

@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Bell, CalendarClock, CircleDollarSign, Printer, ReceiptText, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Bell,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  CircleDollarSign,
+  Clock3,
+  CreditCard,
+  MessageCircle,
+  Printer,
+  ReceiptText,
+  Star,
+  X,
+} from 'lucide-react';
 import { requestJson } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
@@ -12,10 +26,47 @@ function canReview(item) {
   return item.reservation_status === 'completed' && Number(item.paid_amount) >= Number(item.total_amount);
 }
 
+function formatMoney(value) {
+  return `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
+}
+
+function formatEventDate(value) {
+  if (!value) return 'Date to be confirmed';
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function daysUntilEvent(value) {
+  if (!value) return null;
+  const event = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(event.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((event.getTime() - today.getTime()) / 86400000);
+}
+
+function timeAgo(value) {
+  if (!value) return '';
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return '';
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'Yesterday' : `${days}d ago`;
+}
+
 export default function CustomerDashboard() {
   const notificationRoute = new URLSearchParams(window.location.search).get('notifications') === '1';
   const [customer, setCustomer] = useState(null);
   const [reservations, setReservations] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [conversationsError, setConversationsError] = useState('');
+  const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [statusAlerts, setStatusAlerts] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(notificationRoute);
   const [showBookingHistory, setShowBookingHistory] = useState(false);
@@ -37,6 +88,15 @@ export default function CustomerDashboard() {
       const dashboardReservations = data?.reservations || [];
       setCustomer(data?.customer || null);
       setReservations(dashboardReservations);
+      const { data: conversationData, error: conversationError } = await supabase.rpc('get_my_conversations');
+      if (conversationError) {
+        console.error('Failed to load customer dashboard conversations:', conversationError);
+        setConversationsError('Messages are temporarily unavailable.');
+      } else {
+        setConversations(conversationData || []);
+        setConversationsError('');
+      }
+      setConversationsLoaded(true);
 
       const customerId = data?.customer?.id;
       if (customerId) {
@@ -265,9 +325,46 @@ export default function CustomerDashboard() {
   const summary = useMemo(() => ({
     total: reservations.length,
     pending: reservations.filter((item) => item.reservation_status === 'pending').length,
-    confirmed: reservations.filter((item) => item.reservation_status === 'confirmed').length,
-    paid: reservations.filter((item) => Number(item.paid_amount) >= Number(item.total_amount)).length,
   }), [reservations]);
+  const upcomingReservations = useMemo(() => reservations
+    .filter((item) => !['cancelled', 'completed'].includes(item.reservation_status))
+    .filter((item) => {
+      const days = daysUntilEvent(item.event_date);
+      return days !== null && days >= 0;
+    })
+    .sort((first, second) => String(first.event_date || '9999-12-31').localeCompare(String(second.event_date || '9999-12-31'))), [reservations]);
+  const nextEvent = upcomingReservations[0] || null;
+  const totalPaid = reservations.reduce((sum, item) => sum + Math.max(0, Number(item.paid_amount || 0)), 0);
+  const totalBalance = reservations.reduce((sum, item) => {
+    if (!['confirmed', 'completed'].includes(item.reservation_status)) return sum;
+    return sum + Math.max(0, Number(item.total_amount || 0) - Number(item.paid_amount || 0));
+  }, 0);
+  const actionItems = useMemo(() => {
+    const balanceActions = reservations
+      .filter((item) => ['confirmed', 'completed'].includes(item.reservation_status))
+      .filter((item) => Number(item.total_amount || 0) > Number(item.paid_amount || 0))
+      .map((item) => ({
+        id: `balance-${item.id}`,
+        type: 'balance',
+        reservation: item,
+        detail: `Pay before the event · ${formatEventDate(item.event_date)}`,
+      }));
+    const reviewActions = reservations.filter(canReview).filter((item) => !item.review_rating).map((item) => ({
+      id: `review-${item.id}`,
+      type: 'review',
+      reservation: item,
+      title: `Rate your ${item.package_name} event`,
+      detail: 'Help others choose the right caterer',
+    }));
+    const approvalActions = reservations.filter((item) => item.reservation_status === 'pending').map((item) => ({
+      id: `approval-${item.id}`,
+      type: 'approval',
+      reservation: item,
+      title: `Waiting for ${item.business_name || 'your caterer'} to confirm`,
+      detail: `Requested for ${formatEventDate(item.event_date)}`,
+    }));
+    return [...balanceActions, ...reviewActions, ...approvalActions];
+  }, [reservations]);
   const visibleReservations = useMemo(
     () => reservations.filter((item) => (item.reservation_status === 'completed') === showBookingHistory),
     [reservations, showBookingHistory],
@@ -278,9 +375,10 @@ export default function CustomerDashboard() {
     const paidAmount = Number(item.paid_amount || 0);
     const totalAmount = Number(item.total_amount || 0);
     const remaining = Math.max(0, totalAmount - paidAmount);
-    if (item.reservation_status === 'confirmed' && remaining > 0) {
+    if (['confirmed', 'completed'].includes(item.reservation_status) && remaining > 0) {
       notices.push({
         id: `balance-${item.id}`,
+        reservationId: item.id,
         type: 'balance',
         title: 'Remaining balance',
         message: `${item.package_name}: ₱${remaining.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} remains to be paid.`,
@@ -304,34 +402,209 @@ export default function CustomerDashboard() {
     return notices;
   }), [reservations]);
   const dashboardNotices = [...statusAlerts, ...reminders];
+  const nextEventDays = nextEvent ? daysUntilEvent(nextEvent.event_date) : null;
+  const nextEventPaid = nextEvent ? Number(nextEvent.paid_amount || 0) : 0;
+  const nextEventTotal = nextEvent ? Number(nextEvent.total_amount || 0) : 0;
+  const nextEventProgress = nextEventTotal > 0 ? Math.min(100, Math.round((nextEventPaid / nextEventTotal) * 100)) : 0;
+  const nextEventStep = nextEvent?.reservation_status === 'completed'
+    ? 5
+    : nextEventDays === 0
+      ? 4
+      : nextEventTotal > 0 && nextEventPaid >= nextEventTotal
+        ? 3
+        : nextEventPaid > 0
+          ? 2
+          : nextEvent?.reservation_status === 'confirmed'
+            ? 1
+            : 0;
+  const messageCatererHref = nextEvent?.caterer_id && nextEvent?.package_id && customer?.id
+    ? `/dashboard/messages?${new URLSearchParams({
+      customer_id: String(customer.id),
+      caterer_id: String(nextEvent.caterer_id),
+      package_id: String(nextEvent.package_id),
+    }).toString()}`
+    : null;
 
   return (
-    <DashboardPage role="customer" section={notificationRoute ? 'notifications' : 'overview'}>
+    <DashboardPage
+      role="customer"
+      section={notificationRoute ? 'notifications' : 'overview'}
+      balanceReminders={reminders.filter((notice) => notice.type === 'balance')}
+    >
       <div className="customer-dashboard-panel">
         {status && <p className="form-alert success-alert">{status}</p>}
 
-        <div className="customer-summary-row">
-          <div className="customer-profile-card">
-            <p className="eyebrow eyebrow-soft">Customer overview</p>
-            <h2>{customer?.full_name || 'Customer'}</h2>
-            <span>{customer?.email || 'No email available'}</span>
-          </div>
+        <section className="customer-dashboard-stats" aria-label="Booking and payment summary">
+          <article className="customer-dashboard-stat" style={{ '--customer-card-index': 0 }}>
+            <span>Total bookings</span>
+            <strong>{summary.total}</strong>
+          </article>
+          <article className="customer-dashboard-stat" style={{ '--customer-card-index': 1 }}>
+            <span>Upcoming</span>
+            <strong>{upcomingReservations.length}</strong>
+          </article>
+          <article className="customer-dashboard-stat" style={{ '--customer-card-index': 2 }}>
+            <span>Pending approval</span>
+            <strong>{summary.pending}</strong>
+          </article>
+          <article className="customer-dashboard-stat" style={{ '--customer-card-index': 3 }}>
+            <span>Total paid</span>
+            <strong>{formatMoney(totalPaid)}</strong>
+          </article>
+          <article className="customer-dashboard-stat customer-dashboard-stat-balance" style={{ '--customer-card-index': 4 }}>
+            <span>Balance to pay</span>
+            <strong>{formatMoney(totalBalance)}</strong>
+          </article>
+        </section>
 
-          <div className="metric-grid" aria-label="Booking summary">
-            <article className="metric-card">
-              <span>Total bookings</span>
-              <strong>{summary.total}</strong>
-            </article>
-            <article className="metric-card">
-              <span>Pending</span>
-              <strong>{summary.pending}</strong>
-            </article>
-            <article className="metric-card">
-              <span>Confirmed</span>
-              <strong>{summary.confirmed}</strong>
-            </article>
-          </div>
-        </div>
+        <section className="customer-dashboard-overview-grid" aria-label="Customer booking overview">
+          <article className="customer-next-event customer-dashboard-animated-card" style={{ '--customer-card-index': 0 }}>
+            {nextEvent ? (
+              <>
+                <div className="customer-next-event-heading">
+                  <div>
+                    <p className="customer-dashboard-kicker">Next event</p>
+                    <h2>
+                      {nextEventDays === null
+                        ? 'Coming up'
+                        : nextEventDays === 0
+                          ? 'Today'
+                          : nextEventDays < 0
+                            ? 'Event day'
+                            : `In ${nextEventDays} day${nextEventDays === 1 ? '' : 's'}`}
+                    </h2>
+                    <strong>{nextEvent.package_name || 'Catering event'}</strong>
+                    <p className="customer-next-event-meta">
+                      {nextEvent.business_name || 'Your caterer'} · {formatEventDate(nextEvent.event_date)}
+                      {nextEvent.guest_count ? ` · ${nextEvent.guest_count} guests` : ''}
+                    </p>
+                  </div>
+                  <span className="customer-next-event-icon" aria-hidden="true"><CalendarDays size={26} /></span>
+                </div>
+                <ol
+                  className="customer-booking-timeline"
+                  aria-label={`Booking progress: ${nextEvent.reservation_status}`}
+                  style={{ '--customer-timeline-progress': `${(nextEventStep / 5) * 92}%` }}
+                >
+                  {['Requested', 'Confirmed', 'Deposit paid', 'Fully paid', 'Event day', 'Completed'].map((step, index) => (
+                    <li className={index <= nextEventStep ? 'is-complete' : ''} key={step}>
+                      <span aria-hidden="true" />
+                      <small>{step}</small>
+                    </li>
+                  ))}
+                </ol>
+                <div className="customer-next-event-payment">
+                  <div className="customer-next-event-payment-copy">
+                    <strong>{formatMoney(nextEventPaid)} <span>of {formatMoney(nextEventTotal)} paid</span></strong>
+                    <strong>{nextEventProgress}%</strong>
+                  </div>
+                  <div className="customer-next-event-progress" role="progressbar" aria-label="Event payment progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={nextEventProgress}>
+                    <span style={{ width: `${nextEventProgress}%` }} />
+                  </div>
+                </div>
+                <div className="customer-next-event-actions">
+                  {['confirmed', 'completed'].includes(nextEvent.reservation_status) && nextEventPaid < nextEventTotal && (
+                    <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(nextEvent.id)} type="button">
+                      <CreditCard size={15} aria-hidden="true" /> {payingBalanceId === nextEvent.id ? 'Opening PayPal...' : `Pay balance · ${formatMoney(nextEventTotal - nextEventPaid)}`}
+                    </button>
+                  )}
+                  {messageCatererHref ? (
+                    <a className="button button-secondary button-small" href={messageCatererHref}><MessageCircle size={15} aria-hidden="true" /> Message caterer</a>
+                  ) : (
+                    <button className="button button-secondary button-small" disabled title="Update the customer dashboard database function to enable direct messaging." type="button">
+                      <MessageCircle size={15} aria-hidden="true" /> Message unavailable
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="customer-next-event-empty">
+                <span className="customer-dashboard-kicker">Your next event</span>
+                <h2>Ready to celebrate?</h2>
+                <p>Explore caterers and book a package for your next special occasion.</p>
+                <a className="button button-primary button-small" href="/packages">Explore caterers <ArrowRight size={15} aria-hidden="true" /></a>
+              </div>
+            )}
+          </article>
+
+          <article className="customer-action-card customer-dashboard-animated-card" style={{ '--customer-card-index': 1 }}>
+            <header className="customer-dashboard-card-heading">
+              <div>
+                <p className="customer-dashboard-kicker">Action needed</p>
+                <h2>{actionItems.length} {actionItems.length === 1 ? 'thing' : 'things'} to do</h2>
+              </div>
+            </header>
+            {actionItems.length ? (
+              <ul className="customer-action-list">
+                {actionItems.slice(0, 6).map((action) => {
+                  const ActionIcon = action.type === 'balance' ? CreditCard : action.type === 'review' ? Star : Clock3;
+                  return (
+                    <li key={action.id}>
+                      <ActionIcon className={`customer-action-icon customer-action-icon-${action.type}`} size={19} aria-hidden="true" />
+                      <div className="customer-action-copy">
+                        <strong>{action.type === 'balance' ? <>Pay {formatMoney(Number(action.reservation.total_amount) - Number(action.reservation.paid_amount))} balance for <b>{action.reservation.package_name}</b></> : action.title}</strong>
+                        <span>{action.detail}</span>
+                      </div>
+                      {action.type === 'balance' ? (
+                        <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(action.reservation.id)} type="button">
+                          {payingBalanceId === action.reservation.id ? 'Opening...' : 'Pay'}
+                        </button>
+                      ) : action.type === 'review' ? (
+                        <button className="button button-secondary button-small" onClick={() => setReviewingId(action.reservation.id)} type="button">Rate</button>
+                      ) : (
+                        <a className="button button-secondary button-small" href="/dashboard/messages">Follow up</a>
+                      )}
+                    </li>
+                  );
+                })}
+                {actionItems.length > 6 && (
+                  <li className="customer-action-more"><a href="#customer-reservations">View all {actionItems.length} actions <ArrowRight size={13} aria-hidden="true" /></a></li>
+                )}
+              </ul>
+            ) : (
+              <div className="customer-actions-empty"><CheckCircle2 size={20} aria-hidden="true" /><p>You're all caught up. No actions needed right now.</p></div>
+            )}
+          </article>
+        </section>
+
+        <section className="customer-messages-card customer-dashboard-animated-card" style={{ '--customer-card-index': 2 }}>
+          <header className="customer-dashboard-card-heading">
+            <div>
+              <p className="customer-dashboard-kicker">Messages</p>
+              <h2>{conversations.reduce((sum, conversation) => sum + Number(conversation.unread_count || 0), 0)} unread</h2>
+            </div>
+            <a className="button button-secondary button-small" href="/dashboard/messages">Open all</a>
+          </header>
+          {conversationsError ? (
+            <p className="customer-messages-feedback" role="status">{conversationsError}</p>
+          ) : conversations.length ? (
+            <ul className="customer-message-list">
+              {[...conversations]
+                .sort((first, second) => new Date(second.last_message || 0) - new Date(first.last_message || 0))
+                .slice(0, 3)
+                .map((conversation) => {
+                  const unreadCount = Number(conversation.unread_count || 0);
+                  const name = conversation.business_name || conversation.other_name || conversation.other_email || 'Caterer';
+                  const href = `/dashboard/messages?customer_id=${conversation.customer_id}&caterer_id=${conversation.caterer_id}&package_id=${conversation.package_id || 0}`;
+                  return (
+                    <li key={`${conversation.customer_id}-${conversation.caterer_id}-${conversation.package_id || 0}`}>
+                      <a className="customer-message-avatar" href={href} aria-label={`Open conversation with ${name}`}>{name.charAt(0).toUpperCase()}</a>
+                      <a className="customer-message-copy" href={href}>
+                        <strong>{name}</strong>
+                        <span>{conversation.last_message_text || 'Open conversation'}</span>
+                      </a>
+                      <span className="customer-message-time">{timeAgo(conversation.last_message)}</span>
+                      {unreadCount > 0 && <span className="customer-message-unread" aria-label={`${unreadCount} unread messages`} />}
+                    </li>
+                  );
+                })}
+            </ul>
+          ) : !conversationsLoaded ? (
+            <p className="customer-messages-feedback">Loading conversations...</p>
+          ) : (
+            <div className="customer-messages-empty"><MessageCircle size={20} aria-hidden="true" /><p>No conversations yet. Message a caterer to get started.</p><a href="/dashboard/messages">Go to messages</a></div>
+          )}
+        </section>
 
         {notificationsOpen && (
           <section id="customer-notifications-panel" className="customer-notifications" aria-labelledby="customer-notifications-title">
@@ -341,6 +614,7 @@ export default function CustomerDashboard() {
                 <li key={notice.id}>
                   {notice.type === 'event' ? <CalendarClock size={18} aria-hidden="true" /> : notice.type === 'balance' || notice.type === 'payment' ? <CircleDollarSign size={18} aria-hidden="true" /> : <Bell size={18} aria-hidden="true" />}
                   <div><strong>{notice.title}</strong><p>{notice.message}</p></div>
+                  {notice.type === 'balance' && <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(notice.reservationId)} type="button">{payingBalanceId === notice.reservationId ? 'Opening PayPal...' : 'Pay balance'}</button>}
                   {['booking', 'payment'].includes(notice.type) && <button className="notification-dismiss" onClick={() => dismissStatusAlert(notice.id)} type="button" aria-label="Dismiss notification"><X size={16} /></button>}
                 </li>
               )) : <li className="customer-notifications-empty">You're all caught up. New booking and payment updates will appear here.</li>}
@@ -348,7 +622,7 @@ export default function CustomerDashboard() {
           </section>
         )}
 
-        <div className="table-card">
+        <div className="table-card" id="customer-reservations">
           <div className="section-header">
             <div>
               <p className="eyebrow eyebrow-soft">{showBookingHistory ? 'Past bookings' : 'Booking requests'}</p>

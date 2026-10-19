@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ArrowRight, Flower2, LockKeyhole, Mail } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Flower2, LockKeyhole, Mail } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [statusIsSuccess, setStatusIsSuccess] = useState(false);
@@ -124,7 +125,16 @@ export default function Login() {
           <label htmlFor="password">Password</label>
           <div className="login-input-wrap">
             <LockKeyhole size={17} aria-hidden="true" />
-            <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            <input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            <button
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
+              className="login-password-toggle"
+              onClick={() => setShowPassword((visible) => !visible)}
+              type="button"
+            >
+              {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
           </div>
         </div>
         <p className="auth-note auth-forgot"><a href="/forgot-password">Forgot password?</a></p>
