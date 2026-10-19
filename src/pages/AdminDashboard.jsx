@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ArrowDownToLine, ArrowUpRight, Building2, CalendarDays, CircleDollarSign, ClipboardList, RefreshCw, ShieldCheck, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { API_BASE } from '../lib/api';
 import DashboardPage from '../components/DashboardPage.jsx';
@@ -13,6 +14,7 @@ export default function AdminDashboard() {
   const [healthError, setHealthError] = useState('');
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [clock, setClock] = useState(Date.now());
+  const [hoveredStatusKey, setHoveredStatusKey] = useState(null);
 
   async function load() {
     try {
@@ -75,10 +77,10 @@ export default function AdminDashboard() {
   const statusRows = useMemo(() => {
     const statuses = analytics.statuses || {};
     const knownStatuses = [
-      ['Confirmed', 'confirmed', '#4d7a62'],
-      ['Pending', 'pending', '#d29a4d'],
-      ['Completed', 'completed', '#6b87a3'],
-      ['Cancelled', 'cancelled', '#cf775f'],
+      ['Confirmed', 'confirmed', 'var(--chart-1)'],
+      ['Pending', 'pending', 'var(--chart-2)'],
+      ['Completed', 'completed', 'var(--chart-3)'],
+      ['Cancelled', 'cancelled', 'var(--chart-4)'],
     ];
     const rows = knownStatuses.map(([label, key, color]) => ({
       label,
@@ -92,13 +94,14 @@ export default function AdminDashboard() {
       .forEach(([key, value], index) => rows.push({
         label: key.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
         key,
-        color: ['#8774a8', '#65a2a0', '#b78153'][index % 3],
+        color: `var(--chart-${(index % 4) + 1})`,
         value: Number(value || 0),
       }));
     const total = rows.reduce((sum, row) => sum + row.value, 0);
     return rows.map((row) => ({ ...row, percentage: total ? Math.round((row.value / total) * 100) : 0 }));
   }, [analytics.statuses]);
   const statusTotal = statusRows.reduce((sum, row) => sum + row.value, 0);
+  const hoveredStatus = statusRows.find((row) => row.key === hoveredStatusKey);
   const statusChartRows = useMemo(() => {
     const circumference = 2 * Math.PI * 42;
     let offset = 0;
@@ -111,8 +114,8 @@ export default function AdminDashboard() {
   }, [statusRows, statusTotal]);
   const financialMax = Math.max(Number(analytics.revenue) || 0, Number(analytics.platform_commission) || 0, 1);
   const financialRows = [
-    ['Collected revenue', Number(analytics.revenue) || 0, '#4d7a62'],
-    ['Platform commission', Number(analytics.platform_commission) || 0, '#d29a4d'],
+    ['Collected revenue', Number(analytics.revenue) || 0, 'var(--chart-1)'],
+    ['Platform commission', Number(analytics.platform_commission) || 0, 'var(--chart-2)'],
   ];
 
   const ageMs = lastUpdatedAt === null ? null : Math.max(0, clock - lastUpdatedAt);
@@ -137,24 +140,24 @@ export default function AdminDashboard() {
 
         <div className="admin-intro">
           <div>
-            <p className="eyebrow">Operations center</p>
-            <h2>Admin dashboard</h2>
-            <p>Review accounts, monitor payouts, and handle the actions that need your attention.</p>
+            <p className="eyebrow">Your platform at a glance</p>
+            <h2>Admin overview</h2>
+            <p>Track bookings, revenue, and the health of your catering community.</p>
           </div>
-          <button className="admin-refresh" onClick={refreshAll} type="button">Refresh data</button>
+          <button className="admin-refresh" onClick={refreshAll} type="button"><RefreshCw size={15} /> Refresh data</button>
         </div>
 
         <div className="admin-stats">
           {[
-            ['Caterers', stats.caterers, 'Registered partners'],
-            ['Verified', stats.verified, 'Approved caterers'],
-            ['Customers', stats.customers, 'Registered customers'],
-            ['Needs review', pendingCount, 'Accounts waiting'],
-          ].map(([label, value, hint]) => (
-            <article className="admin-stat" key={label}>
-              <span>{label}</span>
+            { label: 'Total bookings', value: analytics.bookings, hint: 'Excluding cancelled requests', Icon: ClipboardList, tone: 'violet' },
+            { label: 'Collected revenue', value: money(analytics.revenue), hint: `${analytics.completed_payments || 0} completed payments`, Icon: CircleDollarSign, tone: 'green' },
+            { label: 'Platform commission', value: money(analytics.platform_commission), hint: '2.5% admin earnings', Icon: ArrowUpRight, tone: 'blue' },
+            { label: 'Average booking', value: money(analytics.average_booking), hint: 'Across active bookings', Icon: CalendarDays, tone: 'amber' },
+          ].map(({ label, value, hint, Icon, tone }) => (
+            <article className={`admin-stat admin-stat-${tone}`} key={label}>
+              <div className="admin-stat-top"><span>{label}</span><i><Icon size={18} /></i></div>
               <strong>{value ?? 0}</strong>
-              <small>{hint}</small>
+              <small><span className="admin-stat-dot" />{hint}</small>
             </article>
           ))}
         </div>
@@ -162,33 +165,17 @@ export default function AdminDashboard() {
         <section className="admin-analytics">
           <div className="admin-analytics-heading">
             <div>
-              <p className="eyebrow">Platform insights</p>
-              <h3>Dashboard analytics</h3>
+              <p className="eyebrow">Performance</p>
+              <h3>Platform analytics</h3>
             </div>
-            <span>Live database summary</span>
+            <span className="admin-live-label"><i /> Live database summary</span>
           </div>
 
-          <div className="analytics-metrics">
-            <article>
-              <span>Total bookings</span>
-              <strong>{analytics.bookings || 0}</strong>
-              <small>Excluding cancelled requests</small>
-            </article>
-            <article>
-              <span>Collected revenue</span>
-              <strong>{money(analytics.revenue)}</strong>
-              <small>{analytics.completed_payments || 0} completed payments</small>
-            </article>
-            <article>
-              <span>Platform commission</span>
-              <strong>{money(analytics.platform_commission)}</strong>
-              <small>2.5% admin earnings</small>
-            </article>
-            <article>
-              <span>Average booking</span>
-              <strong>{money(analytics.average_booking)}</strong>
-              <small>Across active bookings</small>
-            </article>
+          <div className="admin-community-stats">
+            <article><i><Building2 size={17} /></i><span>Registered caterers</span><strong>{stats.caterers ?? 0}</strong></article>
+            <article><i><ShieldCheck size={17} /></i><span>Verified partners</span><strong>{stats.verified ?? 0}</strong></article>
+            <article><i><Users size={17} /></i><span>Customers</span><strong>{stats.customers ?? 0}</strong></article>
+            <article className="admin-community-pending"><i><ArrowDownToLine size={17} /></i><span>Needs review</span><strong>{pendingCount}</strong></article>
           </div>
 
           <div className="admin-chart-grid">
@@ -214,20 +201,61 @@ export default function AdminDashboard() {
                         stroke={row.color}
                         strokeDasharray={`${row.length} ${2 * Math.PI * 42 - row.length}`}
                         strokeDashoffset={row.offset}
-                      />
+                        tabIndex={row.value > 0 ? 0 : -1}
+                        role="button"
+                        aria-label={`${row.label}: ${row.value} reservations, ${row.percentage}%`}
+                        onMouseEnter={() => setHoveredStatusKey(row.key)}
+                        onMouseLeave={() => setHoveredStatusKey(null)}
+                        onFocus={() => setHoveredStatusKey(row.key)}
+                        onBlur={() => setHoveredStatusKey(null)}
+                        style={{ '--donut-offset': row.offset }}
+                      >
+                        <title>{`${row.label}: ${row.value} (${row.percentage}%)`}</title>
+                      </circle>
                     ))}
                   </svg>
-                  <div className="reservation-donut-total"><strong>{statusTotal}</strong><span>Bookings</span></div>
+                  <div className={`reservation-donut-total${hoveredStatus ? ' is-hovered' : ''}`} aria-live="polite" aria-atomic="true">
+                    <div key={hoveredStatus?.key || 'all'} className="reservation-donut-center-copy">
+                      <strong style={hoveredStatus ? { color: hoveredStatus.color } : undefined}>
+                        {hoveredStatus ? hoveredStatus.value : statusTotal}
+                      </strong>
+                      <span>{hoveredStatus ? hoveredStatus.label : 'Bookings'}</span>
+                      {hoveredStatus && <small>{hoveredStatus.percentage}% of reservations</small>}
+                    </div>
+                  </div>
                 </div>
                 <div className="reservation-chart-legend">
                   {statusRows.map((row) => (
-                    <div className="reservation-chart-legend-row" key={row.key}>
-                      <span className="reservation-chart-legend-label"><i style={{ backgroundColor: row.color }} />{row.label}</span>
-                      <strong>{row.value}<small>{row.percentage}%</small></strong>
+                    <div
+                      className={`reservation-chart-legend-row${hoveredStatusKey === row.key ? ' is-active' : ''}`}
+                      key={row.key}
+                      onMouseEnter={() => setHoveredStatusKey(row.key)}
+                      onMouseLeave={() => setHoveredStatusKey(null)}
+                      onFocus={() => setHoveredStatusKey(row.key)}
+                      onBlur={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget)) setHoveredStatusKey(null);
+                      }}
+                      style={{ '--series-color': row.color }}
+                      tabIndex={row.value > 0 ? 0 : -1}
+                    >
+                      <div className="reservation-chart-legend-main">
+                        <span className="reservation-chart-legend-label" style={{ '--series-color': row.color }}><i />{row.label}</span>
+                        <strong>{row.value}<small>{row.percentage}%</small></strong>
+                      </div>
+                      <span className="reservation-chart-bar"><i style={{ '--series-color': row.color, width: `${row.percentage}%` }} /></span>
                     </div>
                   ))}
                 </div>
               </div>
+              <details className="chart-data-table">
+                <summary>View data as table</summary>
+                <div className="chart-data-table-wrap">
+                  <table>
+                    <thead><tr><th>Status</th><th>Reservations</th><th>Share</th></tr></thead>
+                    <tbody>{statusRows.map((row) => <tr key={row.key}><th scope="row">{row.label}</th><td>{row.value}</td><td>{row.percentage}%</td></tr>)}</tbody>
+                  </table>
+                </div>
+              </details>
             </section>
 
             <section className="admin-chart-panel" aria-labelledby="revenue-chart-title">
@@ -246,13 +274,23 @@ export default function AdminDashboard() {
                       className="revenue-chart-track"
                       role="img"
                       aria-label={`${label}: ${money(value)}`}
+                      title={`${label}: ${money(value)}`}
                     >
-                      <span style={{ backgroundColor: color, width: `${Math.min((value / financialMax) * 100, 100)}%` }} />
+                      <span style={{ '--series-color': color, width: `${Math.min((value / financialMax) * 100, 100)}%` }} />
                     </div>
                   </div>
                 ))}
                 <p className="revenue-chart-note">Amounts compared against the larger total.</p>
               </div>
+              <details className="chart-data-table">
+                <summary>View data as table</summary>
+                <div className="chart-data-table-wrap">
+                  <table>
+                    <thead><tr><th>Measure</th><th>Amount</th></tr></thead>
+                    <tbody>{financialRows.map(([label, value]) => <tr key={label}><th scope="row">{label}</th><td>{money(value)}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              </details>
             </section>
           </div>
         </section>

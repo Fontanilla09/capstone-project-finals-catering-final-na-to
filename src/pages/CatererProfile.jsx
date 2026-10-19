@@ -115,6 +115,7 @@ export default function CatererProfile() {
       const { error: updateError } = await supabase.from('caterers').update({ profile_image: publicImage.publicUrl }).eq('user_id', currentProfile.user_id);
       if (updateError) throw new Error(`Photo uploaded, but saving it to the caterer profile failed: ${updateError.message}`);
 
+      window.dispatchEvent(new CustomEvent('caterer-profile-image-updated', { detail: publicImage.publicUrl }));
       setStatus('Profile photo updated.');
       await load();
     } catch (reason) {

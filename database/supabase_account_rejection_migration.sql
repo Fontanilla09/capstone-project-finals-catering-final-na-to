@@ -65,6 +65,8 @@ returns void
 language plpgsql
 security definer set search_path = public
 as $$
+declare
+    target_name varchar;
 begin
     if not public.is_admin() then
         raise exception 'Admin access required';
@@ -82,7 +84,8 @@ begin
     set is_verified = approved,
         rejection_reason = case when approved then null else btrim(p_rejection_reason) end,
         updated_at = now()
-    where c.id = customer_id;
+    where c.id = customer_id
+    returning c.full_name into target_name;
 
     if not found then
         return;
@@ -91,7 +94,11 @@ begin
     insert into public.admin_activity_log (admin_user_id, action, details)
     select id,
         case when approved then 'approve_customer' else 'reject_customer' end,
-        'Customer profile #' || customer_id
+        left(
+            'Customer profile #' || customer_id || ' — ' || target_name
+            || case when approved then '' else ': ' || btrim(p_rejection_reason) end,
+            255
+        )
     from public.users
     where auth_user_id = auth.uid();
 end;
@@ -109,6 +116,8 @@ returns void
 language plpgsql
 security definer set search_path = public
 as $$
+declare
+    target_name varchar;
 begin
     if not public.is_admin() then
         raise exception 'Admin access required';
@@ -127,7 +136,8 @@ begin
         verification_submitted = true,
         rejection_reason = case when approved then null else btrim(p_rejection_reason) end,
         updated_at = now()
-    where c.id = caterer_id;
+    where c.id = caterer_id
+    returning c.business_name into target_name;
 
     if not found then
         return;
@@ -136,7 +146,11 @@ begin
     insert into public.admin_activity_log (admin_user_id, action, details)
     select id,
         case when approved then 'approve_caterer' else 'reject_caterer' end,
-        'Caterer profile #' || caterer_id
+        left(
+            'Caterer profile #' || caterer_id || ' — ' || target_name
+            || case when approved then '' else ': ' || btrim(p_rejection_reason) end,
+            255
+        )
     from public.users
     where auth_user_id = auth.uid();
 end;

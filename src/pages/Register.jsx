@@ -44,7 +44,7 @@ export default function Register() {
         if (!data.session) {
           setStatus({
             error: '',
-            success: 'Account created. Email confirmation is enabled, so the permit will only be attached after the user confirms the email and signs in again.',
+            success: `Account created. Email confirmation is required. Check ${values.email} and its spam folder for a confirmation link. If no email arrives, check Supabase email confirmation and SMTP settings.`,
           });
           setForm(emptyForm);
           return;
@@ -57,8 +57,10 @@ export default function Register() {
         if (permitError) throw new Error('Account created, but the business permit could not be saved.');
       }
 
-      const confirmationNote = data.session ? '' : ' Check your email to confirm your account.';
-      setStatus({ error: '', success: `Account created. Sign in after admin approval.${confirmationNote}` });
+      const success = data.session
+        ? 'Account created. Email confirmation appears to be disabled in Supabase, so no confirmation email was requested. Sign in after admin approval.'
+        : `Account created. Email confirmation is required. Check ${values.email} and its spam folder for a confirmation link. If no email arrives, check Supabase email confirmation and SMTP settings.`;
+      setStatus({ error: '', success });
       setForm(emptyForm);
     } catch (error) {
       setStatus({ error: error.message, success: '' });

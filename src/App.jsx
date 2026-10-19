@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import Book from './pages/Book.jsx';
 import CatererDashboard from './pages/CatererDashboard.jsx';
@@ -21,14 +22,41 @@ import AdminUsers from './pages/AdminUsers.jsx';
 import AdminActivity from './pages/AdminActivity.jsx';
 import AdminCaterManagement from './pages/AdminCaterManagement.jsx';
 import AdminReports from './pages/AdminReports.jsx';
+import AdminCustomers from './pages/AdminCustomers.jsx';
 import AiGeneratedPhoto from './pages/AiGeneratedPhoto.jsx';
 
 export default function App() {
+  const [, setCurrentLocation] = useState(() => `${window.location.pathname}${window.location.search}${window.location.hash}`);
   const path = window.location.pathname;
   const callbackParams = new URLSearchParams(window.location.hash.slice(1));
   const isPasswordRecoveryCallback = callbackParams.get('type') === 'recovery'
     || callbackParams.has('error_code')
     || callbackParams.has('error');
+
+  useEffect(() => {
+    const updateLocation = () => setCurrentLocation(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+    const handleInternalNavigation = (event) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!(event.target instanceof Element)) return;
+      const link = event.target.closest('a[href]');
+      if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+
+      const nextUrl = new URL(link.href, window.location.href);
+      if (nextUrl.origin !== window.location.origin) return;
+      if (nextUrl.pathname === window.location.pathname && nextUrl.search === window.location.search) return;
+
+      event.preventDefault();
+      window.history.pushState(null, '', nextUrl);
+      updateLocation();
+    };
+
+    document.addEventListener('click', handleInternalNavigation);
+    window.addEventListener('popstate', updateLocation);
+    return () => {
+      document.removeEventListener('click', handleInternalNavigation);
+      window.removeEventListener('popstate', updateLocation);
+    };
+  }, []);
 
   if (path === '/login') return <Login />;
   if (path === '/forgot-password') return <ForgotPassword />;
@@ -50,6 +78,7 @@ export default function App() {
   if (path === '/dashboard/caterer/earnings') return <CatererEarnings />;
   if (path === '/dashboard/admin') return <AdminDashboard />;
   if (path === '/dashboard/admin/cater-management') return <AdminCaterManagement />;
+  if (path === '/dashboard/admin/customers') return <AdminCustomers />;
   if (path === '/dashboard/admin/reports') return <AdminReports />;
   if (path === '/dashboard/admin/users') return <AdminUsers />;
   if (path === '/dashboard/admin/activity') return <AdminActivity />;

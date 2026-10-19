@@ -6,12 +6,15 @@ alter table public.reviews
 create or replace function public.get_caterer_reviews()
 returns table (
     review_id bigint,
+    package_id bigint,
     rating integer,
     review_text text,
     review_image varchar,
     created_at timestamptz,
     customer_name varchar,
     package_name varchar,
+    event_type varchar,
+    guest_count integer,
     event_date date,
     is_read boolean
 )
@@ -21,12 +24,15 @@ security definer set search_path = public
 as $$
     select
         rev.id,
+        reservation.package_id,
         rev.rating,
         rev.review_text,
         rev.review_image,
         rev.created_at,
         customer.full_name,
         package.package_name,
+        package.event_type,
+        reservation.guest_count,
         reservation.event_date,
         rev.caterer_read_at is not null
     from public.reviews rev

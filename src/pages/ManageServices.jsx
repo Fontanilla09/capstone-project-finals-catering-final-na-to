@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
@@ -12,7 +13,7 @@ function imageUrl(path) {
 }
 
 export default function ManageServices() {
-  const [services, setServices] = useState([]); const [form, setForm] = useState(initialForm); const [images, setImages] = useState([]); const [editingId, setEditingId] = useState(null); const [expandedServiceId, setExpandedServiceId] = useState(null); const [searchTerm, setSearchTerm] = useState(''); const [currentPage, setCurrentPage] = useState(1); const [pageSize, setPageSize] = useState(5); const [showForm, setShowForm] = useState(false); const [status, setStatus] = useState('');
+  const [services, setServices] = useState([]); const [form, setForm] = useState(initialForm); const [images, setImages] = useState([]); const [editingId, setEditingId] = useState(null); const [expandedServiceId, setExpandedServiceId] = useState(null); const [searchTerm, setSearchTerm] = useState(''); const [currentPage, setCurrentPage] = useState(1); const [pageSize, setPageSize] = useState(5); const [showForm, setShowForm] = useState(false); const [status, setStatus] = useState(''); const [formError, setFormError] = useState('');
   async function getCatererId() {
     if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
     const { data, error } = await supabase.rpc('get_my_profile');
@@ -29,10 +30,30 @@ export default function ManageServices() {
     } catch (error) { setStatus(error.message); }
   }
   useEffect(() => { load(); }, []);
-  useEffect(() => { window.scrollTo(0, 0); }, [showForm]);
+  useEffect(() => {
+    if (!showForm) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') closeForm();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showForm]);
+  function closeForm() {
+    setEditingId(null);
+    setForm(initialForm);
+    setImages([]);
+    setFormError('');
+    setShowForm(false);
+  }
   async function create(event) {
     event.preventDefault();
     const wasEditing = Boolean(editingId);
+    setFormError('');
     try {
       const catererId = await getCatererId();
       const parts = form.guest_range.replace(/\s+/g, '').split('-');
@@ -55,7 +76,7 @@ export default function ManageServices() {
         if (imageError) throw imageError;
       }
       setForm(initialForm); setImages([]); setEditingId(null); setShowForm(false); setStatus(wasEditing ? 'Service updated.' : 'Service created.'); load();
-    } catch (error) { setStatus(error.message); }
+    } catch (error) { setFormError(error.message); }
   }
   async function remove(id) { try { const catererId = await getCatererId(); const { error } = await supabase.from('packages').delete().eq('id', id).eq('caterer_id', catererId); if (error) throw error; setExpandedServiceId(null); setCurrentPage(1); setStatus('Service deleted.'); load(); } catch (error) { setStatus(error.message); } }
   function edit(service) { setEditingId(service.id); setShowForm(true); setImages([]); setForm({ package_name: service.package_name, event_type: service.event_type, guest_range: `${service.guest_count_min}-${service.guest_count_max}`, price: service.price, description: service.description || '', features: service.includes || '' }); }
@@ -67,16 +88,22 @@ export default function ManageServices() {
   const fields = [['package_name', 'Package name'], ['event_type', 'Event type'], ['guest_range', 'Guest range, e.g. 50-100'], ['price', 'Price']];
   return <DashboardPage role="caterer" section="services"><div className="services-workspace">
     {status && <p className="form-alert success-alert">{status}</p>}
-    <div className="services-heading"><div><p className="eyebrow">Services</p><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><div className="services-heading-actions">{!showForm && services.length > 0 && <button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Add package <span aria-hidden="true">+</span></button>}</div></div>
-    <div className={`services-layout${showForm ? '' : ' services-layout-catalog'}`}>
-      {showForm && (
+    <div className="services-heading"><div><p className="eyebrow">Services</p><h2>Manage your packages</h2><p>Create clear, complete offers that customers can compare easily.</p></div><div className="services-heading-actions"><button className="button button-primary" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(true); }} type="button">Add package <span aria-hidden="true">+</span></button></div></div>
+    <div className="services-layout services-layout-catalog">
+      {showForm && createPortal(
+      <div className="service-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeForm(); }}>
+      <section className="service-modal" role="dialog" aria-modal="true" aria-labelledby="service-modal-title">
       <form className="profile-form service-form" onSubmit={create}>
-        <div className="service-form-heading"><div><p className="eyebrow">{editingId ? 'Edit package' : 'New package'}</p><h3>{editingId ? 'Update service package' : 'Add service package'}</h3></div><button className="service-cancel" onClick={() => { setEditingId(null); setForm(initialForm); setImages([]); setShowForm(false); }} type="button">Cancel</button></div>
-        <fieldset><legend>Package details</legend><div className="service-fields">{fields.slice(0, 2).map(([name, label]) => <label key={name}>{label}{name === 'event_type' ? <select name={name} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required><option value="">Select event type</option>{EVENT_TYPES.map((eventType) => <option key={eventType} value={eventType}>{eventType}</option>)}</select> : <input name={name} type="text" value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required />}</label>)}</div></fieldset>
+        <div className="service-form-heading"><div><p className="eyebrow">{editingId ? 'Edit package' : 'New package'}</p><h3 id="service-modal-title">{editingId ? 'Update service package' : 'Add service package'}</h3></div><button className="service-modal-close" aria-label="Close package form" onClick={closeForm} type="button">&times;</button></div>
+        {formError && <p className="form-alert error-alert" role="alert">{formError}</p>}
+        <fieldset><legend>Package details</legend><div className="service-fields">{fields.slice(0, 2).map(([name, label]) => <label key={name}>{label}{name === 'event_type' ? <select name={name} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required><option value="">Select event type</option>{EVENT_TYPES.map((eventType) => <option key={eventType} value={eventType}>{eventType}</option>)}</select> : <input autoFocus={name === 'package_name'} name={name} type="text" value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required />}</label>)}</div></fieldset>
         <fieldset><legend>Capacity and pricing</legend><div className="service-fields service-fields-three">{fields.slice(2).map(([name, label]) => <label key={name}>{label}<input name={name} type={name === 'price' ? 'number' : 'text'} value={form[name]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required /></label>)}</div></fieldset>
         <fieldset><legend>Package presentation</legend><div className="service-fields"><label>Package description<textarea name="description" value={form.description} onChange={(event) => setForm({ ...form, [event.target.name]: event.target.value })} placeholder="Describe the service, setup, styling, or event experience." /></label><label>What's included in this package?<textarea name="features" value={form.features} onChange={(event) => setForm({ ...form, [event.target.name]: event.target.value })} placeholder="List the setup, equipment, staff, styling, or other inclusions." /></label></div><div className="service-upload"><span className="service-upload-label">Package photos</span><div className="service-upload-control"><label className="service-file-button" htmlFor="service-images" title="Add package photos" aria-label="Add package photos">+</label><input id="service-images" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setImages(Array.from(event.target.files || []))} /><span>{images.length ? `${images.length} photo${images.length === 1 ? '' : 's'} selected` : 'Add photos of your setup or service'}</span></div><small>Show customers the setup, styling, equipment, or service experience.</small></div></fieldset>
-        <button className="button button-primary service-submit" type="submit">{editingId ? 'Update service' : 'Create service'} <span>↗</span></button>
+        <div className="service-modal-actions"><button className="service-cancel" onClick={closeForm} type="button">Cancel</button><button className="button button-primary service-submit" type="submit">{editingId ? 'Update service' : 'Create service'} <span>↗</span></button></div>
       </form>
+      </section>
+      </div>,
+      document.body
       )}
       <section className="services-catalog">
         <div className="catalog-heading">

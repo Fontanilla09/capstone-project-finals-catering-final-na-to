@@ -110,6 +110,7 @@ as $$
 declare
     target_user_id bigint;
     target_auth_user_id uuid;
+    target_name varchar;
 begin
     if not public.is_admin() then raise exception 'Admin access required'; end if;
 
@@ -119,18 +120,22 @@ begin
             updated_at = now()
         where id = customer_id;
         insert into public.admin_activity_log (admin_user_id, action, details)
-        select id, 'approve_customer', 'Customer profile #' || customer_id
-        from public.users where auth_user_id = auth.uid();
+        select u.id, 'approve_customer', 'Customer profile #' || customer_id || ' — ' || c.full_name
+        from public.users u
+        join public.customers c on c.user_id = u.id
+        where u.auth_user_id = auth.uid() and c.id = customer_id;
         return;
     end if;
 
-    select user_id into target_user_id from public.customers where id = customer_id;
+    select user_id, full_name into target_user_id, target_name
+    from public.customers where id = customer_id;
     if target_user_id is null then
         return;
     end if;
 
     insert into public.admin_activity_log (admin_user_id, action, details)
     select id, 'reject_customer', 'Customer profile #' || customer_id
+        || case when target_name is not null then ' — ' || target_name else '' end
     from public.users where auth_user_id = auth.uid();
 
     select auth_user_id into target_auth_user_id from public.users where id = target_user_id;
@@ -152,6 +157,7 @@ as $$
 declare
     target_user_id bigint;
     target_auth_user_id uuid;
+    target_name varchar;
 begin
     if not public.is_admin() then raise exception 'Admin access required'; end if;
 
@@ -162,18 +168,22 @@ begin
             updated_at = now()
         where id = caterer_id;
         insert into public.admin_activity_log (admin_user_id, action, details)
-        select id, 'approve_caterer', 'Caterer profile #' || caterer_id
-        from public.users where auth_user_id = auth.uid();
+        select u.id, 'approve_caterer', 'Caterer profile #' || caterer_id || ' — ' || c.business_name
+        from public.users u
+        join public.caterers c on c.user_id = u.id
+        where u.auth_user_id = auth.uid() and c.id = caterer_id;
         return;
     end if;
 
-    select user_id into target_user_id from public.caterers where id = caterer_id;
+    select user_id, business_name into target_user_id, target_name
+    from public.caterers where id = caterer_id;
     if target_user_id is null then
         return;
     end if;
 
     insert into public.admin_activity_log (admin_user_id, action, details)
     select id, 'reject_caterer', 'Caterer profile #' || caterer_id
+        || case when target_name is not null then ' — ' || target_name else '' end
     from public.users where auth_user_id = auth.uid();
 
     select auth_user_id into target_auth_user_id from public.users where id = target_user_id;

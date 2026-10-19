@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
 
 const reservationsPerPage = 4;
+const historyReservationsPerPage = 8;
 
 function eventIsTodayOrPast(eventDate) {
   const date = new Date(`${eventDate}T00:00:00`);
@@ -14,6 +15,21 @@ function eventIsTodayOrPast(eventDate) {
 
 function formatCurrency(amount) {
   return `₱${Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatEventDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatEventTime(eventDate, eventTime) {
+  if (!eventTime) return 'Time not set';
+  const date = new Date(`${eventDate}T${eventTime}`);
+  return Number.isNaN(date.getTime())
+    ? eventTime
+    : date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
 }
 
 export default function ViewReservations() {
@@ -73,66 +89,164 @@ export default function ViewReservations() {
     } catch (error) { setStatus(error.message); }
   }
   const completedReservations = reservations.filter((item) => item.reservation_status === 'completed');
+  const pendingReservations = reservations.filter((item) => item.reservation_status === 'pending');
   const visibleReservations = reservations.filter((item) => (
     (item.reservation_status === 'completed') === showHistory
   ));
-  const pageCount = Math.max(1, Math.ceil(visibleReservations.length / reservationsPerPage));
+  const pageSize = showHistory ? historyReservationsPerPage : reservationsPerPage;
+  const pageCount = Math.max(1, Math.ceil(visibleReservations.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pagedReservations = visibleReservations.slice(
-    (currentPage - 1) * reservationsPerPage,
-    currentPage * reservationsPerPage,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
   return (
     <DashboardPage role="caterer" section="reservations">
       <>
         {status && <p className="form-alert success-alert">{status}</p>}
-        <div className="analytics-status-title">
+        <div className="analytics-status-title caterer-reservations-heading">
           <h2>{showHistory ? 'Reservation history' : 'Active reservations'}</h2>
           <button className="button button-secondary button-small" onClick={() => { setShowHistory((show) => !show); setPage(1); }} type="button" aria-pressed={showHistory}>
             {showHistory ? 'Back to reservations' : `History (${completedReservations.length})`}
           </button>
         </div>
-        <div className="reservation-list">
-          {pagedReservations.length ? pagedReservations.map((item) => (
-            <article className="package-card reservation-card" key={item.id}>
-              <div className="reservation-card-header">
-                <div><p className="eyebrow">Booking request</p><h3>{item.package_name}</h3></div>
-                <span className={`reservation-status reservation-status-${item.reservation_status}`}>{item.reservation_status}</span>
+        <section className="caterer-reservation-summary" aria-label="Reservation summary">
+          <article>
+            <span>All bookings</span>
+            <strong>{reservations.length}</strong>
+            <small>Across your account</small>
+          </article>
+          <article>
+            <span>Pending</span>
+            <strong>{pendingReservations.length}</strong>
+            <small>Waiting for your review</small>
+          </article>
+          <article>
+            <span>Completed</span>
+            <strong>{completedReservations.length}</strong>
+            <small>Available in history</small>
+          </article>
+        </section>
+        {showHistory ? (
+          pagedReservations.length ? (
+            <>
+              <p className="caterer-history-scroll-hint">Scroll horizontally to see all reservation details.</p>
+              <div className="caterer-reservation-history-wrap" role="region" aria-label="Completed reservation history" tabIndex="0">
+                <table className="caterer-reservation-history-table" aria-label="Completed reservations">
+                  <thead>
+                    <tr>
+                      <th scope="col">Package</th>
+                      <th scope="col">Customer</th>
+                      <th scope="col">Event date</th>
+                      <th scope="col">Guests</th>
+                      <th scope="col">Venue</th>
+                      <th scope="col">Payment</th>
+                      <th scope="col">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedReservations.map((item) => (
+                      <tr key={item.id}>
+                        <td><strong>{item.package_name || 'Catering package'}</strong></td>
+                        <td>{item.customer_name || 'Customer'}</td>
+                        <td>
+                          <strong>{formatEventDate(item.event_date)}</strong>
+                          <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
+                        </td>
+                        <td>{Number(item.guest_count || 0).toLocaleString('en-PH')}</td>
+                        <td className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
+                        <td><span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span></td>
+                        <td><strong>{formatCurrency(item.total_amount)}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="reservation-details">
-                <p><strong>Customer</strong>{item.customer_name}</p>
-                <p><strong>Event date</strong>{item.event_date} at {item.event_time}</p>
-                <p><strong>Guests</strong>{item.guest_count}</p>
-                <p className="reservation-location"><strong>Venue</strong>{item.location}</p>
-                <p><strong>Payment status</strong>{item.payment_status}</p>
-                <p><strong>Total amount</strong>{formatCurrency(item.total_amount)}</p>
-                <p><strong>Down payment</strong>{formatCurrency(item.advance_payment)}</p>
-                <p className="reservation-balance"><strong>Balance to pay</strong>{formatCurrency(item.payment_status === 'completed' ? 0 : item.balance_amount)}</p>
+            </>
+          ) : (
+            <div className="caterer-history-empty">
+              <h3>No completed reservations yet</h3>
+              <p>Completed bookings will appear here for easy reference.</p>
+            </div>
+          )
+        ) : (
+          pagedReservations.length ? (
+            <>
+              <p className="caterer-active-scroll-hint">Scroll horizontally to see all reservation details.</p>
+              <div className="caterer-reservation-history-wrap caterer-active-reservations-wrap" role="region" aria-label="Active reservations" tabIndex="0">
+                <table className="caterer-reservation-history-table caterer-active-reservations-table" aria-label="Active reservations">
+                  <thead>
+                    <tr>
+                      <th scope="col">Package / status</th>
+                      <th scope="col">Customer</th>
+                      <th scope="col">Event date</th>
+                      <th scope="col">Guests</th>
+                      <th scope="col">Venue</th>
+                      <th scope="col">Payment</th>
+                      <th scope="col">Total</th>
+                      <th scope="col">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedReservations.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <strong>{item.package_name || 'Catering package'}</strong>
+                          <span className={`caterer-history-payment caterer-history-payment-${item.reservation_status || 'pending'}`}>
+                            {item.reservation_status || 'pending'}
+                          </span>
+                        </td>
+                        <td>{item.customer_name || 'Customer'}</td>
+                        <td>
+                          <strong>{formatEventDate(item.event_date)}</strong>
+                          <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
+                        </td>
+                        <td>{Number(item.guest_count || 0).toLocaleString('en-PH')}</td>
+                        <td className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
+                        <td>
+                          <span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>
+                            {item.payment_status || 'pending'}
+                          </span>
+                          <span className="caterer-history-time">Down payment: {formatCurrency(item.advance_payment)}</span>
+                          <span className="caterer-history-time">Balance: {formatCurrency(item.payment_status === 'completed' ? 0 : item.balance_amount)}</span>
+                        </td>
+                        <td><strong>{formatCurrency(item.total_amount)}</strong></td>
+                        <td>
+                          <div className="caterer-reservation-row-action">
+                            {item.reservation_status === 'pending' && item.payment_status === 'partial' ? (
+                              <button className="button button-primary button-small" onClick={() => accept(item.id)} type="button">Accept</button>
+                            ) : item.reservation_status === 'pending' && item.payment_status === 'pending' ? (
+                              <button className="button reservation-reject-button button-small" onClick={() => { setRejectingReservation(item); setRejectionReason(''); setStatus(''); }} type="button"><X size={15} aria-hidden="true" /> Reject</button>
+                            ) : item.reservation_status === 'confirmed' && item.payment_status === 'completed' && eventIsTodayOrPast(item.event_date) ? (
+                              <button className="button button-primary button-small" onClick={() => complete(item.id)} type="button"><CheckCircle2 size={15} aria-hidden="true" /> Done</button>
+                            ) : item.reservation_status === 'confirmed' && eventIsTodayOrPast(item.event_date) && item.payment_status !== 'completed' ? (
+                              <span className="muted-label">Awaiting full payment</span>
+                            ) : item.reservation_status === 'cancelled' && item.payment_status === 'pending' ? (
+                              <button className="button reservation-dismiss-button" onClick={() => dismissCancelled(item.id)} type="button" title="Remove unpaid cancelled booking" aria-label="Remove unpaid cancelled booking"><X size={16} aria-hidden="true" /></button>
+                            ) : (
+                              <button className="button button-primary button-small" disabled type="button">{item.reservation_status}</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="reservation-actions">
-                {item.reservation_status === 'pending' && item.payment_status === 'partial' ? (
-                  <button className="button button-primary" onClick={() => accept(item.id)} type="button">Accept reservation</button>
-                ) : item.reservation_status === 'pending' && item.payment_status === 'pending' ? (
-                  <button className="button reservation-reject-button" onClick={() => { setRejectingReservation(item); setRejectionReason(''); setStatus(''); }} type="button"><X size={16} aria-hidden="true" /> Reject</button>
-                ) : item.reservation_status === 'confirmed' && item.payment_status === 'completed' && eventIsTodayOrPast(item.event_date) ? (
-                  <button className="button button-primary" onClick={() => complete(item.id)} type="button"><CheckCircle2 size={16} aria-hidden="true" /> Mark as completed</button>
-                ) : item.reservation_status === 'confirmed' && eventIsTodayOrPast(item.event_date) && item.payment_status !== 'completed' ? (
-                  <span className="muted-label">Awaiting full payment</span>
-                ) : item.reservation_status === 'cancelled' && item.payment_status === 'pending' ? (
-                  <button className="button reservation-dismiss-button" onClick={() => dismissCancelled(item.id)} type="button" title="Remove unpaid cancelled booking" aria-label="Remove unpaid cancelled booking"><X size={16} aria-hidden="true" /></button>
-                ) : (
-                  <button className="button button-primary" disabled type="button">{item.reservation_status}</button>
-                )}
-              </div>
-            </article>
-          )) : <p>{showHistory ? 'No completed services yet.' : 'No active reservations found.'}</p>}
-        </div>
-        {visibleReservations.length > reservationsPerPage && (
-          <div className="analytics-status-title" aria-label="Reservation pages">
-            <span>{(currentPage - 1) * reservationsPerPage + 1}–{Math.min(currentPage * reservationsPerPage, visibleReservations.length)} of {visibleReservations.length}</span>
-            <div className="reservation-actions">
+            </>
+          ) : (
+            <div className="caterer-history-empty">
+              <h3>No active reservations</h3>
+              <p>New booking requests and upcoming events will appear here.</p>
+            </div>
+          )
+        )}
+        {visibleReservations.length > pageSize && (
+          <div className="analytics-status-title caterer-reservation-pagination" aria-label="Reservation pages">
+            <span className="caterer-reservation-pagination-range">Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, visibleReservations.length)} of {visibleReservations.length}</span>
+            <div className="caterer-reservation-pagination-controls">
               <button className="button button-secondary button-small" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))} type="button">Previous</button>
-              <span>Page {currentPage} of {pageCount}</span>
+              <span aria-live="polite">Page {currentPage} of {pageCount}</span>
               <button className="button button-secondary button-small" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} type="button">Next</button>
             </div>
           </div>
