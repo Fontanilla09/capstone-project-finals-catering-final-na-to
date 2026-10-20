@@ -24,6 +24,8 @@
   --accent-ink: #183a2b;
   --danger: #b3261e;
   --danger-50: #fdecea;
+  --cancelled: #a84343;
+  --highlight: #c45b38;
   --warn: #456d8c;
   --ok: #1d7448;
   --info: #36598c;
@@ -31,6 +33,10 @@
   --chart-2: #4d78a5;
   --chart-3: #3f72c9;
   --chart-4: #7655a5;
+  --status-confirmed: var(--chart-1);
+  --status-pending: var(--chart-2);
+  --status-completed: var(--chart-3);
+  --status-cancelled: var(--chart-4);
   --chart-grid: #e4ebe5;
   --shadow: 0 18px 42px rgba(22, 37, 30, .08);
   --font-heading: 'Bricolage Grotesque', 'DM Sans', sans-serif;
@@ -44,36 +50,42 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #06110d;
-  --surface: #0b1a14;
-  --surface-2: #112419;
-  --line: #1f3a2d;
-  --ink: #eef6f0;
-  --ink-2: #b5c9bc;
-  --muted: #86a091;
-  --brand: #2aa97b;
-  --brand-600: #2aa97b;
-  --brand-50: #10291e;
-  --nav-bg: #0b1a14;
-  --nav-ink: #ffffff;
-  --nav-ink-muted: rgba(255, 255, 255, .78);
-  --nav-ink-subtle: rgba(255, 255, 255, .72);
-  --nav-rule: rgba(255, 255, 255, .18);
-  --nav-hover: rgba(255, 255, 255, .10);
-  --nav-avatar: rgba(255, 255, 255, .12);
-  --accent: #83b99a;
-  --accent-ink: #10291e;
-  --danger: #ff8178;
-  --danger-50: #351c1a;
-  --warn: #9fc4df;
-  --ok: #62c58b;
-  --info: #83a8e9;
-  --chart-1: #2aa97b;
-  --chart-2: #7da9d7;
-  --chart-3: #5b8fe0;
-  --chart-4: #aa8ad7;
-  --chart-grid: #1f3a2d;
-  --shadow: 0 18px 42px rgba(0, 0, 0, .22);
+  --bg: #151a18;
+  --surface: #1e2522;
+  --surface-2: #26302b;
+  --line: #2e3a35;
+  --ink: #e6ebe8;
+  --ink-2: #a9b5af;
+  --muted: #a9b5af;
+  --brand: #8fb8a0;
+  --brand-600: #8fb8a0;
+  --brand-50: #29342e;
+  --nav-bg: #1e2522;
+  --nav-ink: #e6ebe8;
+  --nav-ink-muted: rgba(230, 235, 232, .78);
+  --nav-ink-subtle: rgba(230, 235, 232, .68);
+  --nav-rule: rgba(210, 222, 214, .16);
+  --nav-hover: rgba(210, 222, 214, .08);
+  --nav-avatar: rgba(210, 222, 214, .10);
+  --accent: #8fb8a0;
+  --accent-ink: #17211b;
+  --danger: #e5877f;
+  --danger-50: #392421;
+  --highlight: #d2a47c;
+  --cancelled: #d98a8a;
+  --warn: #e3b866;
+  --ok: #7fb69a;
+  --info: #7ea6d9;
+  --chart-1: #8fb8a0;
+  --chart-2: #91a9bb;
+  --chart-3: #8c9ec2;
+  --chart-4: #a898bd;
+  --status-confirmed: #7fb69a;
+  --status-pending: #e3b866;
+  --status-completed: #7ea6d9;
+  --status-cancelled: #d98a8a;
+  --chart-grid: #2e3a35;
+  --shadow: 0 18px 42px rgba(0, 0, 0, .16);
 }
 .system-health-panel { background: #fffdf8; border: 1px solid #cbd2c9; display: grid; gap: 16px; padding: 20px; }
 .system-health-heading, .system-health-events-heading { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
@@ -7897,8 +7909,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dashboard-page :is(.status-pending, .report-status-open, .report-status-in_review, .admin-status-pending, .admin-status-processing)::before { content: "!"; }
 .dashboard-page :is(.status-cancelled, .report-status-dismissed, .admin-status-failed)::before { content: "×"; }
 .dashboard-page .status-pending { background: color-mix(in srgb, var(--warn) 15%, var(--surface)); color: var(--warn); }
-.dashboard-page :is(.status-confirmed, .status-completed) { background: color-mix(in srgb, var(--ok) 14%, var(--surface)); color: var(--ok); }
-.dashboard-page .status-cancelled { background: var(--danger-50); color: var(--danger); }
+.dashboard-page .status-confirmed { background: color-mix(in srgb, var(--ok) 15%, var(--surface)); color: var(--ok); }
+.dashboard-page .status-completed { background: color-mix(in srgb, var(--info) 15%, var(--surface)); color: var(--info); }
+.dashboard-page .status-cancelled { background: color-mix(in srgb, var(--cancelled) 15%, var(--surface)); color: var(--cancelled); }
 .dashboard-page .message-badge,
 .dashboard-page .dashboard-header-badge,
 .dashboard-page .admin-stat strong,
@@ -8614,13 +8627,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 :root[data-theme='dark'] .dashboard-page-caterer {
-  --caterer-ink: #e5eee8;
-  --caterer-muted: #aab8af;
-  --caterer-green: #91c3a4;
-  --caterer-green-soft: #293a30;
-  --caterer-coral: #8cc5a2;
-  --caterer-border: #3a4a41;
-  background: #131a16;
+  --caterer-ink: var(--ink);
+  --caterer-muted: var(--muted);
+  --caterer-green: var(--brand-600);
+  --caterer-green-soft: var(--brand-50);
+  --caterer-coral: var(--brand-600);
+  --caterer-border: var(--line);
+  background: var(--bg);
   color: var(--caterer-ink);
 }
 
@@ -8652,7 +8665,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme='dark'] .dashboard-page-caterer .profile-photo-panel,
 :root[data-theme='dark'] .dashboard-page-caterer .messenger-shell,
 :root[data-theme='dark'] .dashboard-page-caterer .caterer-profile-card {
-  background: #1c2621;
+  background: var(--surface);
   border-color: var(--caterer-border);
   color: var(--caterer-ink);
 }
@@ -9695,6 +9708,54 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--ink);
 }
 
+:root[data-theme='dark'] .product-layout,
+:root[data-theme='dark'] .package-reviews {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .product-media .package-main-image,
+:root[data-theme='dark'] .product-media .package-thumbnail {
+  background: var(--surface-2);
+}
+
+:root[data-theme='dark'] .package-info-panel {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .product-summary h1,
+:root[data-theme='dark'] .product-meta strong,
+:root[data-theme='dark'] .product-seller strong,
+:root[data-theme='dark'] .package-info-panel h2,
+:root[data-theme='dark'] .package-info-panel h3,
+:root[data-theme='dark'] .package-reviews-heading h2,
+:root[data-theme='dark'] .review-card > strong {
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .product-meta,
+:root[data-theme='dark'] .product-seller,
+:root[data-theme='dark'] .package-reviews-heading,
+:root[data-theme='dark'] .review-card {
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .product-meta span,
+:root[data-theme='dark'] .product-seller span,
+:root[data-theme='dark'] .product-seller small,
+:root[data-theme='dark'] .package-info-panel p,
+:root[data-theme='dark'] .package-info-panel li,
+:root[data-theme='dark'] .review-card p,
+:root[data-theme='dark'] .package-reviews > .muted-label {
+  color: var(--ink-2);
+}
+
+:root[data-theme='dark'] .product-price {
+  background: var(--surface-2);
+  color: var(--highlight);
+}
+
 :root[data-theme='dark'] .packages-content h1,
 :root[data-theme='dark'] .packages-results-heading h2,
 :root[data-theme='dark'] .package-card h2,
@@ -9721,11 +9782,49 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .dashboard-page .dashboard-menu-signout {
-  background: var(--brand-600);
+  background: transparent;
+}
+
+.dashboard-page .dashboard-menu-signout:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .dashboard-page .packages-nav > button {
   color: var(--brand-600);
+}
+
+@media (max-width: 760px) {
+  .dashboard-page .dashboard-menu-signout {
+    background: #fff1ef;
+    border: 1px solid #f2c9c2;
+    border-radius: 10px;
+    color: #8f382e;
+    margin-top: 10px;
+    min-height: 44px;
+    padding: 11px 13px;
+    transition: background .18s ease, border-color .18s ease, color .18s ease;
+  }
+
+  .dashboard-page .dashboard-menu-signout:hover,
+  .dashboard-page .dashboard-menu-signout:focus-visible {
+    background: #fbe1dd;
+    border-color: #dfa69d;
+    color: #70291f;
+  }
+
+  :root[data-theme='dark'] .dashboard-page .dashboard-menu-signout {
+    background: #351c1a;
+    border-color: #63352f;
+    color: #ffb3a6;
+  }
+
+  :root[data-theme='dark'] .dashboard-page .dashboard-menu-signout:hover,
+  :root[data-theme='dark'] .dashboard-page .dashboard-menu-signout:focus-visible {
+    background: #492421;
+    border-color: #8a4b40;
+    color: #ffd0c7;
+  }
 }
 
 .package-reviews-heading strong,
@@ -9819,18 +9918,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 :root[data-theme='dark'] .dashboard-page-customer {
-  --accent: #83b99a;
-  --accent-ink: #10291e;
-  --brand-600: #8cc5a2;
-  --brand-50: #20372b;
+  --accent: #8fb8a0;
+  --accent-ink: #17211b;
+  --brand-600: #8fb8a0;
+  --brand-50: #29342e;
 }
 
 .dashboard-page-customer .customer-next-event .customer-dashboard-kicker {
-  color: #d2e0b9;
+  color: #b6c49f;
 }
 
 .dashboard-page-customer .customer-next-event-icon {
-  color: #d2e0b9;
+  color: #b6c49f;
 }
 
 .dashboard-page-customer .customer-booking-timeline::after,
@@ -9902,4 +10001,188 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme='dark'] .dashboard-page-customer .customer-action-more a,
 :root[data-theme='dark'] .dashboard-page-customer .customer-messages-empty a {
   color: #83d2a9;
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .system-health-service, .customer-notifications, .customer-settings-card,
+  .customer-support-card, .customer-action-card, .customer-messages-card,
+  .customer-message-panel, .review-analytics-panel, .caterer-review-card,
+  .caterer-review-package-card, .caterer-review-package-heading,
+  .caterer-reviews-empty, .caterer-reviews-filter-empty, .caterer-activity-empty,
+  .caterer-reservation-history-wrap, .services-heading, .service-form,
+  .services-catalog, .service-card, .reservation-card, .caterer-payout-card,
+  .profile-photo-panel, .caterer-profile-card, .admin-package-card,
+  .admin-package-table-wrap, .cater-summary-card, .cater-applications-table,
+  .cater-restriction-form
+) {
+  background-color: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .customer-settings-form input, .customer-settings-delete input,
+  .admin-package-toolbar select, .cater-directory-toolbar select
+) {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .dashboard-page .customer-settings-card-heading,
+:root[data-theme='dark'] .dashboard-page .customer-support-section-heading {
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .dashboard-page .customer-settings-card-heading h3,
+:root[data-theme='dark'] .dashboard-page .customer-settings-form label,
+:root[data-theme='dark'] .dashboard-page .customer-settings-delete label,
+:root[data-theme='dark'] .dashboard-page .customer-support-section-heading h3 {
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .dashboard-page .customer-settings-card-heading p,
+:root[data-theme='dark'] .dashboard-page .customer-settings-delete p,
+:root[data-theme='dark'] .dashboard-page .customer-support-heading > p:last-child {
+  color: var(--ink-2);
+}
+
+:root[data-theme='dark'] .dashboard-page {
+  background: var(--bg);
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .admin-stat, .stat-card, .admin-chart-panel, .admin-analytics,
+  .system-health-panel, .caterer-dashboard-panel, .customer-profile-card,
+  .customer-dashboard-panel, .table-card, .customer-settings-card,
+  .customer-support-card, .customer-action-card, .customer-messages-card,
+  .customer-message-panel, .review-analytics-panel, .services-heading,
+  .service-form, .services-catalog, .service-card, .reservation-card,
+  .caterer-payout-card, .caterer-profile-card, .caterer-reviews-card,
+  .caterer-review-card, .caterer-review-package-card,
+  .caterer-review-package-heading, .caterer-reservation-history-wrap,
+  .profile-photo-panel, .admin-package-card, .admin-package-table-wrap,
+  .cater-summary-card, .cater-applications-table
+) {
+  background-image: none;
+}
+
+:root[data-theme='dark'] .dashboard-page .admin-chart-panel,
+:root[data-theme='dark'] .dashboard-page-caterer .stat-card,
+:root[data-theme='dark'] .dashboard-page-caterer .services-heading {
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .admin-stat, .stat-card, .admin-chart-panel, .admin-analytics,
+  .system-health-panel, .caterer-dashboard-panel, .customer-profile-card,
+  .table-card, .customer-settings-card, .customer-support-card
+)::after,
+:root[data-theme='dark'] .dashboard-page :is(
+  .admin-stat, .stat-card, .admin-chart-panel, .admin-analytics,
+  .system-health-panel, .caterer-dashboard-panel, .customer-profile-card,
+  .table-card, .customer-settings-card, .customer-support-card
+):hover::after {
+  opacity: 0;
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .admin-status-pending, .admin-status-processing, .status-pending,
+  .report-status-open, .report-status-in_review,
+  .caterer-history-payment-pending
+) {
+  background: color-mix(in srgb, var(--warn) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--warn) 32%, var(--line));
+  color: var(--warn);
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .status-confirmed, .admin-status-paid, .report-status-resolved,
+  .caterer-history-payment:not(.caterer-history-payment-pending):not(.caterer-history-payment-partial):not(.caterer-history-payment-cancelled):not(.caterer-history-payment-rejected)
+) {
+  background: color-mix(in srgb, var(--ok) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--ok) 30%, var(--line));
+  color: var(--ok);
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .status-completed, .caterer-history-payment-partial
+) {
+  background: color-mix(in srgb, var(--info) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--info) 30%, var(--line));
+  color: var(--info);
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .status-cancelled, .admin-status-rejected, .admin-status-failed,
+  .report-status-dismissed, .caterer-history-payment-cancelled,
+  .caterer-history-payment-rejected
+) {
+  background: color-mix(in srgb, var(--cancelled) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--cancelled) 30%, var(--line));
+  color: var(--cancelled);
+}
+
+:root[data-theme='dark'] .dashboard-page .form-alert.error-alert {
+  background: color-mix(in srgb, var(--danger) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));
+  color: var(--danger);
+}
+
+:root[data-theme='dark'] .dashboard-page :is(
+  .dashboard-header, .dashboard-nav, .admin-stat, .stat-card,
+  .admin-analytics, .admin-chart-panel, .system-health-panel,
+  .system-health-service, .admin-approval-grid > div, .admin-payout,
+  .caterer-dashboard-panel, .caterer-upcoming-event, .customer-profile-card,
+  .customer-dashboard-panel, .customer-settings-card, .customer-support-card,
+  .customer-action-card, .customer-messages-card, .customer-message-panel,
+  .table-card, .service-form, .services-catalog, .services-heading,
+  .service-card, .reservation-card, .earnings-card, .activity-card,
+  .caterer-profile-card, .caterer-reviews-card, .caterer-review-card,
+  .caterer-review-package-card, .caterer-review-package-heading,
+  .caterer-reservation-history-wrap, .caterer-payout-card,
+  .profile-photo-panel, .review-analytics-panel, .admin-package-card,
+  .admin-package-table-wrap, .cater-summary-card, .cater-applications-table,
+  .cater-restriction-form, .customer-notifications
+) {
+  background-color: var(--surface);
+  background-image: none;
+  border-color: var(--line);
+}
+
+:root[data-theme='dark'] .dashboard-page .admin-chart-panel {
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .dashboard-page-admin :is(
+  .admin-stat-top, .admin-stat small, .admin-live-label,
+  .admin-community-stats article > span, .admin-section-count,
+  .analytics-status-title > span, .reservation-chart-legend-label,
+  .revenue-chart-label, .revenue-chart-note
+) {
+  color: var(--ink-2);
+}
+
+:root[data-theme='dark'] .dashboard-page-admin .admin-stat strong,
+:root[data-theme='dark'] .dashboard-page-admin .admin-community-stats article > strong,
+:root[data-theme='dark'] .dashboard-page-admin .reservation-chart-legend-row strong,
+:root[data-theme='dark'] .dashboard-page-admin .revenue-chart-label strong {
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .dashboard-page-caterer .stat-card h3 {
+  color: var(--ink-2);
+}
+
+:root[data-theme='dark'] .dashboard-page-caterer .stat-card strong,
+:root[data-theme='dark'] .dashboard-page-caterer .caterer-analytics-metrics strong {
+  color: var(--ink);
+}
+
+:root[data-theme='dark'] .dashboard-page-caterer .stat-card small,
+:root[data-theme='dark'] .dashboard-page-caterer .caterer-analytics-metrics small {
+  color: var(--ink-2);
+}
+
+:root[data-theme='dark'] .dashboard-page-customer .customer-dashboard-stat span {
+  color: var(--ink-2);
 }

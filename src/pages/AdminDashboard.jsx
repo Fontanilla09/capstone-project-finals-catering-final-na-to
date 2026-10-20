@@ -77,10 +77,10 @@ export default function AdminDashboard() {
   const statusRows = useMemo(() => {
     const statuses = analytics.statuses || {};
     const knownStatuses = [
-      ['Confirmed', 'confirmed', 'var(--chart-1)'],
-      ['Pending', 'pending', 'var(--chart-2)'],
-      ['Completed', 'completed', 'var(--chart-3)'],
-      ['Cancelled', 'cancelled', 'var(--chart-4)'],
+      ['Confirmed', 'confirmed', 'var(--status-confirmed)'],
+      ['Pending', 'pending', 'var(--status-pending)'],
+      ['Completed', 'completed', 'var(--status-completed)'],
+      ['Cancelled', 'cancelled', 'var(--status-cancelled)'],
     ];
     const rows = knownStatuses.map(([label, key, color]) => ({
       label,

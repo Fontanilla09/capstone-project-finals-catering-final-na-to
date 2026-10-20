@@ -197,10 +197,10 @@ export default function CatererDashboard() {
   }, []);
 
   const reservationStatusRows = [
-    { label: 'Confirmed', value: stats.analytics.confirmed, color: 'var(--chart-1)' },
-    { label: 'Pending', value: stats.analytics.pending, color: 'var(--chart-2)' },
-    { label: 'Completed', value: stats.analytics.completed, color: 'var(--chart-3)' },
-    { label: 'Cancelled', value: stats.analytics.cancelled, color: 'var(--chart-4)' },
+    { label: 'Confirmed', value: stats.analytics.confirmed, color: 'var(--status-confirmed)' },
+    { label: 'Pending', value: stats.analytics.pending, color: 'var(--status-pending)' },
+    { label: 'Completed', value: stats.analytics.completed, color: 'var(--status-completed)' },
+    { label: 'Cancelled', value: stats.analytics.cancelled, color: 'var(--status-cancelled)' },
   ];
   const reservationTotal = reservationStatusRows.reduce((sum, row) => sum + row.value, 0);
   const reservationCircumference = 2 * Math.PI * 44;
