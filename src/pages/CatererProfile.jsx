@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE } from '../lib/api';
+import { House, Mail, MapPin, Phone, ShieldCheck, Upload } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
 
@@ -57,6 +57,9 @@ export default function CatererProfile() {
 
       if (!payload.business_name || !payload.phone || !payload.address || !payload.city) {
         throw new Error('Business name, phone, address, and city are required.');
+      }
+      if (!profile.business_permit) {
+        throw new Error('Upload your business permit before saving your profile.');
       }
 
       const { data: me, error: meError } = await supabase.rpc('get_my_profile');
@@ -151,5 +154,76 @@ export default function CatererProfile() {
 
   if (!profile) return <DashboardPage role="caterer" section="profile"><p>{error || 'Loading profile...'}</p></DashboardPage>;
 
-  return <DashboardPage role="caterer" section="profile"><>{status && <p className="form-alert success-alert">{status}</p>}{error && <p className="form-alert error-alert">{error}</p>}<section className="profile-photo-panel"><div className="profile-photo-preview">{profile.profile_image ? <img src={profile.profile_image} alt="Caterer profile" /> : <span>{profile.business_name?.charAt(0)?.toUpperCase() || 'C'}</span>}</div><div><p className="eyebrow">Approved caterer profile</p><h2>Profile photo</h2><p>Upload a clear photo or logo customers can recognize.</p><label className="button button-secondary profile-photo-upload">+ Upload photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadProfileImage} /></label><small>JPG, PNG, or WEBP · maximum 5MB</small></div></section><form className="profile-form" onSubmit={update}><label>Business name<input name="business_name" defaultValue={profile.business_name} required /></label><label>Phone<input name="phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength="15" defaultValue={profile.phone || ''} onChange={(event) => { event.target.value = event.target.value.replace(/\D/g, '').slice(0, 15); }} required /></label><label>Address<input name="address" defaultValue={profile.address || ''} required /></label><label>City<input name="city" defaultValue={profile.city || ''} required /></label><label>PayPal email<input name="paypal_email" type="email" defaultValue={profile.paypal_email || ''} required /></label><label>Business permit<input type="file" accept="application/pdf,image/jpeg,image/png" onChange={uploadPermit} required={!profile.business_permit} /><small>{profile.business_permit ? 'Permit uploaded. Upload a new file to replace it.' : 'PDF, JPG, or PNG · maximum 10MB.'}</small></label><button className="button button-primary" type="submit">Save profile</button></form></></DashboardPage>;
+  return (
+    <DashboardPage role="caterer" section="profile">
+      <div className="caterer-profile-page">
+        {status && <p className="form-alert success-alert">{status}</p>}
+        {error && <p className="form-alert error-alert">{error}</p>}
+
+        <section className="caterer-profile-photo-card">
+          <div className="caterer-profile-avatar">
+            {profile.profile_image
+              ? <img src={profile.profile_image} alt="Caterer profile" />
+              : <span>{profile.business_name?.charAt(0)?.toUpperCase() || 'C'}</span>}
+          </div>
+          <div className="caterer-profile-photo-copy">
+            <p className="caterer-profile-approved"><ShieldCheck size={14} aria-hidden="true" /> Approved caterer profile</p>
+            <h2>{profile.business_name || 'Your business'}</h2>
+            <p>Upload a clear photo or logo customers can recognize.</p>
+            <small className="caterer-profile-photo-hint">JPG, PNG, or WEBP · maximum 5MB</small>
+          </div>
+          <label className="button button-secondary caterer-profile-upload">
+            <Upload size={16} aria-hidden="true" />
+            Upload photo
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadProfileImage} />
+          </label>
+        </section>
+
+        <form className="profile-form caterer-profile-details" onSubmit={update}>
+          <h3>Business details</h3>
+          <div className="caterer-profile-fields">
+            <label>
+              <span>Business name</span>
+              <span className="caterer-profile-input-wrap"><House size={16} aria-hidden="true" /><input name="business_name" defaultValue={profile.business_name} required /></span>
+            </label>
+            <label>
+              <span>Phone</span>
+              <span className="caterer-profile-input-wrap"><Phone size={16} aria-hidden="true" /><input name="phone" type="tel" inputMode="numeric" pattern="[0-9]{10,15}" maxLength="15" defaultValue={profile.phone || ''} onChange={(event) => { event.target.value = event.target.value.replace(/\D/g, '').slice(0, 15); }} required /></span>
+            </label>
+            <label className="caterer-profile-address">
+              <span>Address</span>
+              <span className="caterer-profile-input-wrap"><House size={16} aria-hidden="true" /><input name="address" placeholder="Street, barangay" defaultValue={profile.address || ''} required /></span>
+            </label>
+            <label className="caterer-profile-city">
+              <span>City</span>
+              <span className="caterer-profile-input-wrap"><MapPin size={16} aria-hidden="true" /><input name="city" placeholder="e.g. Dasmariñas" defaultValue={profile.city || ''} required /></span>
+            </label>
+            <label className="caterer-profile-paypal">
+              <span>PayPal email</span>
+              <span className="caterer-profile-input-wrap"><Mail size={16} aria-hidden="true" /><input name="paypal_email" type="email" placeholder="you@example.com" defaultValue={profile.paypal_email || ''} required /></span>
+              <small>Payouts for your bookings are sent to this email.</small>
+            </label>
+          </div>
+          <input type="hidden" name="description" value={profile.description || ''} readOnly />
+          <div className="caterer-profile-actions">
+            <button className="button button-secondary" type="button" onClick={(event) => event.currentTarget.form?.reset()}>Cancel</button>
+            <button className="button button-primary" type="submit">Save changes</button>
+          </div>
+        </form>
+
+        <section className="caterer-permit-card">
+          <div>
+            <h3>Business permit</h3>
+            <p>{profile.business_permit ? 'Permit uploaded. Upload a new file to replace it.' : 'Upload a permit to complete your business profile.'}</p>
+            <small>PDF, JPG, or PNG · maximum 10MB</small>
+          </div>
+          <label className="button button-secondary caterer-permit-upload">
+            <Upload size={16} aria-hidden="true" />
+            {profile.business_permit ? 'Replace permit' : 'Upload permit'}
+            <input type="file" accept="application/pdf,image/jpeg,image/png" onChange={uploadPermit} />
+          </label>
+        </section>
+      </div>
+    </DashboardPage>
+  );
 }
