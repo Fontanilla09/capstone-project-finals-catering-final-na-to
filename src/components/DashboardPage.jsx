@@ -376,7 +376,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
         if (!active) return;
         if (error.name === 'TimeoutError') {
           console.error('Dashboard session verification timed out.', error);
-          setAuthCheckError('Session verification is taking too long. Check your connection and try again.');
+          setAuthCheckError('Connection is taking longer than expected. Try again.');
           return;
         }
         clearCachedProfile();
@@ -668,7 +668,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
     );
   }
 
-  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><div className="dashboard-auth-loading" role="status">Checking your session...</div></main>;
+  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><div className="dashboard-auth-loading" role="status" aria-label="Loading"><span className="packages-loading-spinner" aria-hidden="true" /></div></main>;
 
   return (
     <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>

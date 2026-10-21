@@ -3,6 +3,19 @@ import { API_BASE } from "../lib/api";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import DashboardPage from "../components/DashboardPage.jsx";
 
+function withTimeout(promise, timeoutMs) {
+  let timeoutId;
+  const timeout = new Promise((resolve, reject) => {
+    timeoutId = window.setTimeout(() => {
+      const error = new Error("Message session initialization timed out.");
+      error.name = "TimeoutError";
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
+}
+
 export default function CustomerMessages() {
   const query = new URLSearchParams(window.location.search);
   const selectedCustomer = query.get("customer_id") || "";
@@ -62,14 +75,14 @@ export default function CustomerMessages() {
 
       try {
         const { data: authData, error: authError } =
-          await supabase.auth.getUser();
+          await withTimeout(supabase.auth.getUser(), 12000);
         if (authError || !authData.user) {
           if (active) window.location.href = "/login";
           return;
         }
 
         const { data: profiles, error: profileError } =
-          await supabase.rpc("get_my_profile");
+          await withTimeout(supabase.rpc("get_my_profile"), 12000);
         const profile = profiles?.[0];
 
         if (profileError || !profile) {
@@ -205,8 +218,10 @@ export default function CustomerMessages() {
     `/dashboard/messages?customer_id=${item.customer_id || ""}&caterer_id=${item.caterer_id || ""}&package_id=${item.package_id || 0}`;
   if (!session)
     return (
-      <main className="packages-page">
-        <p className="package-empty">Checking your session...</p>
+      <main className="packages-page" aria-busy="true">
+        <div className="packages-loading" role="status" aria-label="Loading">
+          <span className="packages-loading-spinner" aria-hidden="true" />
+        </div>
       </main>
     );
   return (
