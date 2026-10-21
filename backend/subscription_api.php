@@ -72,8 +72,24 @@ if (!is_string($plan) || !isset($plans[$plan])) {
 
 $mode = app_env_value('PAYMONGO_MODE');
 $secretKey = app_env_value('PAYMONGO_SECRET_KEY');
-$frontendUrl = rtrim(app_env_value('FRONTEND_URL'), '/');
-$appEnvironment = app_env_value('APP_ENV', 'development');
+$frontendUrl = app_env_value('FRONTEND_URL');
+if ($frontendUrl === '') {
+    $frontendUrl = app_env_value('VITE_FRONTEND_URL');
+}
+if ($frontendUrl === '' && app_env_value('VERCEL') === '1') {
+    $vercelUrl = app_env_value('VERCEL_PROJECT_PRODUCTION_URL');
+    if ($vercelUrl === '') {
+        $vercelUrl = app_env_value('VERCEL_URL');
+    }
+    if ($vercelUrl !== '') {
+        $frontendUrl = 'https://' . preg_replace('#^https?://#i', '', $vercelUrl);
+    }
+}
+$frontendUrl = rtrim($frontendUrl, '/');
+$appEnvironment = app_env_value('APP_ENV');
+if ($appEnvironment === '') {
+    $appEnvironment = app_env_value('VERCEL_ENV', 'development');
+}
 $isHttpsRequest = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
     || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
     || (app_env_value('VERCEL') === '1' && str_starts_with($frontendUrl, 'https://'));
@@ -84,7 +100,13 @@ if (
     || $frontendUrl === ''
     || ($mode === 'live' && ($appEnvironment !== 'production' || !str_starts_with($frontendUrl, 'https://') || !$isHttpsRequest))
 ) {
-    error_log('PayMongo checkout is not configured for the selected mode.');
+    error_log(
+        'PayMongo checkout is not configured (mode=' . ($mode !== '' ? $mode : 'missing')
+        . ', secret_key_present=' . ($secretKey !== '' ? 'yes' : 'no')
+        . ', frontend_url_present=' . ($frontendUrl !== '' ? 'yes' : 'no')
+        . ', app_environment=' . ($appEnvironment !== '' ? $appEnvironment : 'missing')
+        . ', https_request=' . ($isHttpsRequest ? 'yes' : 'no') . ').'
+    );
     http_response_code(503);
     echo json_encode(['error' => 'PayMongo checkout is not configured for this environment.']);
     exit;
