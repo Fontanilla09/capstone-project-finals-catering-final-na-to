@@ -75,7 +75,8 @@ $secretKey = app_env_value('PAYMONGO_SECRET_KEY');
 $frontendUrl = rtrim(app_env_value('FRONTEND_URL'), '/');
 $appEnvironment = app_env_value('APP_ENV', 'development');
 $isHttpsRequest = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
-    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+    || (app_env_value('VERCEL') === '1' && str_starts_with($frontendUrl, 'https://'));
 $expectedKeyPrefix = $mode === 'live' ? 'sk_live_' : ($mode === 'test' ? 'sk_test_' : '');
 if (
     $expectedKeyPrefix === ''
