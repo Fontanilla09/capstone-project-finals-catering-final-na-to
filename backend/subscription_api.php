@@ -19,13 +19,6 @@ if (($user['role'] ?? '') !== 'caterer' || empty($user['caterer_id'])) {
 }
 
 $catererId = (int) $user['caterer_id'];
-$subscriptionAccess = supabase_active_caterer_subscription($catererId);
-if (!$subscriptionAccess['ok']) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Subscription status could not be checked. Please try again.']);
-    exit;
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $subscriptionQuery = [
         'select' => 'plan,status,expires_at,created_at,amount,paymongo_checkout_session_id,reference_number',
@@ -64,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
             CURLOPT_USERPWD => $secretKey . ':',
             CURLOPT_HTTPHEADER => ['Accept: application/json'],
-            CURLOPT_TIMEOUT => 20,
+            CURLOPT_TIMEOUT => 10,
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $rawResponse = curl_exec($curl);
@@ -114,13 +107,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 exit;
             }
 
-            $subscriptionAccess = supabase_active_caterer_subscription($catererId);
-            if (!$subscriptionAccess['ok'] || !$subscriptionAccess['active']) {
-                http_response_code(500);
-                echo json_encode(['error' => 'Payment was confirmed, but subscription access could not be verified. Please contact support.']);
-                exit;
-            }
-
             $response = supabase_request('GET', 'caterer_subscriptions', $subscriptionQuery);
             if (!$response['ok']) {
                 error_log('Activated PayMongo subscription could not be reloaded: ' . ($response['error'] ?: 'Supabase request failed.'));
@@ -132,6 +118,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     }
 
+    $subscriptionAccess = supabase_active_caterer_subscription($catererId);
+    if (!$subscriptionAccess['ok']) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Subscription status could not be checked. Please try again.']);
+        exit;
+    }
+
     echo json_encode([
         'active' => $subscriptionAccess['active'],
         'subscription' => $subscription ? array_intersect_key($subscription, array_flip([
@@ -141,6 +134,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'created_at',
         ])) : null,
     ]);
+    exit;
+}
+
+$subscriptionAccess = supabase_active_caterer_subscription($catererId);
+if (!$subscriptionAccess['ok']) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Subscription status could not be checked. Please try again.']);
     exit;
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Check, Image, LoaderCircle, LockKeyhole, Package, Sparkles, X } from 'lucide-react';
 import DashboardPage from '../components/DashboardPage.jsx';
 import ManageServices from './ManageServices.jsx';
@@ -68,15 +68,16 @@ export default function SubscriptionGate({ feature }) {
   const [statusError, setStatusError] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const paymentStatusChecks = useRef(0);
   const details = featureCopy[feature] || featureCopy.services;
   const checkoutResult = new URLSearchParams(window.location.search).get('subscription');
 
-  const refreshSubscription = useCallback(async () => {
-    setStatusError('');
-    setStatusLoading(true);
+  const refreshSubscription = useCallback(async ({ background = false, signal } = {}) => {
+    if (!background) {
+      setStatusError('');
+      setStatusLoading(true);
+    }
     try {
-      const result = await requestJson('/backend/subscription_api.php');
+      const result = await requestJson('/backend/subscription_api.php', { signal });
       const active = result.active === true;
       const expiresAt = result.subscription?.expires_at;
       const expiryTimestamp = typeof expiresAt === 'string' ? Date.parse(expiresAt) : Number.NaN;
@@ -84,7 +85,7 @@ export default function SubscriptionGate({ feature }) {
         setHasActiveSubscription(false);
         setSubscription(null);
         setStatusError('The active subscription expiry could not be verified. Please contact support.');
-        return false;
+        return null;
       }
       const isActive = active && expiryTimestamp > Date.now();
       setHasActiveSubscription(isActive);
@@ -94,39 +95,49 @@ export default function SubscriptionGate({ feature }) {
       setHasActiveSubscription(false);
       setSubscription(null);
       setStatusError(error.message || 'Subscription status could not be checked.');
-      return false;
+      return null;
     } finally {
-      setStatusLoading(false);
+      if (!background) setStatusLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refreshSubscription();
-  }, [refreshSubscription]);
-
-  useEffect(() => {
-    if (checkoutResult !== 'success' || hasActiveSubscription) return undefined;
-
     let cancelled = false;
-    let timer;
-    paymentStatusChecks.current = 0;
+    let timer = null;
+    const deadline = Date.now() + 120000;
 
-    async function checkPaymentStatus() {
-      if (cancelled || paymentStatusChecks.current >= 40) return;
-      paymentStatusChecks.current += 1;
-      const active = await refreshSubscription();
-      if (!cancelled && !active && paymentStatusChecks.current < 40) {
-        timer = window.setTimeout(checkPaymentStatus, 3000);
-      }
+    async function checkSubscription(isBackground = false) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 30000);
+      const active = await refreshSubscription({ background: isBackground, signal: controller.signal });
+      window.clearTimeout(timeout);
+
+      if (
+        cancelled
+        || active === true
+        || active === null
+        || checkoutResult !== 'success'
+        || Date.now() >= deadline
+      ) return;
+      timer = window.setTimeout(() => checkSubscription(true), 3000);
     }
 
-    timer = window.setTimeout(checkPaymentStatus, 3000);
+    checkSubscription();
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [checkoutResult, hasActiveSubscription, refreshSubscription]);
+  }, [checkoutResult, refreshSubscription]);
+
+  useEffect(() => {
+    if (checkoutResult !== 'success' || hasActiveSubscription) return undefined;
+
+    const timeout = window.setTimeout(() => {
+      setStatusError((currentError) => currentError || 'Payment is not confirmed yet. Do not pay again. Contact support to verify this payment.');
+    }, 120000);
+    return () => window.clearTimeout(timeout);
+  }, [checkoutResult, hasActiveSubscription]);
 
   useEffect(() => {
     if (!hasActiveSubscription || !subscription?.expires_at) return undefined;
