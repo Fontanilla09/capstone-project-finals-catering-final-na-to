@@ -125,12 +125,27 @@ function getInitials(name) {
     .join('') || 'C';
 }
 
+function withTimeout(promise, timeoutMs) {
+  let timeoutId;
+  const timeout = new Promise((resolve, reject) => {
+    timeoutId = window.setTimeout(() => {
+      const error = new Error('Dashboard session check timed out.');
+      error.name = 'TimeoutError';
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
+}
+
 export default function DashboardPage({ role, section = 'overview', children, balanceReminders = [] }) {
   const [initialProfile] = useState(() => getCachedDashboardProfile(role));
   const [displayName, setDisplayName] = useState(initialProfile?.displayName || '');
   const [displayEmail, setDisplayEmail] = useState(initialProfile?.displayEmail || '');
   const [profileImage, setProfileImage] = useState('');
   const [authChecked, setAuthChecked] = useState(Boolean(initialProfile));
+  const [authCheckError, setAuthCheckError] = useState('');
+  const [authRetryKey, setAuthRetryKey] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadReservations, setUnreadReservations] = useState(0);
@@ -318,6 +333,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
 
   useEffect(() => {
     let active = true;
+    let checking = false;
     const redirectToLogin = () => {
       if (window.location.pathname !== '/login') window.location.replace('/login');
     };
@@ -325,15 +341,18 @@ export default function DashboardPage({ role, section = 'overview', children, ba
       clearCachedDashboardProfile(role);
     };
     const checkSession = async () => {
+      if (checking) return;
+      checking = true;
       if (!isSupabaseConfigured) {
         clearCachedProfile();
         redirectToLogin();
+        checking = false;
         return;
       }
       try {
-        const { data: authData, error: authError } = await supabase.auth.getUser();
+        const { data: authData, error: authError } = await withTimeout(supabase.auth.getUser(), 12000);
         if (authError || !authData.user) throw new Error('Not authenticated');
-        const { data: profiles, error: profileError } = await supabase.rpc('get_my_profile');
+        const { data: profiles, error: profileError } = await withTimeout(supabase.rpc('get_my_profile'), 12000);
         const profile = profiles?.[0];
         if (profileError || !profile || profile.role !== role || (role !== 'admin' && !profile.is_verified)) throw new Error('Invalid profile');
         if (!active) return;
@@ -351,10 +370,19 @@ export default function DashboardPage({ role, section = 'overview', children, ba
         setCurrentUserId(verifiedProfile.userId);
         setCurrentCustomerId(verifiedProfile.customerId);
         setCurrentCatererId(verifiedProfile.catererId);
+        setAuthCheckError('');
         setAuthChecked(true);
-      } catch {
+      } catch (error) {
+        if (!active) return;
+        if (error.name === 'TimeoutError') {
+          console.error('Dashboard session verification timed out.', error);
+          setAuthCheckError('Session verification is taking too long. Check your connection and try again.');
+          return;
+        }
         clearCachedProfile();
         redirectToLogin();
+      } finally {
+        checking = false;
       }
     };
     const handleExpired = redirectToLogin;
@@ -383,7 +411,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
       window.removeEventListener('focus', handleFocus);
       authListener?.subscription?.unsubscribe();
     };
-  }, [role]);
+  }, [authRetryKey, role]);
 
   useEffect(() => {
     if (!authChecked || !currentUserId || !['customer', 'caterer'].includes(role)) return undefined;
@@ -619,7 +647,28 @@ export default function DashboardPage({ role, section = 'overview', children, ba
     }
   }
 
-  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><div className="dashboard-auth-loading">Checking your session...</div></main>;
+  if (!authChecked && authCheckError) {
+    return (
+      <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>
+        <div className="dashboard-auth-loading" role="alert">
+          <p>{authCheckError}</p>
+          <button
+            className="button button-primary"
+            onClick={() => {
+              setAuthCheckError('');
+              setAuthRetryKey((attempt) => attempt + 1);
+            }}
+            type="button"
+          >
+            Try again
+          </button>
+          <p><a href="/login">Return to login</a></p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><div className="dashboard-auth-loading" role="status">Checking your session...</div></main>;
 
   return (
     <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>
