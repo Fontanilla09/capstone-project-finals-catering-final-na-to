@@ -27,13 +27,6 @@ if (!$subscriptionAccess['ok']) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $permanentAccess = supabase_has_permanent_caterer_access((string) ($user['auth_user']['id'] ?? ''));
-    if (!$permanentAccess['ok']) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Subscription access could not be checked. Please try again.']);
-        exit;
-    }
-
     $response = supabase_request('GET', 'caterer_subscriptions', [
         'select' => 'plan,status,expires_at,created_at',
         'caterer_id' => 'eq.' . $catererId,
@@ -48,8 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     echo json_encode([
-        'active' => $subscriptionAccess['active'] || $permanentAccess['active'],
-        'permanent' => $permanentAccess['active'],
+        'active' => $subscriptionAccess['active'],
         'subscription' => supabase_row($response),
     ]);
     exit;
@@ -69,7 +61,7 @@ if ($subscriptionAccess['active']) {
 $request = json_decode(file_get_contents('php://input') ?: '', true);
 $plan = is_array($request) ? ($request['plan'] ?? '') : '';
 $plans = [
-    'monthly' => ['amount' => 49900, 'name' => 'CaterAI Pro - Monthly'],
+    'monthly' => ['amount' => 100, 'name' => 'CaterAI Pro - Monthly'],
     'yearly' => ['amount' => 479000, 'name' => 'CaterAI Pro - Yearly'],
 ];
 if (!is_string($plan) || !isset($plans[$plan])) {

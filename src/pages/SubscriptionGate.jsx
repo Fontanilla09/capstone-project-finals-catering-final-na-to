@@ -6,7 +6,7 @@ import AiGeneratedPhoto from './AiGeneratedPhoto.jsx';
 import { requestJson } from '../lib/api.js';
 
 const planOptions = [
-  { id: 'monthly', label: 'Monthly', price: '₱499', detail: 'One-time payment · 1 month' },
+  { id: 'monthly', label: 'Monthly', price: '₱1', detail: 'One-time payment · 1 month' },
   { id: 'yearly', label: 'Yearly', price: '₱4,790', detail: 'One-time payment · 1 year', savings: 'Save 20%' },
 ];
 
@@ -79,13 +79,13 @@ export default function SubscriptionGate({ feature }) {
       const active = result.active === true;
       const expiresAt = result.subscription?.expires_at;
       const expiryTimestamp = typeof expiresAt === 'string' ? Date.parse(expiresAt) : Number.NaN;
-      if (active && result.permanent !== true && !Number.isFinite(expiryTimestamp)) {
+      if (active && !Number.isFinite(expiryTimestamp)) {
         setHasActiveSubscription(false);
         setSubscription(null);
         setStatusError('The active subscription expiry could not be verified. Please contact support.');
         return;
       }
-      setHasActiveSubscription(result.permanent === true || (active && expiryTimestamp > Date.now()));
+      setHasActiveSubscription(active && expiryTimestamp > Date.now());
       setSubscription(result.subscription || null);
     } catch (error) {
       setHasActiveSubscription(false);
@@ -224,7 +224,7 @@ export default function SubscriptionGate({ feature }) {
                 <p className="subscription-feedback" role="status">A payment is awaiting PayMongo confirmation. Refresh status after completing checkout.</p>
               )}
               <button className="subscription-primary-action" onClick={() => setPlanPickerOpen(true)} type="button">
-                Subscribe from ₱499/month
+                Subscribe from ₱1/month
               </button>
               <small className="subscription-checkout-note">Choose a 1-month or 1-year plan. Your data stays safe while locked.</small>
               </section>

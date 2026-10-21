@@ -123,20 +123,4 @@ function supabase_active_caterer_subscription(int $catererId): array
     return ['ok' => true, 'active' => $response['data'] === true];
 }
 
-function supabase_has_permanent_caterer_access(string $authUserId): array
-{
-    if ($authUserId === '') return ['ok' => false, 'active' => false];
-
-    $response = supabase_request('GET', 'caterer_subscription_access_grants', [
-        'select' => 'auth_user_id',
-        'auth_user_id' => 'eq.' . $authUserId,
-        'limit' => '1',
-    ]);
-    if (!$response['ok']) {
-        error_log('Caterer permanent access could not be checked: ' . ($response['error'] ?: 'Supabase request failed.'));
-        return ['ok' => false, 'active' => false];
-    }
-
-    return ['ok' => true, 'active' => supabase_row($response) !== null];
-}
 ?>
