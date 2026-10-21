@@ -70,6 +70,9 @@ export default function SubscriptionGate({ feature }) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const details = featureCopy[feature] || featureCopy.services;
   const checkoutResult = new URLSearchParams(window.location.search).get('subscription');
+  const paymentNeedsVerification = checkoutResult === 'success'
+    || subscription?.status === 'pending'
+    || Boolean(statusError);
 
   const refreshSubscription = useCallback(async ({ background = false, signal } = {}) => {
     if (!background) {
@@ -78,6 +81,7 @@ export default function SubscriptionGate({ feature }) {
     }
     try {
       const result = await requestJson('/backend/subscription_api.php', { signal });
+      setStatusError('');
       const active = result.active === true;
       const expiresAt = result.subscription?.expires_at;
       const expiryTimestamp = typeof expiresAt === 'string' ? Date.parse(expiresAt) : Number.NaN;
@@ -85,17 +89,21 @@ export default function SubscriptionGate({ feature }) {
         setHasActiveSubscription(false);
         setSubscription(null);
         setStatusError('The active subscription expiry could not be verified. Please contact support.');
-        return null;
+        return { active: false, pending: false, error: true };
       }
       const isActive = active && expiryTimestamp > Date.now();
       setHasActiveSubscription(isActive);
       setSubscription(result.subscription || null);
-      return isActive;
+      return {
+        active: isActive,
+        pending: result.subscription?.status === 'pending',
+        error: false,
+      };
     } catch (error) {
       setHasActiveSubscription(false);
       setSubscription(null);
       setStatusError(error.message || 'Subscription status could not be checked.');
-      return null;
+      return { active: false, pending: false, error: true };
     } finally {
       if (!background) setStatusLoading(false);
     }
@@ -109,16 +117,15 @@ export default function SubscriptionGate({ feature }) {
     async function checkSubscription(isBackground = false) {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 30000);
-      const active = await refreshSubscription({ background: isBackground, signal: controller.signal });
+      const result = await refreshSubscription({ background: isBackground, signal: controller.signal });
       window.clearTimeout(timeout);
 
       if (
         cancelled
-        || active === true
-        || active === null
-        || checkoutResult !== 'success'
+        || result.active
         || Date.now() >= deadline
       ) return;
+      if (checkoutResult !== 'success' && !result.pending && !result.error) return;
       timer = window.setTimeout(() => checkSubscription(true), 3000);
     }
 
@@ -232,16 +239,29 @@ export default function SubscriptionGate({ feature }) {
                   ))}
                 </div>
                 {checkoutError && <p className="subscription-feedback is-error" role="alert">{checkoutError}</p>}
-                {statusError && <p className="subscription-feedback is-error" role="alert">{statusError}</p>}
-                {checkoutResult === 'success' && (
-                  <p className="subscription-feedback" role="status">
-                    Checkout returned successfully. Access unlocks after PayMongo confirms payment.
+                {paymentNeedsVerification && (
+                  <p className="subscription-feedback is-error" role="alert">
+                    We could not verify your payment yet. Do not pay again. We are checking automatically; if your access stays locked, reload this page or contact support with your PayMongo receipt.
                   </p>
                 )}
-                <button className="subscription-primary-action" disabled={checkoutLoading} onClick={startCheckout} type="button">
-                  {checkoutLoading ? <><LoaderCircle size={16} className="subscription-spinner" /> Connecting to PayMongo…</> : `Continue with QR Ph · ${planOptions.find((plan) => plan.id === selectedPlan)?.price}`}
+                {!paymentNeedsVerification && statusError && <p className="subscription-feedback is-error" role="alert">{statusError}</p>}
+                <button
+                  className="subscription-primary-action"
+                  disabled={checkoutLoading || paymentNeedsVerification}
+                  onClick={startCheckout}
+                  type="button"
+                >
+                  {paymentNeedsVerification
+                    ? 'Verifying your payment…'
+                    : checkoutLoading
+                      ? <><LoaderCircle size={16} className="subscription-spinner" /> Connecting to PayMongo…</>
+                      : `Continue with QR Ph · ${planOptions.find((plan) => plan.id === selectedPlan)?.price}`}
                 </button>
-                <small className="subscription-checkout-note">Secure PayMongo checkout using QR Ph. Features unlock after payment is verified.</small>
+                <small className="subscription-checkout-note">
+                  {paymentNeedsVerification
+                    ? 'Please do not start another checkout while this payment is being verified.'
+                    : 'Secure PayMongo checkout using QR Ph. Features unlock after payment is verified.'}
+                </small>
               </section>
             ) : (
               <section className="subscription-modal" role="dialog" aria-modal="true" aria-labelledby="subscription-modal-title">
@@ -258,14 +278,28 @@ export default function SubscriptionGate({ feature }) {
                 <li><Check size={15} aria-hidden="true" /> One-time QR Ph checkout with access duration by plan</li>
               </ul>
               {statusLoading && <p className="subscription-feedback" role="status">Checking subscription status…</p>}
-              {statusError && <p className="subscription-feedback is-error" role="alert">{statusError}</p>}
-              {!statusLoading && subscription?.status === 'pending' && (
-                <p className="subscription-feedback" role="status">A payment is awaiting PayMongo confirmation. Refresh status after completing checkout.</p>
+              {paymentNeedsVerification && (
+                <p className="subscription-feedback is-error" role="alert">
+                  We could not verify your payment yet. Do not pay again. We are checking automatically; if your access stays locked, reload this page or contact support with your PayMongo receipt.
+                </p>
               )}
-              <button className="subscription-primary-action" onClick={() => setPlanPickerOpen(true)} type="button">
-                Subscribe from ₱1/month
-              </button>
-              <small className="subscription-checkout-note">Choose a 1-month or 1-year plan. Your data stays safe while locked.</small>
+              {!paymentNeedsVerification && statusError && <p className="subscription-feedback is-error" role="alert">{statusError}</p>}
+              {!statusLoading && subscription?.status === 'pending' && (
+                <p className="subscription-feedback" role="status">A payment is awaiting confirmation. We will check its status automatically.</p>
+              )}
+              {paymentNeedsVerification ? (
+                <>
+                  <button className="subscription-primary-action" disabled type="button">Verifying your payment…</button>
+                  <small className="subscription-checkout-note">Please do not start another checkout while this payment is being verified.</small>
+                </>
+              ) : (
+                <>
+                  <button className="subscription-primary-action" onClick={() => setPlanPickerOpen(true)} type="button">
+                    Subscribe from ₱1/month
+                  </button>
+                  <small className="subscription-checkout-note">Choose a 1-month or 1-year plan. Your data stays safe while locked.</small>
+                </>
+              )}
               </section>
             )}
           </div>

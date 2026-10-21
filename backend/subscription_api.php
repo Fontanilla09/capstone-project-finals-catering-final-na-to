@@ -69,17 +69,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $checkoutAttributes = is_array($checkoutData['attributes'] ?? null)
             ? $checkoutData['attributes']
             : [];
-        if (
-            $curlError !== ''
-            || $status < 200
-            || $status >= 300
-            || ($checkoutData['id'] ?? '') !== $checkoutId
-            || ($checkoutAttributes['reference_number'] ?? '') !== ($subscription['reference_number'] ?? '')
-            || (isset($checkoutAttributes['livemode']) && (bool) $checkoutAttributes['livemode'] !== ($mode === 'live'))
-        ) {
-            error_log('Pending PayMongo checkout verification failed with HTTP ' . $status . ($curlError !== '' ? ': ' . $curlError : '.'));
+        $expectedReference = (string) ($subscription['reference_number'] ?? '');
+        $referenceMismatch = isset($checkoutAttributes['reference_number'])
+            && (string) $checkoutAttributes['reference_number'] !== $expectedReference;
+        $modeMismatch = isset($checkoutAttributes['livemode'])
+            && (bool) $checkoutAttributes['livemode'] !== ($mode === 'live');
+        $sessionMismatch = ($checkoutData['id'] ?? '') !== $checkoutId;
+        if ($curlError !== '' || $status < 200 || $status >= 300 || $sessionMismatch || $referenceMismatch || $modeMismatch) {
+            $failureReasons = [];
+            if ($curlError !== '') $failureReasons[] = 'curl_error';
+            if ($status < 200 || $status >= 300) $failureReasons[] = 'http_status';
+            if ($sessionMismatch) $failureReasons[] = 'session_id_mismatch';
+            if ($referenceMismatch) $failureReasons[] = 'reference_number_mismatch';
+            if ($modeMismatch) $failureReasons[] = 'livemode_mismatch';
+            $providerErrorCode = $checkoutResponse['errors'][0]['code'] ?? '';
+            $providerErrorCode = is_scalar($providerErrorCode) ? (string) $providerErrorCode : '';
+            error_log(
+                'Pending PayMongo checkout verification failed (HTTP ' . $status
+                . ', reasons=' . implode(',', $failureReasons)
+                . ', provider_error_code=' . ($providerErrorCode !== '' ? $providerErrorCode : 'none')
+                . ($curlError !== '' ? ', curl_error=' . $curlError : '')
+                . ').'
+            );
             http_response_code(502);
-            echo json_encode(['error' => 'Payment confirmation could not be checked. Please try again.']);
+            echo json_encode(['error' => 'Payment confirmation could not be checked. Do not pay again; contact support to verify this checkout.']);
             exit;
         }
 
