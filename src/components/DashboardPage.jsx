@@ -28,6 +28,11 @@ import {
 } from 'lucide-react';
 import { API_BASE, requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import {
+  cacheCatererSubscription,
+  clearCachedCatererSubscription,
+  getCachedCatererSubscription,
+} from '../lib/catererSubscription.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 
 const dashboardSections = {
@@ -155,7 +160,9 @@ export default function DashboardPage({ role, section = 'overview', children, ba
   const [pendingAccountCount, setPendingAccountCount] = useState(0);
   const [pendingCustomerCount, setPendingCustomerCount] = useState(0);
   const [openReportCount, setOpenReportCount] = useState(0);
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(
+    () => getCachedCatererSubscription()?.active ?? null,
+  );
   const [theme, setTheme] = useState(getInitialTheme);
   const [reservationNotice, setReservationNotice] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(initialProfile?.userId || null);
@@ -291,9 +298,10 @@ export default function DashboardPage({ role, section = 'overview', children, ba
   useEffect(() => {
     if (role !== 'caterer') return undefined;
     let active = true;
-    requestJson('/backend/subscription_api.php')
+    requestJson('/backend/subscription_api.php', { cache: 'no-store' })
       .then((result) => {
-        if (active) setHasActiveSubscription(result.active === true);
+        const status = cacheCatererSubscription(result);
+        if (active) setHasActiveSubscription(status.active);
       })
       .catch((error) => {
         console.error('Caterer subscription status could not be loaded:', error);
@@ -400,6 +408,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
     window.addEventListener('focus', handleFocus);
     const { data: authListener } = supabase?.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        clearCachedCatererSubscription();
         clearCachedProfile();
         redirectToLogin();
       }
@@ -642,6 +651,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
     try {
       await supabase?.auth.signOut({ scope: 'local' });
     } finally {
+      clearCachedCatererSubscription();
       dashboardProfileCache.clear();
       Object.keys(dashboardSections).forEach(clearCachedDashboardProfile);
       window.location.replace('/login');
@@ -793,7 +803,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
                 return <Icon className="dashboard-nav-icon" size={17} aria-hidden="true" />;
               })()}
               <span className="dashboard-nav-label">{label}</span>
-              {role === 'caterer' && !hasActiveSubscription && ['services', 'ai-photos'].includes(key) && <LockKeyhole className="dashboard-nav-lock" size={13} aria-label="Subscription required" />}
+              {role === 'caterer' && hasActiveSubscription === false && ['services', 'ai-photos'].includes(key) && <LockKeyhole className="dashboard-nav-lock" size={13} aria-label="Subscription required" />}
               {key === 'customer-management' && pendingCustomerCount > 0 && <span className="message-badge" aria-label={`${pendingCustomerCount} pending customer confirmations`}>{pendingCustomerCount > 99 ? '99+' : pendingCustomerCount}</span>}
               {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}

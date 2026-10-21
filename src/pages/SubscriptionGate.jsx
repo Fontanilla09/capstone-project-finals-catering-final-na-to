@@ -4,6 +4,10 @@ import DashboardPage from '../components/DashboardPage.jsx';
 import ManageServices from './ManageServices.jsx';
 import AiGeneratedPhoto from './AiGeneratedPhoto.jsx';
 import { requestJson } from '../lib/api.js';
+import {
+  cacheCatererSubscription,
+  getCachedCatererSubscription,
+} from '../lib/catererSubscription.js';
 
 const planOptions = [
   { id: 'monthly', label: 'Monthly', price: '₱1', detail: 'One-time payment · 1 month' },
@@ -59,12 +63,17 @@ function LockedPreview({ feature }) {
 }
 
 export default function SubscriptionGate({ feature }) {
-  const [modalOpen, setModalOpen] = useState(true);
+  const [modalOpen, setModalOpen] = useState(() => {
+    const cachedStatus = getCachedCatererSubscription();
+    return cachedStatus ? !cachedStatus.active : false;
+  });
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
-  const [subscription, setSubscription] = useState(null);
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
-  const [statusLoading, setStatusLoading] = useState(true);
+  const [subscription, setSubscription] = useState(() => getCachedCatererSubscription()?.subscription || null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(
+    () => getCachedCatererSubscription()?.active ?? false,
+  );
+  const [statusLoading, setStatusLoading] = useState(() => !getCachedCatererSubscription());
   const [statusError, setStatusError] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -80,28 +89,23 @@ export default function SubscriptionGate({ feature }) {
       setStatusLoading(true);
     }
     try {
-      const result = await requestJson('/backend/subscription_api.php', { signal });
+      const result = await requestJson('/backend/subscription_api.php', { cache: 'no-store', signal });
+      const status = cacheCatererSubscription(result);
       setStatusError('');
-      const active = result.active === true;
-      const expiresAt = result.subscription?.expires_at;
-      const expiryTimestamp = typeof expiresAt === 'string' ? Date.parse(expiresAt) : Number.NaN;
-      if (active && !Number.isFinite(expiryTimestamp)) {
-        setHasActiveSubscription(false);
-        setSubscription(null);
-        setStatusError('The active subscription expiry could not be verified. Please contact support.');
-        return { active: false, pending: false, error: true };
-      }
-      const isActive = active && expiryTimestamp > Date.now();
-      setHasActiveSubscription(isActive);
-      setSubscription(result.subscription || null);
+      setHasActiveSubscription(status.active);
+      setSubscription(status.subscription);
+      setModalOpen(!status.active);
       return {
-        active: isActive,
-        pending: result.subscription?.status === 'pending',
+        active: status.active,
+        pending: status.subscription?.status === 'pending',
         error: false,
       };
     } catch (error) {
-      setHasActiveSubscription(false);
-      setSubscription(null);
+      if (!getCachedCatererSubscription()?.active) {
+        setHasActiveSubscription(false);
+        setSubscription(null);
+        setModalOpen(true);
+      }
       setStatusError(error.message || 'Subscription status could not be checked.');
       return { active: false, pending: false, error: true };
     } finally {
@@ -209,7 +213,7 @@ export default function SubscriptionGate({ feature }) {
             <LockKeyhole size={15} aria-hidden="true" /> View subscription plans
           </button>
         </div>
-        {modalOpen && (
+        {modalOpen && !statusLoading && (
           <div className="subscription-modal-backdrop" role="presentation" onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               if (planPickerOpen) setPlanPickerOpen(false);
