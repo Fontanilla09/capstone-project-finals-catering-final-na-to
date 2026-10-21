@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Image, LoaderCircle, LockKeyhole, Package, Sparkles, X } from 'lucide-react';
 import DashboardPage from '../components/DashboardPage.jsx';
 import ManageServices from './ManageServices.jsx';
@@ -68,6 +68,7 @@ export default function SubscriptionGate({ feature }) {
   const [statusError, setStatusError] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const paymentStatusChecks = useRef(0);
   const details = featureCopy[feature] || featureCopy.services;
   const checkoutResult = new URLSearchParams(window.location.search).get('subscription');
 
@@ -99,6 +100,21 @@ export default function SubscriptionGate({ feature }) {
   useEffect(() => {
     refreshSubscription();
   }, [refreshSubscription]);
+
+  useEffect(() => {
+    if (checkoutResult !== 'success' || hasActiveSubscription) return undefined;
+
+    const timer = window.setInterval(() => {
+      if (paymentStatusChecks.current >= 20) {
+        window.clearInterval(timer);
+        return;
+      }
+      paymentStatusChecks.current += 1;
+      refreshSubscription();
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [checkoutResult, hasActiveSubscription, refreshSubscription]);
 
   useEffect(() => {
     if (!hasActiveSubscription || !subscription?.expires_at) return undefined;

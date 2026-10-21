@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/paymongo_webhook_signature.php';
 
 header('Content-Type: application/json');
 
@@ -12,7 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $mode = app_env_value('PAYMONGO_MODE');
 $webhookSecret = app_env_value('PAYMONGO_WEBHOOK_SECRET');
 $isHttpsRequest = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
-    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+    || app_env_value('VERCEL') === '1';
 if (!in_array($mode, ['test', 'live'], true) || $webhookSecret === '' || ($mode === 'live' && !$isHttpsRequest)) {
     error_log('PayMongo webhook is not configured for the selected mode.');
     http_response_code(503);
@@ -27,8 +29,7 @@ if (!is_string($rawBody) || strlen($rawBody) > 1048576) {
     exit;
 }
 $signature = $_SERVER['HTTP_X_PAYMONGO_SIGNATURE'] ?? '';
-$expectedSignature = hash_hmac('sha256', $rawBody, $webhookSecret);
-if (!preg_match('/^[a-f0-9]{64}$/i', $signature) || !hash_equals($expectedSignature, strtolower($signature))) {
+if (!paymongo_webhook_signature_is_valid($signature, $rawBody, $mode, $webhookSecret)) {
     http_response_code(401);
     echo json_encode(['error' => 'Invalid webhook signature.']);
     exit;
