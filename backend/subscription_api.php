@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         $checkoutId = (string) $subscription['paymongo_checkout_session_id'];
-        $curl = curl_init('https://api.paymongo.com/v2/checkout_sessions/' . rawurlencode($checkoutId));
+        $curl = curl_init('https://api.paymongo.com/v1/checkout_sessions/' . rawurlencode($checkoutId));
         curl_setopt_array($curl, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
