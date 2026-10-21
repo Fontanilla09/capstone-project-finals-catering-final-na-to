@@ -27,6 +27,13 @@ if (!$subscriptionAccess['ok']) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $permanentAccess = supabase_has_permanent_caterer_access((string) ($user['auth_user']['id'] ?? ''));
+    if (!$permanentAccess['ok']) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Subscription access could not be checked. Please try again.']);
+        exit;
+    }
+
     $response = supabase_request('GET', 'caterer_subscriptions', [
         'select' => 'plan,status,expires_at,created_at',
         'caterer_id' => 'eq.' . $catererId,
@@ -41,7 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     echo json_encode([
-        'active' => $subscriptionAccess['active'],
+        'active' => $subscriptionAccess['active'] || $permanentAccess['active'],
+        'permanent' => $permanentAccess['active'],
         'subscription' => supabase_row($response),
     ]);
     exit;

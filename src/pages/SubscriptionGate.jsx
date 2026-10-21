@@ -79,13 +79,13 @@ export default function SubscriptionGate({ feature }) {
       const active = result.active === true;
       const expiresAt = result.subscription?.expires_at;
       const expiryTimestamp = typeof expiresAt === 'string' ? Date.parse(expiresAt) : Number.NaN;
-      if (active && !Number.isFinite(expiryTimestamp)) {
+      if (active && result.permanent !== true && !Number.isFinite(expiryTimestamp)) {
         setHasActiveSubscription(false);
         setSubscription(null);
-        setStatusError('The active subscription expiry could not be verified. Please refresh subscription status.');
+        setStatusError('The active subscription expiry could not be verified. Please contact support.');
         return;
       }
-      setHasActiveSubscription(active && expiryTimestamp > Date.now());
+      setHasActiveSubscription(result.permanent === true || (active && expiryTimestamp > Date.now()));
       setSubscription(result.subscription || null);
     } catch (error) {
       setHasActiveSubscription(false);
@@ -196,17 +196,11 @@ export default function SubscriptionGate({ feature }) {
                 {statusError && <p className="subscription-feedback is-error" role="alert">{statusError}</p>}
                 {checkoutResult === 'success' && (
                   <p className="subscription-feedback" role="status">
-                    Checkout returned successfully. Access unlocks only after PayMongo confirms payment. Refresh status to check again.
+                    Checkout returned successfully. Access unlocks after PayMongo confirms payment.
                   </p>
-                )}
-                {checkoutResult === 'cancelled' && (
-                  <p className="subscription-feedback" role="status">Checkout was cancelled. You have not been charged.</p>
                 )}
                 <button className="subscription-primary-action" disabled={checkoutLoading} onClick={startCheckout} type="button">
                   {checkoutLoading ? <><LoaderCircle size={16} className="subscription-spinner" /> Connecting to PayMongo…</> : `Continue with QR Ph · ${planOptions.find((plan) => plan.id === selectedPlan)?.price}`}
-                </button>
-                <button className="subscription-refresh-action" disabled={statusLoading} onClick={refreshSubscription} type="button">
-                  {statusLoading ? 'Checking subscription…' : 'Refresh subscription status'}
                 </button>
                 <small className="subscription-checkout-note">Secure PayMongo checkout using QR Ph. Features unlock after payment is verified.</small>
               </section>
