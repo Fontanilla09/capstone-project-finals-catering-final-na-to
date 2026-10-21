@@ -20,12 +20,50 @@ if (($user['role'] ?? '') !== 'caterer' || empty($user['caterer_id'])) {
 
 $catererId = (int) $user['caterer_id'];
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $subscriptionAccess = supabase_active_caterer_subscription($catererId);
+    if (!$subscriptionAccess['ok']) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Subscription status could not be checked. Please try again.']);
+        exit;
+    }
+
     $subscriptionQuery = [
         'select' => 'plan,status,expires_at,created_at,amount,paymongo_checkout_session_id,reference_number',
         'caterer_id' => 'eq.' . $catererId,
         'order' => 'created_at.desc',
         'limit' => '1',
     ];
+
+    if ($subscriptionAccess['active']) {
+        $activeResponse = supabase_request('GET', 'caterer_subscriptions', [
+            'select' => 'plan,status,expires_at,created_at',
+            'caterer_id' => 'eq.' . $catererId,
+            'status' => 'eq.active',
+            'order' => 'expires_at.desc',
+            'limit' => '1',
+        ]);
+        if (!$activeResponse['ok']) {
+            error_log('Active caterer subscription could not be loaded: ' . ($activeResponse['error'] ?: 'Supabase request failed.'));
+            http_response_code(500);
+            echo json_encode(['error' => 'Subscription details could not be loaded. Please try again.']);
+            exit;
+        }
+
+        $activeSubscription = supabase_row($activeResponse);
+        if (!$activeSubscription) {
+            error_log('Caterer subscription access is active, but no active subscription row could be loaded.');
+            http_response_code(500);
+            echo json_encode(['error' => 'Subscription details could not be loaded. Please contact support.']);
+            exit;
+        }
+
+        echo json_encode([
+            'active' => true,
+            'subscription' => $activeSubscription,
+        ]);
+        exit;
+    }
+
     $response = supabase_request('GET', 'caterer_subscriptions', $subscriptionQuery);
     if (!$response['ok']) {
         error_log('Caterer subscription could not be loaded: ' . ($response['error'] ?: 'Supabase request failed.'));
