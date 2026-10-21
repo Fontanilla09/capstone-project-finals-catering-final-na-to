@@ -13,6 +13,7 @@ import {
   Flag,
   Images,
   LifeBuoy,
+  LockKeyhole,
   MessageCircle,
   Moon,
   Package,
@@ -25,7 +26,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { API_BASE, requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const dashboardSections = {
@@ -138,6 +139,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
   const [pendingAccountCount, setPendingAccountCount] = useState(0);
   const [pendingCustomerCount, setPendingCustomerCount] = useState(0);
   const [openReportCount, setOpenReportCount] = useState(0);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [theme, setTheme] = useState(getInitialTheme);
   const [reservationNotice, setReservationNotice] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(initialProfile?.userId || null);
@@ -269,6 +271,21 @@ export default function DashboardPage({ role, section = 'overview', children, ba
       console.warn('Failed to save the theme preference:', error);
     }
   }, [theme]);
+
+  useEffect(() => {
+    if (role !== 'caterer') return undefined;
+    let active = true;
+    requestJson('/backend/subscription_api.php')
+      .then((result) => {
+        if (active) setHasActiveSubscription(result.active === true);
+      })
+      .catch((error) => {
+        console.error('Caterer subscription status could not be loaded:', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [role]);
 
   useEffect(() => {
     if (!notificationsOpen) return undefined;
@@ -465,7 +482,9 @@ export default function DashboardPage({ role, section = 'overview', children, ba
     const loadUnreadReservations = async () => {
       const { data, error } = await supabase.rpc('get_caterer_reservations');
       if (error) return;
-      const reservations = data || [];
+      const reservations = (data || []).filter((item) => !(
+        item.reservation_status === 'pending' && item.payment_status === 'pending'
+      ));
       const maxId = reservations.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), 0);
       const lastSeenId = localStorage.getItem(lastSeenKey);
       if (lastSeenId === null) {
@@ -724,6 +743,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
                 return <Icon className="dashboard-nav-icon" size={17} aria-hidden="true" />;
               })()}
               <span className="dashboard-nav-label">{label}</span>
+              {role === 'caterer' && !hasActiveSubscription && ['services', 'ai-photos'].includes(key) && <LockKeyhole className="dashboard-nav-lock" size={13} aria-label="Subscription required" />}
               {key === 'customer-management' && pendingCustomerCount > 0 && <span className="message-badge" aria-label={`${pendingCustomerCount} pending customer confirmations`}>{pendingCustomerCount > 99 ? '99+' : pendingCustomerCount}</span>}
               {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}

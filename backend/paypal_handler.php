@@ -66,35 +66,36 @@ function paypal_access_token(): array
     return ['ok' => true, 'token' => $data['access_token']];
 }
 
-function get_platform_commission_rate(): float
+function get_admin_paypal_email(): string
 {
     global $paypal_env;
-    $rate = $paypal_env['PAYPAL_COMMISSION_RATE'] ?? getenv('PAYPAL_COMMISSION_RATE') ?: '0.025';
-    $value = (float) $rate;
-    if ($value < 0) {
-        return 0.0;
+    return trim((string) ($paypal_env['PAYPAL_ADMIN_EMAIL'] ?? getenv('PAYPAL_ADMIN_EMAIL') ?: ''));
+}
+
+function paypal_error_message(array $response, string $fallback): string
+{
+    $data = is_array($response['data'] ?? null) ? $response['data'] : [];
+    $detail = is_array($data['details'][0] ?? null) ? $data['details'][0] : [];
+    $issue = trim((string) ($detail['issue'] ?? ''));
+    $description = trim((string) ($detail['description'] ?? ''));
+    if ($issue !== '') {
+        return $issue . ($description !== '' ? ': ' . $description : '');
     }
-    return min($value, 1.0);
-}
 
-function get_platform_commission_amount(float $amount): float
-{
-    return round($amount * get_platform_commission_rate(), 2);
-}
-
-function get_caterer_payout_amount(float $amount): float
-{
-    return round($amount - get_platform_commission_amount($amount), 2);
-}
-
-function get_admin_paypal_email(string $fallback_email = ''): string
-{
-    global $paypal_env;
-    $admin_email = trim((string) ($paypal_env['PAYPAL_ADMIN_EMAIL'] ?? getenv('PAYPAL_ADMIN_EMAIL') ?: ''));
-    if ($admin_email !== '') {
-        return $admin_email;
+    foreach (['message', 'error_description'] as $key) {
+        $message = trim((string) ($data[$key] ?? ''));
+        if ($message !== '') {
+            return $message;
+        }
     }
-    return trim((string) $fallback_email);
+
+    $transport_error = trim((string) ($response['error'] ?? ''));
+    if ($transport_error !== '') {
+        return $transport_error;
+    }
+
+    $status = (int) ($response['status'] ?? 0);
+    return $status > 0 ? 'PayPal request failed with HTTP ' . $status . '.' : $fallback;
 }
 
 function create_paypal_order(int $reservation_id, float $amount, string $description, string $payment_type = 'down_payment', string $payee_email = ''): array
@@ -182,7 +183,7 @@ function paypal_request_with_token(string $method, string $endpoint, ?array $bod
     ];
 }
 
-function create_paypal_payout(string $recipient_email, float $amount, int $reservation_id, int $payout_id): array
+function create_paypal_payout(string $recipient_email, float $amount, int $reservation_id, int $payout_id, bool $retry_after_funds_added = false): array
 {
     global $paypal_env;
     $payouts_enabled = $paypal_env['PAYPAL_PAYOUTS_ENABLED'] ?? getenv('PAYPAL_PAYOUTS_ENABLED') ?: 'false';
@@ -194,7 +195,10 @@ function create_paypal_payout(string $recipient_email, float $amount, int $reser
         return $token;
     }
 
-    $batch_id = 'CATERAI-' . substr(hash('sha256', (string) $payout_id), 0, 22);
+    $batch_source = $retry_after_funds_added
+        ? $payout_id . '|' . bin2hex(random_bytes(8))
+        : (string) $payout_id;
+    $batch_id = 'CATERAI-' . substr(hash('sha256', $batch_source), 0, 22);
     $response = paypal_request_with_token('POST', '/v1/payments/payouts', [
         'sender_batch_header' => [
             'sender_batch_id' => $batch_id,
@@ -211,7 +215,7 @@ function create_paypal_payout(string $recipient_email, float $amount, int $reser
     ], $token['token']);
 
     if (!$response['ok']) {
-        return ['ok' => false, 'error' => $response['data']['message'] ?? 'Unable to create PayPal payout.'];
+        return ['ok' => false, 'error' => paypal_error_message($response, 'Unable to create PayPal payout.')];
     }
 
     $batch = $response['data']['batch_header'] ?? [];
@@ -239,7 +243,7 @@ function get_paypal_payout_status(string $batch_id): array
         $token['token']
     );
     if (!$response['ok']) {
-        return ['ok' => false, 'error' => $response['data']['message'] ?? 'Unable to check payout status.'];
+        return ['ok' => false, 'error' => paypal_error_message($response, 'Unable to check payout status.')];
     }
 
     $batch = $response['data']['batch_header'] ?? [];

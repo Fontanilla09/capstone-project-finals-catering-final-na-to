@@ -32,7 +32,7 @@ if ($payout_id <= 0 || !in_array($action, ['request', 'status'], true)) {
 }
 
 $payout_response = supabase_request('GET', 'payouts', [
-    'select' => 'id,reservation_id,payment_id,caterer_id,caterer_amount,payout_status,payout_batch_id,payout_item_id',
+    'select' => 'id,reservation_id,payment_id,caterer_id,gross_amount,caterer_amount,payout_status,payout_batch_id,payout_item_id,payout_error',
     'id' => 'eq.' . $payout_id,
     'caterer_id' => 'eq.' . $user['caterer_id'],
     'limit' => '1',
@@ -58,12 +58,17 @@ if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
 }
 
 if ($action === 'request') {
-    if (($payout['payout_status'] ?? '') !== 'pending') {
+    $retry_after_funds_added = ($payout['payout_status'] ?? '') === 'failed'
+        && empty($payout['payout_batch_id'])
+        && stripos((string) ($payout['payout_error'] ?? ''), 'insufficient funds') !== false;
+    $claim_status = $retry_after_funds_added ? 'failed' : 'pending';
+    if (($payout['payout_status'] ?? '') !== $claim_status) {
         http_response_code(409);
-        echo json_encode(['error' => 'This payout is no longer available to request.', 'payout_status' => $payout['payout_status']]);
+        echo json_encode(['error' => 'This payout is no longer available to request. Refresh and check its status.', 'payout_status' => $payout['payout_status']]);
         exit;
     }
-    if ((float) $payout['caterer_amount'] <= 0 || empty($payout['payment_id'])) {
+    $payout_amount = round((float) ($payout['gross_amount'] ?? 0), 2);
+    if ($payout_amount <= 0 || empty($payout['payment_id'])) {
         http_response_code(422);
         echo json_encode(['error' => 'This payout has no payable amount.']);
         exit;
@@ -85,8 +90,13 @@ if ($action === 'request') {
     $claim = supabase_request('PATCH', 'payouts', [
         'id' => 'eq.' . $payout_id,
         'caterer_id' => 'eq.' . $user['caterer_id'],
-        'payout_status' => 'eq.pending',
-    ], ['payout_status' => 'processing', 'payout_error' => null]);
+        'payout_status' => 'eq.' . $claim_status,
+    ], [
+        'payout_status' => 'processing',
+        'platform_fee' => 0,
+        'caterer_amount' => $payout_amount,
+        'payout_error' => null,
+    ]);
     $claimed = supabase_row($claim);
     if (!$claim['ok'] || !$claimed) {
         http_response_code(409);
@@ -94,7 +104,7 @@ if ($action === 'request') {
         exit;
     }
 
-    $result = create_paypal_payout($recipient, (float) $payout['caterer_amount'], (int) $payout['reservation_id'], $payout_id);
+    $result = create_paypal_payout($recipient, $payout_amount, (int) $payout['reservation_id'], $payout_id, $retry_after_funds_added);
     if (!$result['ok']) {
         supabase_request('PATCH', 'payouts', [
             'id' => 'eq.' . $payout_id,

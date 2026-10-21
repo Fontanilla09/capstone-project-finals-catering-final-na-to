@@ -28,9 +28,14 @@ if (!$reservation) {
     header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
     exit;
 }
+$expected_payee_email = strtolower(trim(get_admin_paypal_email()));
+if (!filter_var($expected_payee_email, FILTER_VALIDATE_EMAIL)) {
+    header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
+    exit;
+}
 
 $existing = supabase_request('GET', 'payments', [
-    'select' => 'id,amount',
+    'select' => 'id,amount,payment_status,payment_type',
     'reservation_id' => 'eq.' . $reservation_id,
     'reference_number' => 'eq.' . $order_id,
     'limit' => '1',
@@ -40,6 +45,11 @@ if (!$existing['ok']) {
     exit;
 }
 $payment_row = supabase_row($existing);
+if ($payment_row && (($payment_row['payment_status'] ?? '') !== 'completed' || ($payment_row['payment_type'] ?? '') !== $payment_type)) {
+    error_log('Existing payment does not match the completed PayPal return for reservation ' . $reservation_id . '.');
+    header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
+    exit;
+}
 if (!$payment_row) {
     if ($payment_type === 'down_payment' && ($reservation['reservation_status'] !== 'pending' || $reservation['payment_status'] !== 'pending')) {
         header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
@@ -62,6 +72,28 @@ if (!$payment_row) {
             exit;
         }
     }
+    $token = paypal_access_token();
+    if (!$token['ok']) {
+        error_log('PayPal order verification failed for reservation ' . $reservation_id . ': ' . ($token['error'] ?? 'unknown error'));
+        header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
+        exit;
+    }
+    $order = paypal_request_with_token('GET', '/v2/checkout/orders/' . rawurlencode($order_id), null, $token['token']);
+    $purchase_unit = $order['data']['purchase_units'][0] ?? [];
+    $order_payee_email = strtolower(trim((string) ($purchase_unit['payee']['email_address'] ?? '')));
+    $expected_amount = $payment_type === 'balance' ? (float) $reservation['balance_amount'] : (float) $reservation['advance_payment'];
+    $order_amount = (float) ($purchase_unit['amount']['value'] ?? 0);
+    if (
+        !$order['ok']
+        || (string) ($purchase_unit['reference_id'] ?? '') !== (string) $reservation_id
+        || $order_payee_email !== $expected_payee_email
+        || strtoupper((string) ($purchase_unit['amount']['currency_code'] ?? '')) !== 'PHP'
+        || round($order_amount, 2) !== round($expected_amount, 2)
+    ) {
+        error_log('PayPal order does not match the booking or caterer for reservation ' . $reservation_id . '.');
+        header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
+        exit;
+    }
     $capture = capture_paypal_order($order_id);
     if (!$capture['ok']) {
         error_log('PayPal capture failed for reservation ' . $reservation_id . ', order ' . $order_id . ': ' . ($capture['error'] ?? 'unknown error'));
@@ -73,30 +105,12 @@ if (!$payment_row) {
     $capture_data = $capture['data'] ?? [];
     $payer_email = $capture_data['payer']['email_address'] ?? null;
     $payer_name = trim(($capture_data['payer']['name']['given_name'] ?? '') . ' ' . ($capture_data['payer']['name']['surname'] ?? '')) ?: null;
-    $payee_email = $capture_data['purchase_units'][0]['payee']['email_address'] ?? '';
-    if (!filter_var($payee_email, FILTER_VALIDATE_EMAIL)) {
-        $caterer_response = supabase_request('GET', 'caterers', [
-            'select' => 'paypal_email',
-            'id' => 'eq.' . $reservation['caterer_id'],
-            'limit' => '1',
-        ]);
-        $caterer = supabase_row($caterer_response) ?? [];
-        $payee_email = get_admin_paypal_email((string) ($caterer['paypal_email'] ?? ''));
+    $captured_payee_email = strtolower(trim((string) ($capture_data['purchase_units'][0]['payee']['email_address'] ?? '')));
+    if ($captured_payee_email !== '' && $captured_payee_email !== $expected_payee_email) {
+        error_log('PayPal capture recipient differed from the verified order for reservation ' . $reservation_id . '.');
     }
+    $payee_email = $captured_payee_email ?: $expected_payee_email;
     $capture_id = $capture_data['purchase_units'][0]['payments']['captures'][0]['id'] ?? $order_id;
-
-    if ($payment_type !== 'balance') {
-        $updated = supabase_request('PATCH', 'reservations', [
-            'id' => 'eq.' . $reservation_id,
-            'customer_id' => 'eq.' . $reservation['customer_id'],
-            'payment_status' => 'eq.pending',
-            'reservation_status' => 'eq.pending',
-        ], ['payment_status' => 'partial']);
-        if (!$updated['ok'] || !supabase_row($updated)) {
-            header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
-            exit;
-        }
-    }
 
     $payment = supabase_request('POST', 'payments', [], [
         'reservation_id' => $reservation_id,
@@ -115,8 +129,31 @@ if (!$payment_row) {
     ]);
     $payment_row = supabase_row($payment);
     if (!$payment_row) {
+        error_log('PayPal payment was captured but could not be saved for reservation ' . $reservation_id . ': ' . json_encode($payment['data'] ?? null));
         header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
         exit;
+    }
+}
+
+if ($payment_type === 'down_payment' && $reservation['payment_status'] === 'pending') {
+    $updated = supabase_request('PATCH', 'reservations', [
+        'id' => 'eq.' . $reservation_id,
+        'customer_id' => 'eq.' . $reservation['customer_id'],
+        'payment_status' => 'eq.pending',
+    ], ['payment_status' => 'partial']);
+    if (!$updated['ok'] || !supabase_row($updated)) {
+        $latest = supabase_request('GET', 'reservations', [
+            'select' => 'payment_status',
+            'id' => 'eq.' . $reservation_id,
+            'customer_id' => 'eq.' . $reservation['customer_id'],
+            'limit' => '1',
+        ]);
+        $latest_reservation = supabase_row($latest);
+        if (!$latest['ok'] || !in_array($latest_reservation['payment_status'] ?? '', ['partial', 'completed'], true)) {
+            error_log('PayPal payment was saved but reservation payment status could not be updated for reservation ' . $reservation_id . '.');
+            header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
+            exit;
+        }
     }
 }
 
@@ -133,15 +170,13 @@ if ($payment_type === 'balance' && $reservation['payment_status'] === 'partial')
 }
 
 $payment_amount = (float) $payment_row['amount'];
-$platform_fee = get_platform_commission_amount($payment_amount);
-$caterer_payout = get_caterer_payout_amount($payment_amount);
 $payout = supabase_request('POST', 'payouts', ['on_conflict' => 'payment_id'], [
     'reservation_id' => $reservation_id,
     'caterer_id' => $reservation['caterer_id'],
     'payment_id' => $payment_row['id'],
     'gross_amount' => $payment_amount,
-    'platform_fee' => $platform_fee,
-    'caterer_amount' => $caterer_payout,
+    'platform_fee' => 0,
+    'caterer_amount' => $payment_amount,
     'payout_status' => 'pending',
 ], 'resolution=merge-duplicates,return=representation');
 if (!$payout['ok']) {

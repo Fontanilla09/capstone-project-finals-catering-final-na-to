@@ -137,7 +137,9 @@ export default function CatererDashboard() {
         if (earningsError) throw earningsError;
         if (reviewsError) throw reviewsError;
 
-        const reservations = data || [];
+        const reservations = (data || []).filter((item) => !(
+          item.reservation_status === 'pending' && item.payment_status === 'pending'
+        ));
         const earningsSummary = earningsData?.summary || {};
         const payoutRows = earningsData?.payouts || [];
         const reviewRows = reviewsData || [];
@@ -301,7 +303,7 @@ export default function CatererDashboard() {
               <div className="caterer-payout-progress" role="img" aria-label={`${paidPercentage.toFixed(0)} percent of earnings paid out`}>
                 <span key={`progress-${paidPercentage.toFixed(2)}`} style={{ width: `${paidPercentage}%` }} />
               </div>
-              <p className="caterer-earnings-caption">Net after the 2.5% platform fee · {paidPercentage.toFixed(0)}% paid out</p>
+              <p className="caterer-earnings-caption">No platform commission · {paidPercentage.toFixed(0)}% paid out</p>
               <details className="chart-data-table">
                 <summary>View data as table</summary>
                 <div className="chart-data-table-wrap">

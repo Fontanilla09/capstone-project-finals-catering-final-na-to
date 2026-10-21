@@ -13,7 +13,6 @@ import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
-import ManageServices from './pages/ManageServices.jsx';
 import PackageDetails from './pages/PackageDetails.jsx';
 import Packages from './pages/Packages.jsx';
 import Register from './pages/Register.jsx';
@@ -23,7 +22,7 @@ import AdminActivity from './pages/AdminActivity.jsx';
 import AdminCaterManagement from './pages/AdminCaterManagement.jsx';
 import AdminReports from './pages/AdminReports.jsx';
 import AdminCustomers from './pages/AdminCustomers.jsx';
-import AiGeneratedPhoto from './pages/AiGeneratedPhoto.jsx';
+import SubscriptionGate from './pages/SubscriptionGate.jsx';
 
 export default function App() {
   const [, setCurrentLocation] = useState(() => `${window.location.pathname}${window.location.search}${window.location.hash}`);
@@ -71,8 +70,8 @@ export default function App() {
   if (path === '/dashboard/messages') return <CustomerMessages />;
   if (path === '/dashboard/caterer') return <CatererDashboard />;
   if (path === '/dashboard/caterer/profile') return <CatererProfile />;
-  if (path === '/dashboard/caterer/services') return <ManageServices />;
-  if (path === '/dashboard/caterer/ai-photos') return <AiGeneratedPhoto />;
+  if (path === '/dashboard/caterer/services') return <SubscriptionGate feature="services" />;
+  if (path === '/dashboard/caterer/ai-photos') return <SubscriptionGate feature="ai-photos" />;
   if (path === '/dashboard/caterer/reservations') return <ViewReservations />;
   if (path === '/dashboard/caterer/reviews') return <CatererReviews />;
   if (path === '/dashboard/caterer/earnings') return <CatererEarnings />;

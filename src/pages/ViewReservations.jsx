@@ -34,6 +34,8 @@ function formatEventTime(eventDate, eventTime) {
 
 export default function ViewReservations() {
   const [reservations, setReservations] = useState([]); const [status, setStatus] = useState('');
+  const [gcashSubmissions, setGcashSubmissions] = useState([]);
+  const [reviewingGcashId, setReviewingGcashId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [page, setPage] = useState(1);
   const [rejectingReservation, setRejectingReservation] = useState(null);
@@ -42,8 +44,20 @@ export default function ViewReservations() {
     try {
       const { data, error } = await supabase.rpc('get_caterer_reservations');
       if (error) throw error;
-      const rows = data || [];
+      const rows = (data || []).filter((item) => !(
+        item.reservation_status === 'pending' && item.payment_status === 'pending'
+      ));
       setReservations(rows);
+      const { data: gcashRows, error: gcashError } = await supabase.rpc('get_caterer_gcash_submissions');
+      if (gcashError) throw gcashError;
+      const submissionsWithReceipts = await Promise.all((gcashRows || []).map(async (payment) => {
+        const { data: receiptData, error: receiptError } = await supabase.storage
+          .from('gcash-payment-receipts')
+          .createSignedUrl(payment.receipt_image, 3600);
+        if (receiptError) throw receiptError;
+        return { ...payment, receipt_url: receiptData.signedUrl };
+      }));
+      setGcashSubmissions(submissionsWithReceipts);
       const { data: profiles } = await supabase.rpc('get_my_profile');
       const catererId = profiles?.[0]?.caterer_id;
       if (catererId) {
@@ -55,6 +69,36 @@ export default function ViewReservations() {
     } catch (error) { setStatus(error.message); }
   }
   useEffect(() => { load(); }, []);
+  async function reviewGcash(payment, approve) {
+    if (reviewingGcashId !== null) return;
+    let reviewNote = null;
+    if (approve) {
+      if (!window.confirm(`Confirm that you received ${formatCurrency(payment.amount)} from ${payment.customer_name}?`)) return;
+    } else {
+      reviewNote = window.prompt('Why are you rejecting this receipt? (At least 5 characters)');
+      if (reviewNote === null) return;
+      if (reviewNote.trim().length < 5) {
+        setStatus('Enter a receipt rejection reason of at least 5 characters.');
+        return;
+      }
+    }
+
+    setReviewingGcashId(payment.payment_id);
+    try {
+      const { error } = await supabase.rpc('review_gcash_payment', {
+        p_payment_id: payment.payment_id,
+        p_approve: approve,
+        p_review_note: reviewNote,
+      });
+      if (error) throw error;
+      setStatus(approve ? 'GCash payment confirmed. The booking is ready for your review.' : 'Receipt rejected. The customer can upload a corrected receipt.');
+      await load();
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setReviewingGcashId(null);
+    }
+  }
   async function accept(id) { try { const { error } = await supabase.rpc('accept_caterer_reservation', { reservation_id: id }); if (error) throw error; setStatus('Reservation accepted.'); await load(); } catch (error) { setStatus(error.message); } }
   async function complete(id) {
     if (!window.confirm('Mark this catering event as completed? The customer will be able to leave a review.')) return;
@@ -104,6 +148,40 @@ export default function ViewReservations() {
     <DashboardPage role="caterer" section="reservations">
       <>
         {status && <p className="form-alert success-alert">{status}</p>}
+        {gcashSubmissions.length > 0 && (
+          <section className="gcash-review-section" aria-labelledby="gcash-review-title">
+            <header>
+              <div>
+                <p className="eyebrow eyebrow-soft">Manual payment review</p>
+                <h2 id="gcash-review-title">GCash receipts ({gcashSubmissions.length})</h2>
+                <p>Check your GCash account before confirming each payment. Confirmation marks the payment as received.</p>
+              </div>
+            </header>
+            <div className="gcash-review-list">
+              {gcashSubmissions.map((payment) => (
+                <article className="gcash-review-card" key={payment.payment_id}>
+                  <div>
+                    <strong>{payment.package_name} · Reservation #{payment.reservation_id}</strong>
+                    <span>{payment.customer_name} · {payment.payment_type === 'balance' ? 'Balance' : 'Down payment'} · {formatCurrency(payment.amount)}</span>
+                    <span>{formatEventDate(payment.event_date)}</span>
+                  </div>
+                  <a href={payment.receipt_url} target="_blank" rel="noreferrer">
+                    <img src={payment.receipt_url} alt={`GCash receipt from ${payment.customer_name}`} />
+                    View full receipt
+                  </a>
+                  <div className="gcash-review-actions">
+                    <button className="button button-primary button-small" disabled={reviewingGcashId !== null} onClick={() => reviewGcash(payment, true)} type="button">
+                      {reviewingGcashId === payment.payment_id ? 'Saving…' : 'Confirm payment'}
+                    </button>
+                    <button className="button reservation-reject-button button-small" disabled={reviewingGcashId !== null} onClick={() => reviewGcash(payment, false)} type="button">
+                      Reject receipt
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
         <div className="analytics-status-title caterer-reservations-heading">
           <h2>{showHistory ? 'Reservation history' : 'Active reservations'}</h2>
           <button className="button button-secondary button-small" onClick={() => { setShowHistory((show) => !show); setPage(1); }} type="button" aria-pressed={showHistory}>

@@ -22,6 +22,15 @@ export default function Register() {
     try {
       if (!isSupabaseConfigured) throw new Error('Supabase is not configured. Check your .env file.');
       const values = Object.fromEntries(new FormData(event.currentTarget));
+      if (accountType === 'caterer' && values.gcash_qr_code?.size) {
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(values.gcash_qr_code.type)) {
+          throw new Error('GCash QR code must be a JPG, PNG, or WEBP image.');
+        }
+        if (values.gcash_qr_code.size > 5 * 1024 * 1024) {
+          throw new Error('GCash QR code must not exceed 5MB.');
+        }
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
@@ -44,7 +53,7 @@ export default function Register() {
         if (!data.session) {
           setStatus({
             error: '',
-            success: `Account created. Email confirmation is required. Check ${values.email} and its spam folder for a confirmation link. If no email arrives, check Supabase email confirmation and SMTP settings.`,
+            success: `Account created. Email confirmation is required. Check ${values.email} and its spam folder for a confirmation link. After confirming and signing in, upload your business permit and optional GCash QR from Business profile.`,
           });
           setForm(emptyForm);
           return;
@@ -57,10 +66,42 @@ export default function Register() {
         if (permitError) throw new Error('Account created, but the business permit could not be saved.');
       }
 
+      let gcashUploadNotice = '';
+      if (accountType === 'caterer' && values.gcash_qr_code?.size && data.session) {
+        let uploadedQrPath = '';
+        try {
+          const { data: profileRows, error: profileError } = await supabase.rpc('get_my_profile');
+          if (profileError) throw profileError;
+          const catererId = profileRows?.[0]?.caterer_id;
+          if (!catererId) throw new Error('Caterer profile is not available yet.');
+
+          const authUserId = data.user.id;
+          const extension = values.gcash_qr_code.type.split('/')[1].replace('jpeg', 'jpg');
+          uploadedQrPath = `${authUserId}/${catererId}/${crypto.randomUUID()}.${extension}`;
+          const { error: uploadError } = await supabase.storage
+            .from('caterer-gcash-qr')
+            .upload(uploadedQrPath, values.gcash_qr_code, { contentType: values.gcash_qr_code.type, upsert: false });
+          if (uploadError) throw uploadError;
+
+          const { data: publicUrl } = supabase.storage.from('caterer-gcash-qr').getPublicUrl(uploadedQrPath);
+          const { error: updateError } = await supabase
+            .from('caterers')
+            .update({ gcash_qr_code: publicUrl.publicUrl })
+            .eq('id', catererId);
+          if (updateError) throw updateError;
+        } catch (qrError) {
+          if (uploadedQrPath) {
+            const { error: cleanupError } = await supabase.storage.from('caterer-gcash-qr').remove([uploadedQrPath]);
+            if (cleanupError) console.error('Could not remove an unsaved registration GCash QR:', cleanupError);
+          }
+          gcashUploadNotice = ` Your account was created, but the GCash QR could not be saved (${qrError.message}). You can upload it later from Business profile.`;
+        }
+      }
+
       const success = data.session
         ? 'Account created. Email confirmation appears to be disabled in Supabase, so no confirmation email was requested. Sign in after admin approval.'
         : `Account created. Email confirmation is required. Check ${values.email} and its spam folder for a confirmation link. If no email arrives, check Supabase email confirmation and SMTP settings.`;
-      setStatus({ error: '', success });
+      setStatus({ error: '', success: `${success}${gcashUploadNotice}` });
       setForm(emptyForm);
     } catch (error) {
       setStatus({ error: error.message, success: '' });
@@ -96,10 +137,17 @@ export default function Register() {
               <label className="registration-field-wide" htmlFor="register-paypal">PayPal email<input id="register-paypal" name="paypal_email" type="email" value={form.paypal_email} onChange={update} placeholder="PayPal account email" required /></label>
             </div>
           </>}
-          {accountType === 'caterer' && <label htmlFor="business-permit">Business permit
-            <input id="business-permit" name="business_permit" type="file" accept="application/pdf,image/jpeg,image/png" required />
-            <small>PDF, JPG, or PNG. Maximum 10MB.</small>
-          </label>}
+          {accountType === 'caterer' && <>
+            <label htmlFor="business-permit">Business permit
+              <input id="business-permit" name="business_permit" type="file" accept="application/pdf,image/jpeg,image/png" required />
+              <small>PDF, JPG, or PNG. Maximum 10MB.</small>
+            </label>
+            <label className="registration-gcash-field" htmlFor="register-gcash-qr">
+              GCash payment QR <span className="registration-optional">(recommended · optional)</span>
+              <input id="register-gcash-qr" name="gcash_qr_code" type="file" accept="image/jpeg,image/png,image/webp" />
+              <small>Add your own GCash QR now so customers can pay their down payment or balance through GCash. JPG, PNG, or WEBP · maximum 5MB. You can also add it later from Business profile.</small>
+            </label>
+          </>}
           <label htmlFor="register-password">Password</label>
           <input id="register-password" name="password" type="password" value={form.password} onChange={update} placeholder="At least 6 characters" minLength="6" required />
           <button className="button button-primary auth-submit" type="submit">Create account <span>↗</span></button>

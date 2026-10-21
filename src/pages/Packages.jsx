@@ -3,6 +3,8 @@ import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { EVENT_TYPES } from '../lib/eventTypes';
 
+const packagesPerPage = 12;
+
 function imageUrl(path) {
   return /^https?:\/\//i.test(path) ? path : `${API_BASE}${path}`;
 }
@@ -13,6 +15,7 @@ export default function Packages() {
   const [filters, setFilters] = useState({ search: '', event_type: '', sort: 'newest' });
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
+  const [visiblePackageCount, setVisiblePackageCount] = useState(packagesPerPage);
 
   async function load(nextFilters = filters) {
     setLoading(true);
@@ -22,6 +25,7 @@ export default function Packages() {
         .from('packages')
         .select('id, package_name, event_type, price, guest_count_min, guest_count_max, description, caterers!inner(id, business_name, city, rating, is_verified), package_images(image_path)')
         .eq('caterers.is_verified', true)
+        .limit(1, { referencedTable: 'package_images' })
         .order('created_at', { ascending: false });
       if (error) throw error;
       const search = nextFilters.search.trim().toLowerCase();
@@ -42,6 +46,7 @@ export default function Packages() {
       if (nextFilters.sort === 'price_high') filtered.sort((a, b) => Number(b.price) - Number(a.price));
       if (nextFilters.sort === 'rating') filtered.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
       setPackages(filtered);
+      setVisiblePackageCount(packagesPerPage);
       setEventTypes(EVENT_TYPES.map((event_type) => ({ event_type })));
     } catch (error) {
       setPackages([]);
@@ -64,6 +69,7 @@ export default function Packages() {
 
   const update = (event) => setFilters({ ...filters, [event.target.name]: event.target.value });
   const catererCount = new Set(packages.map((item) => item.caterer_id)).size;
+  const visiblePackages = packages.slice(0, visiblePackageCount);
 
   return <main className="packages-page">
     <nav className="packages-nav">
@@ -83,7 +89,7 @@ export default function Packages() {
           <span>Compare menus, guest capacity, and local caterers in one place.</span>
         </aside>
       </div>
-      <form className="package-filters" onSubmit={(event) => { event.preventDefault(); load(); }}>
+      <form className="package-filters" onSubmit={(event) => { event.preventDefault(); load(filters); }}>
         <input aria-label="Search packages or caterers" name="search" value={filters.search} onChange={update} placeholder="Search packages or caterers" />
         <select aria-label="Filter by event type" name="event_type" value={filters.event_type} onChange={update}><option value="">All event types</option>{eventTypes.map((item) => <option key={item.event_type} value={item.event_type}>{item.event_type}</option>)}</select>
         <select aria-label="Sort packages" name="sort" value={filters.sort} onChange={update}><option value="newest">Newest</option><option value="price_low">Price: low to high</option><option value="price_high">Price: high to low</option><option value="rating">Top rated</option></select>
@@ -103,9 +109,10 @@ export default function Packages() {
           <p>Try another search or event type to discover more caterers.</p>
           {(filters.search || filters.event_type) && <button className="button button-secondary" onClick={() => { const reset = { ...filters, search: '', event_type: '' }; setFilters(reset); load(reset); }} type="button">Clear filters</button>}
         </div>
-      ) : <div className={`package-grid${packages.length === 1 ? ' package-grid-single' : ''}`}>
-        {packages.map((item) => <article className="package-card" key={item.id}>
-          {item.image_path ? <img className="package-card-image" src={imageUrl(item.image_path)} alt={`${item.package_name} sample`} /> : <div className="package-card-image package-card-image-empty">CaterAI</div>}
+      ) : <>
+        <div className={`package-grid${visiblePackages.length === 1 ? ' package-grid-single' : ''}`}>
+        {visiblePackages.map((item) => <article className="package-card" key={item.id}>
+          {item.image_path ? <img className="package-card-image" src={imageUrl(item.image_path)} alt={`${item.package_name} sample`} loading="lazy" decoding="async" /> : <div className="package-card-image package-card-image-empty">CaterAI</div>}
           <div className="package-card-content">
             <div className="package-card-top"><span>{item.event_type || 'Catering package'}</span><strong aria-label={item.rating ? `${item.rating} out of 5 stars` : 'Not rated yet'}>★ {item.rating || 'New'}</strong></div>
             <h2>{item.package_name}</h2>
@@ -116,7 +123,16 @@ export default function Packages() {
             <a className="package-link" href={`/packages/${item.id}?caterer=${item.caterer_id}`}>View package <span aria-hidden="true">↗</span></a>
           </div>
         </article>)}
-      </div>}
+        </div>
+        {visiblePackageCount < packages.length && (
+          <div className="package-load-more">
+            <p>Showing {visiblePackages.length} of {packages.length} packages</p>
+            <button className="button button-secondary" onClick={() => setVisiblePackageCount((count) => Math.min(count + packagesPerPage, packages.length))} type="button">
+              Show more packages
+            </button>
+          </div>
+        )}
+      </>}
     </section>
   </main>;
 }

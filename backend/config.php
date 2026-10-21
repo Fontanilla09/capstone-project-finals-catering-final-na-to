@@ -107,4 +107,19 @@ function supabase_row(array $response): ?array
 {
     return is_array($response['data'] ?? null) && isset($response['data'][0]) ? $response['data'][0] : null;
 }
+
+function supabase_active_caterer_subscription(int $catererId): array
+{
+    if ($catererId < 1) return ['ok' => false, 'active' => false];
+
+    $response = supabase_request('POST', 'rpc/caterer_has_active_subscription', [], [
+        'p_caterer_id' => $catererId,
+    ]);
+    if (!$response['ok']) {
+        error_log('Caterer subscription status could not be checked: ' . ($response['error'] ?: 'Supabase request failed.'));
+        return ['ok' => false, 'active' => false];
+    }
+
+    return ['ok' => true, 'active' => $response['data'] === true];
+}
 ?>

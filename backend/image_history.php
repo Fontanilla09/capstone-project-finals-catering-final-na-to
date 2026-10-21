@@ -30,6 +30,17 @@ if (($user['role'] ?? '') !== 'caterer') {
     echo json_encode(['error' => 'Caterer access required.']);
     exit;
 }
+$subscription = supabase_active_caterer_subscription((int) ($user['caterer_id'] ?? 0));
+if (!$subscription['ok']) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Subscription status could not be checked. Please try again.']);
+    exit;
+}
+if (!$subscription['active']) {
+    http_response_code(403);
+    echo json_encode(['error' => 'An active CaterAI Pro subscription is required to access image history.']);
+    exit;
+}
 
 $owner = (string) $user['auth_user']['id'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

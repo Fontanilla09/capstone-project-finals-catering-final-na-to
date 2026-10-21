@@ -221,5 +221,6 @@ grant update (
     city,
     description,
     paypal_email,
-    profile_image
+    profile_image,
+    gcash_qr_code
 ) on public.caterers to authenticated;

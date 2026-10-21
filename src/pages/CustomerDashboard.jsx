@@ -17,6 +17,7 @@ import {
 import { requestJson } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
 
 function statusClass(status) {
   return `status-pill status-${status}`;
@@ -73,6 +74,8 @@ export default function CustomerDashboard() {
   const [status, setStatus] = useState('');
   const [reviewingId, setReviewingId] = useState(null);
   const [payingBalanceId, setPayingBalanceId] = useState(null);
+  const [gcashOptions, setGcashOptions] = useState([]);
+  const [gcashOption, setGcashOption] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
@@ -88,6 +91,9 @@ export default function CustomerDashboard() {
       const dashboardReservations = data?.reservations || [];
       setCustomer(data?.customer || null);
       setReservations(dashboardReservations);
+      const { data: gcashData, error: gcashError } = await supabase.rpc('get_my_gcash_payment_options');
+      if (gcashError) throw gcashError;
+      setGcashOptions(gcashData || []);
       const { data: conversationData, error: conversationError } = await supabase.rpc('get_my_conversations');
       if (conversationError) {
         console.error('Failed to load customer dashboard conversations:', conversationError);
@@ -173,10 +179,13 @@ export default function CustomerDashboard() {
           .sort((first, second) => new Date(second.payment.created_at || second.payment.payment_date || 0) - new Date(first.payment.created_at || first.payment.payment_date || 0))[0];
         if (latestPayment) setReceipt(latestPayment);
       }
-      if (query.has('payment') || query.has('notifications')) {
+      setStatus('');
+      if (query.get('gcash') === 'submitted') {
+        setStatus('GCash receipt submitted. The caterer must confirm it before your payment is marked received.');
+      }
+      if (query.has('payment') || query.has('notifications') || query.has('gcash')) {
         window.history.replaceState({}, '', window.location.pathname);
       }
-      setStatus('');
     } catch (error) {
       setStatus(error.message);
     }
@@ -238,6 +247,30 @@ export default function CustomerDashboard() {
       setStatus(error.message);
       setPayingBalanceId(null);
     }
+  }
+
+  function findGcashOption(reservationId, paymentType) {
+    return gcashOptions.find((option) => String(option.reservation_id) === String(reservationId)
+      && option.payment_type === paymentType);
+  }
+
+  function balancePaymentLabel(reservationId) {
+    const option = findGcashOption(reservationId, 'balance');
+    if (option?.latest_submission_status === 'pending') return 'GCash receipt awaiting confirmation';
+    return 'Pay balance with PayPal';
+  }
+
+  function balanceGcashPending(reservationId) {
+    return findGcashOption(reservationId, 'balance')?.latest_submission_status === 'pending';
+  }
+
+  async function openGcashPayment(option) {
+    if (!option) return;
+    if (option.latest_submission_status === 'pending') {
+      setStatus('Your GCash receipt is waiting for the caterer to review it.');
+      return;
+    }
+    setGcashOption(option);
   }
 
   async function removeRejectedReservation(id) {
@@ -504,8 +537,8 @@ export default function CustomerDashboard() {
                 </div>
                 <div className="customer-next-event-actions">
                   {['confirmed', 'completed'].includes(nextEvent.reservation_status) && nextEventPaid < nextEventTotal && (
-                    <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(nextEvent.id)} type="button">
-                      <CreditCard size={15} aria-hidden="true" /> {payingBalanceId === nextEvent.id ? 'Opening PayPal...' : `Pay balance · ${formatMoney(nextEventTotal - nextEventPaid)}`}
+                    <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(nextEvent.id)} onClick={() => payBalance(nextEvent.id)} type="button">
+                      <CreditCard size={15} aria-hidden="true" /> {payingBalanceId === nextEvent.id ? 'Opening PayPal...' : `${balancePaymentLabel(nextEvent.id)} · ${formatMoney(nextEventTotal - nextEventPaid)}`}
                     </button>
                   )}
                   {messageCatererHref ? (
@@ -546,8 +579,8 @@ export default function CustomerDashboard() {
                         <span>{action.detail}</span>
                       </div>
                       {action.type === 'balance' ? (
-                        <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(action.reservation.id)} type="button">
-                          {payingBalanceId === action.reservation.id ? 'Opening...' : 'Pay'}
+                        <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(action.reservation.id)} onClick={() => payBalance(action.reservation.id)} type="button">
+                          {payingBalanceId === action.reservation.id ? 'Opening PayPal...' : balancePaymentLabel(action.reservation.id)}
                         </button>
                       ) : action.type === 'review' ? (
                         <button className="button button-secondary button-small" onClick={() => setReviewingId(action.reservation.id)} type="button">Rate</button>
@@ -614,7 +647,7 @@ export default function CustomerDashboard() {
                 <li key={notice.id}>
                   {notice.type === 'event' ? <CalendarClock size={18} aria-hidden="true" /> : notice.type === 'balance' || notice.type === 'payment' ? <CircleDollarSign size={18} aria-hidden="true" /> : <Bell size={18} aria-hidden="true" />}
                   <div><strong>{notice.title}</strong><p>{notice.message}</p></div>
-                  {notice.type === 'balance' && <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(notice.reservationId)} type="button">{payingBalanceId === notice.reservationId ? 'Opening PayPal...' : 'Pay balance'}</button>}
+                  {notice.type === 'balance' && <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(notice.reservationId)} onClick={() => payBalance(notice.reservationId)} type="button">{payingBalanceId === notice.reservationId ? 'Opening PayPal...' : balancePaymentLabel(notice.reservationId)}</button>}
                   {['booking', 'payment'].includes(notice.type) && <button className="notification-dismiss" onClick={() => dismissStatusAlert(notice.id)} type="button" aria-label="Dismiss notification"><X size={16} /></button>}
                 </li>
               )) : <li className="customer-notifications-empty">You're all caught up. New booking and payment updates will appear here.</li>}
@@ -664,6 +697,29 @@ export default function CustomerDashboard() {
                     <td data-label="Status">
                       <span className={statusClass(item.reservation_status)}>{item.reservation_status}</span>
                       {item.rejection_reason && <p className="reservation-rejection-reason"><strong>Reason from caterer:</strong> {item.rejection_reason}</p>}
+                      {['down_payment', 'balance'].map((paymentType) => {
+                        const option = findGcashOption(item.id, paymentType);
+                        if (!option) return null;
+                        if (option.latest_submission_status === 'pending') {
+                          return <p className="gcash-customer-pending" key={paymentType}>GCash receipt submitted · awaiting caterer confirmation</p>;
+                        }
+
+                        return (
+                          <button
+                            className="button button-secondary button-small gcash-customer-action"
+                            key={paymentType}
+                            onClick={() => openGcashPayment(option)}
+                            type="button"
+                          >
+                            {option.latest_submission_status === 'failed' ? 'Resubmit GCash receipt' : `Pay ${paymentType === 'balance' ? 'balance' : 'down payment'} with GCash`}
+                          </button>
+                        );
+                      })}
+                      {gcashOptions.filter((option) => String(option.reservation_id) === String(item.id) && option.latest_submission_status === 'failed').map((option) => (
+                        <p className="gcash-customer-rejection" key={`note-${option.payment_type}`}>
+                          Receipt not approved: {option.latest_submission_note || 'Please upload a clear receipt showing your payment.'}
+                        </p>
+                      ))}
                     </td>
                     <td data-label="Action">
                       {item.reservation_status === 'cancelled' ? (
@@ -671,7 +727,7 @@ export default function CustomerDashboard() {
                       ) : (
                         <>
                           {['confirmed', 'completed'].includes(item.reservation_status) && Number(item.paid_amount) < Number(item.total_amount) && (
-                            <button className="button button-primary button-small" disabled={payingBalanceId !== null} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : 'Pay balance'}</button>
+                            <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(item.id)} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : balancePaymentLabel(item.id)}</button>
                           )}
                           {item.review_rating ? (
                             <span className="reviewed-label">★ {item.review_rating} rated</span>
@@ -750,15 +806,25 @@ export default function CustomerDashboard() {
                 </div>
                 <button className="payment-receipt-close" onClick={() => setReceipt(null)} type="button" aria-label="Close receipt"><X size={18} /></button>
               </header>
-              <p className="payment-receipt-note">Paid securely through PayPal.</p>
+              <p className="payment-receipt-note">
+                {receipt.payment.payment_method === 'gcash'
+                  ? 'Paid directly to the caterer through GCash and confirmed by the caterer.'
+                  : 'Paid securely through PayPal.'}
+              </p>
               <dl className="payment-receipt-details">
                 <dt>Package</dt><dd>{receipt.reservation.package_name}</dd>
                 <dt>Payment type</dt><dd>{receipt.payment.payment_type === 'balance' ? 'Balance payment' : 'Down payment'}</dd>
                 <dt>Amount paid</dt><dd>₱{Number(receipt.payment.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                 <dt>Payment date</dt><dd>{receipt.payment.payment_date || 'Not available'}</dd>
-                <dt>Paid to PayPal account</dt><dd>{receipt.payment.payee_email || 'Recipient not stored for this payment'}</dd>
-                <dt>PayPal transaction ID</dt><dd className="payment-receipt-id">{receipt.payment.transaction_id || 'Not available'}</dd>
-                <dt>PayPal order ID</dt><dd className="payment-receipt-id">{receipt.payment.order_id || 'Not available'}</dd>
+                {receipt.payment.payment_method === 'gcash' ? (
+                  <><dt>Payment method</dt><dd>GCash · confirmed by caterer</dd></>
+                ) : (
+                  <>
+                    <dt>Paid to PayPal account</dt><dd>{receipt.payment.payee_email || 'Recipient not stored for this payment'}</dd>
+                    <dt>PayPal transaction ID</dt><dd className="payment-receipt-id">{receipt.payment.transaction_id || 'Not available'}</dd>
+                    <dt>PayPal order ID</dt><dd className="payment-receipt-id">{receipt.payment.order_id || 'Not available'}</dd>
+                  </>
+                )}
                 <dt>Payer</dt><dd>{receipt.payment.payer_name || receipt.payment.payer_email || 'Not available'}</dd>
               </dl>
               <div className="payment-receipt-actions">
@@ -766,6 +832,17 @@ export default function CustomerDashboard() {
               </div>
             </article>
           </div>
+        )}
+        {gcashOption && (
+          <GcashPaymentForm
+            option={gcashOption}
+            onClose={() => setGcashOption(null)}
+            onSubmitted={async () => {
+              setGcashOption(null);
+              setStatus('GCash receipt submitted. The caterer must confirm it before your payment is marked received.');
+              await load();
+            }}
+          />
         )}
       </div>
     </DashboardPage>

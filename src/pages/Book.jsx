@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
 
 function money(value) { return `₱${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
@@ -115,6 +116,8 @@ export default function Book() {
   const packageId = Number(query.get('package') || 0); const catererId = Number(query.get('caterer') || 0);
   const [status, setStatus] = useState(''); const [loading, setLoading] = useState(false); const [item, setItem] = useState(null);
   const [venueAddress, setVenueAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('paypal');
+  const [gcashOption, setGcashOption] = useState(null);
   const today = new Date().toISOString().split('T')[0]; const maxBookingDate = `${new Date().getFullYear() + 2}-12-31`;
   useEffect(() => {
     async function loadPackage() {
@@ -123,14 +126,14 @@ export default function Book() {
         if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
         const { data, error } = await supabase
           .from('packages')
-          .select('id, package_name, price, caterer_id, caterers!inner(business_name, is_verified)')
+          .select('id, package_name, price, caterer_id, caterers!inner(business_name, is_verified, gcash_qr_code)')
           .eq('id', packageId)
           .eq('caterer_id', catererId)
           .eq('caterers.is_verified', true)
           .maybeSingle();
         if (error) throw error;
         if (!data) throw new Error('Package not found or not available.');
-        setItem({ ...data, business_name: data.caterers?.business_name });
+        setItem({ ...data, business_name: data.caterers?.business_name, gcash_qr_code: data.caterers?.gcash_qr_code });
         setStatus('');
       } catch (error) {
         setStatus(error.message);
@@ -141,10 +144,95 @@ export default function Book() {
   async function submit(event) {
     event.preventDefault(); if (!packageId || !catererId) { setStatus('This booking link is invalid. Please choose a package first.'); return; }
     setLoading(true); setStatus('');
-    try { const values = Object.fromEntries(new FormData(event.currentTarget)); const result = await requestJson('/backend/booking_api.php', { method: 'POST', body: JSON.stringify({ ...values, package_id: packageId, caterer_id: catererId }) }); window.location.href = result.approval_url; }
+    try {
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const result = await requestJson('/backend/booking_api.php', {
+        method: 'POST',
+        body: JSON.stringify({ ...values, package_id: packageId, caterer_id: catererId, payment_method: paymentMethod }),
+      });
+      if (result.manual_gcash) {
+        setGcashOption({
+          reservation_id: result.reservation_id,
+          payment_type: 'down_payment',
+          amount: Number(result.amount),
+          gcash_qr_code: result.qr_code,
+          business_name: item.business_name,
+        });
+        setLoading(false);
+        return;
+      }
+      window.location.href = result.approval_url;
+    }
     catch (error) { setStatus(error.message); setLoading(false); }
   }
   if (!packageId || !catererId) return <main className="packages-page"><nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">Explore caterers</a></nav><section className="packages-content booking-message"><p className="eyebrow">Booking unavailable</p><h1>Choose a package first.</h1><p>{status || 'This booking link does not contain a valid package.'}</p><a className="button button-primary" href="/packages">Explore caterers <span>↗</span></a></section></main>;
   const total = Number(item?.price || 0); const advance = total * 0.3; const balance = total - advance;
-  return <main className="packages-page"><nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">Cancel</a></nav><section className="packages-content"><p className="eyebrow">Request your booking</p><h1>Tell us about<br /><em>your event.</em></h1><div className="booking-layout"><form className="auth-form booking-form" onSubmit={submit}>{status && <p className="form-alert error-alert">{status}</p>}<label>Event date</label><input name="event_date" type="date" min={today} max={maxBookingDate} required /><label>Event start time</label><input name="event_time" type="time" required /><label>Number of guests</label><input name="guest_count" type="number" min="1" required /><label>Venue name</label><input name="venue_name" placeholder="Grand Ballroom" required /><label>Venue address</label><VenueAddressPicker value={venueAddress} onChange={setVenueAddress} /><label className="check-label"><input name="agree_terms" type="checkbox" required /> I agree to the booking terms and 30% down payment.</label><button className="button button-primary auth-submit" disabled={loading || !item} type="submit">{loading ? 'Opening PayPal checkout...' : 'Continue to PayPal'} <span>↗</span></button></form><aside className="payment-summary"><p className="eyebrow">Online payment summary</p><h2>{item?.package_name || 'Loading package...'}</h2><p className="payment-caterer">{item?.business_name || ''}</p><div className="payment-row"><span>Package total</span><strong>{money(total)}</strong></div><div className="payment-row advance"><span>Pay now · 30% down payment</span><strong>{money(advance)}</strong></div><div className="payment-row"><span>Remaining balance · 70%</span><strong>{money(balance)}</strong></div><p className="payment-note">You will be redirected to PayPal to securely complete your online payment.</p></aside></div></section></main>;
+  return (
+    <main className="packages-page">
+      <nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">Cancel</a></nav>
+      <section className="packages-content">
+        <p className="eyebrow">Request your booking</p>
+        <h1>Tell us about<br /><em>your event.</em></h1>
+        <div className="booking-layout">
+          <form className="auth-form booking-form" onSubmit={submit}>
+            {status && <p className="form-alert error-alert">{status}</p>}
+            {gcashOption ? (
+              <section className="gcash-submitted-state">
+                <h2>Booking request created</h2>
+                <p>Complete the GCash payment in the dialog. Your caterer must verify the receipt before the booking is marked paid.</p>
+              </section>
+            ) : (
+              <>
+                <label>Event date</label>
+                <input name="event_date" type="date" min={today} max={maxBookingDate} required />
+                <label>Event start time</label>
+                <input name="event_time" type="time" required />
+                <label>Number of guests</label>
+                <input name="guest_count" type="number" min="1" required />
+                <label>Venue name</label>
+                <input name="venue_name" placeholder="Grand Ballroom" required />
+                <label>Venue address</label>
+                <VenueAddressPicker value={venueAddress} onChange={setVenueAddress} />
+                <fieldset className="booking-payment-method">
+                  <legend>Payment method</legend>
+                  <label>
+                    <input type="radio" name="payment_method" value="paypal" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} />
+                    PayPal
+                  </label>
+                  <label className={!item?.gcash_qr_code ? 'booking-payment-disabled' : ''}>
+                    <input type="radio" name="payment_method" value="gcash" checked={paymentMethod === 'gcash'} disabled={!item?.gcash_qr_code} onChange={() => setPaymentMethod('gcash')} />
+                    Other · GCash{!item?.gcash_qr_code ? ' (not set up by caterer)' : ''}
+                  </label>
+                </fieldset>
+                <label className="check-label"><input name="agree_terms" type="checkbox" required /> I agree to the booking terms and 30% down payment.</label>
+                <button className="button button-primary auth-submit" disabled={loading || !item} type="submit">
+                  {loading ? 'Preparing payment…' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span>↗</span>
+                </button>
+              </>
+            )}
+          </form>
+          <aside className="payment-summary">
+            <p className="eyebrow">Online payment summary</p>
+            <h2>{item?.package_name || 'Loading package...'}</h2>
+            <p className="payment-caterer">{item?.business_name || ''}</p>
+            <div className="payment-row"><span>Package total</span><strong>{money(total)}</strong></div>
+            <div className="payment-row advance"><span>Pay now · 30% down payment</span><strong>{money(advance)}</strong></div>
+            <div className="payment-row"><span>Remaining balance · 70%</span><strong>{money(balance)}</strong></div>
+            <p className="payment-note">
+              {paymentMethod === 'gcash'
+                ? 'Scan the caterer’s GCash QR and upload your receipt. Payment is pending until the caterer confirms it.'
+                : 'You will be redirected to PayPal to securely complete your online payment.'}
+            </p>
+          </aside>
+        </div>
+      </section>
+      {gcashOption && (
+        <GcashPaymentForm
+          option={gcashOption}
+          onClose={() => { setGcashOption(null); window.location.assign('/dashboard/customer'); }}
+          onSubmitted={() => window.location.assign('/dashboard/customer?gcash=submitted')}
+        />
+      )}
+    </main>
+  );
 }

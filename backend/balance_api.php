@@ -60,8 +60,8 @@ if (supabase_row($completed_balance)) {
     exit;
 }
 
-$admin_paypal_email = get_admin_paypal_email((string) ($caterer['paypal_email'] ?? ''));
-if (!filter_var(trim($admin_paypal_email), FILTER_VALIDATE_EMAIL)) {
+$admin_paypal_email = get_admin_paypal_email();
+if (!filter_var($admin_paypal_email, FILTER_VALIDATE_EMAIL)) {
     http_response_code(422);
     echo json_encode(['error' => 'The platform PayPal email is not configured yet.']);
     exit;

@@ -26,8 +26,9 @@ $event_date = trim((string) ($input['event_date'] ?? ''));
 $event_time = trim((string) ($input['event_time'] ?? ''));
 $venue_name = trim((string) ($input['venue_name'] ?? ''));
 $venue_address = trim((string) ($input['venue_address'] ?? ''));
+$payment_method = (string) ($input['payment_method'] ?? 'paypal');
 
-if (!$package_id || !$caterer_id || !$guest_count || !$event_date || !$event_time || !$venue_name || !$venue_address) {
+if (!$package_id || !$caterer_id || !$guest_count || !$event_date || !$event_time || !$venue_name || !$venue_address || !in_array($payment_method, ['paypal', 'gcash'], true)) {
     http_response_code(422);
     echo json_encode(['error' => 'Complete all event details.']);
     exit;
@@ -41,7 +42,7 @@ $package_response = supabase_request('GET', 'packages', [
 ]);
 $package = supabase_row($package_response);
 $caterer_response = supabase_request('GET', 'caterers', [
-    'select' => 'business_name,paypal_email,is_verified',
+    'select' => 'business_name,paypal_email,gcash_qr_code,is_verified',
     'id' => 'eq.' . $caterer_id,
     'is_verified' => 'eq.true',
     'limit' => '1',
@@ -94,8 +95,25 @@ if (!$reservation) {
     exit;
 }
 
-$admin_paypal_email = get_admin_paypal_email((string) ($caterer['paypal_email'] ?? ''));
-if (!filter_var(trim($admin_paypal_email), FILTER_VALIDATE_EMAIL)) {
+if ($payment_method === 'gcash') {
+    if (empty($caterer['gcash_qr_code'])) {
+        supabase_request('DELETE', 'reservations', ['id' => 'eq.' . $reservation['id']]);
+        http_response_code(422);
+        echo json_encode(['error' => 'This caterer has not added a GCash QR code yet. Choose PayPal or contact the caterer.']);
+        exit;
+    }
+    echo json_encode([
+        'success' => true,
+        'manual_gcash' => true,
+        'reservation_id' => (int) $reservation['id'],
+        'qr_code' => $caterer['gcash_qr_code'],
+        'amount' => $advance,
+    ]);
+    exit;
+}
+
+$admin_paypal_email = get_admin_paypal_email();
+if (!filter_var($admin_paypal_email, FILTER_VALIDATE_EMAIL)) {
     supabase_request('DELETE', 'reservations', ['id' => 'eq.' . $reservation['id']]);
     http_response_code(422);
     echo json_encode(['error' => 'The platform PayPal email is not configured yet.']);
