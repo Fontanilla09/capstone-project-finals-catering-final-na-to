@@ -84,14 +84,17 @@ export default function SubscriptionGate({ feature }) {
         setHasActiveSubscription(false);
         setSubscription(null);
         setStatusError('The active subscription expiry could not be verified. Please contact support.');
-        return;
+        return false;
       }
-      setHasActiveSubscription(active && expiryTimestamp > Date.now());
+      const isActive = active && expiryTimestamp > Date.now();
+      setHasActiveSubscription(isActive);
       setSubscription(result.subscription || null);
+      return isActive;
     } catch (error) {
       setHasActiveSubscription(false);
       setSubscription(null);
       setStatusError(error.message || 'Subscription status could not be checked.');
+      return false;
     } finally {
       setStatusLoading(false);
     }
@@ -104,16 +107,25 @@ export default function SubscriptionGate({ feature }) {
   useEffect(() => {
     if (checkoutResult !== 'success' || hasActiveSubscription) return undefined;
 
-    const timer = window.setInterval(() => {
-      if (paymentStatusChecks.current >= 20) {
-        window.clearInterval(timer);
-        return;
-      }
-      paymentStatusChecks.current += 1;
-      refreshSubscription();
-    }, 3000);
+    let cancelled = false;
+    let timer;
+    paymentStatusChecks.current = 0;
 
-    return () => window.clearInterval(timer);
+    async function checkPaymentStatus() {
+      if (cancelled || paymentStatusChecks.current >= 40) return;
+      paymentStatusChecks.current += 1;
+      const active = await refreshSubscription();
+      if (!cancelled && !active && paymentStatusChecks.current < 40) {
+        timer = window.setTimeout(checkPaymentStatus, 3000);
+      }
+    }
+
+    timer = window.setTimeout(checkPaymentStatus, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [checkoutResult, hasActiveSubscription, refreshSubscription]);
 
   useEffect(() => {

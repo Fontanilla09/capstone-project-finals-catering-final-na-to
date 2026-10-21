@@ -27,12 +27,13 @@ if (!$subscriptionAccess['ok']) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $response = supabase_request('GET', 'caterer_subscriptions', [
-        'select' => 'plan,status,expires_at,created_at',
+    $subscriptionQuery = [
+        'select' => 'plan,status,expires_at,created_at,amount,paymongo_checkout_session_id,reference_number',
         'caterer_id' => 'eq.' . $catererId,
         'order' => 'created_at.desc',
         'limit' => '1',
-    ]);
+    ];
+    $response = supabase_request('GET', 'caterer_subscriptions', $subscriptionQuery);
     if (!$response['ok']) {
         error_log('Caterer subscription could not be loaded: ' . ($response['error'] ?: 'Supabase request failed.'));
         http_response_code(500);
@@ -40,9 +41,105 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
+    $subscription = supabase_row($response);
+    if (($subscription['status'] ?? '') === 'pending') {
+        $mode = app_env_value('PAYMONGO_MODE');
+        $secretKey = app_env_value('PAYMONGO_SECRET_KEY');
+        $expectedKeyPrefix = $mode === 'live' ? 'sk_live_' : ($mode === 'test' ? 'sk_test_' : '');
+        if (
+            $expectedKeyPrefix === ''
+            || !str_starts_with($secretKey, $expectedKeyPrefix)
+            || empty($subscription['paymongo_checkout_session_id'])
+        ) {
+            error_log('Pending PayMongo subscription cannot be verified because its server configuration is invalid.');
+            http_response_code(503);
+            echo json_encode(['error' => 'Payment confirmation is temporarily unavailable. Please try again.']);
+            exit;
+        }
+
+        $checkoutId = (string) $subscription['paymongo_checkout_session_id'];
+        $curl = curl_init('https://api.paymongo.com/v2/checkout_sessions/' . rawurlencode($checkoutId));
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+            CURLOPT_USERPWD => $secretKey . ':',
+            CURLOPT_HTTPHEADER => ['Accept: application/json'],
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $rawResponse = curl_exec($curl);
+        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($curl);
+        curl_close($curl);
+        $checkoutResponse = json_decode(is_string($rawResponse) ? $rawResponse : '', true);
+        $checkoutData = $checkoutResponse['data'] ?? [];
+        $checkoutAttributes = is_array($checkoutData['attributes'] ?? null)
+            ? $checkoutData['attributes']
+            : [];
+        if (
+            $curlError !== ''
+            || $status < 200
+            || $status >= 300
+            || ($checkoutData['id'] ?? '') !== $checkoutId
+            || ($checkoutAttributes['reference_number'] ?? '') !== ($subscription['reference_number'] ?? '')
+            || (isset($checkoutAttributes['livemode']) && (bool) $checkoutAttributes['livemode'] !== ($mode === 'live'))
+        ) {
+            error_log('Pending PayMongo checkout verification failed with HTTP ' . $status . ($curlError !== '' ? ': ' . $curlError : '.'));
+            http_response_code(502);
+            echo json_encode(['error' => 'Payment confirmation could not be checked. Please try again.']);
+            exit;
+        }
+
+        $paymentId = null;
+        $payments = $checkoutAttributes['payments'] ?? [];
+        if (is_array($payments)) {
+            foreach ($payments as $payment) {
+                if (!is_array($payment) || ($payment['attributes']['status'] ?? '') !== 'paid') continue;
+                if (is_string($payment['id'] ?? null) && $payment['id'] !== '') {
+                    $paymentId = $payment['id'];
+                    break;
+                }
+            }
+        }
+
+        if ($paymentId !== null) {
+            $activated = supabase_request('POST', 'rpc/activate_caterer_subscription', [], [
+                'p_checkout_session_id' => $checkoutId,
+                'p_payment_id' => $paymentId,
+            ]);
+            if (!$activated['ok']) {
+                error_log('Paid PayMongo subscription could not be activated: ' . ($activated['error'] ?: 'Supabase request failed.'));
+                http_response_code(500);
+                echo json_encode(['error' => 'Payment was confirmed, but access could not be activated. Please contact support.']);
+                exit;
+            }
+
+            $subscriptionAccess = supabase_active_caterer_subscription($catererId);
+            if (!$subscriptionAccess['ok'] || !$subscriptionAccess['active']) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Payment was confirmed, but subscription access could not be verified. Please contact support.']);
+                exit;
+            }
+
+            $response = supabase_request('GET', 'caterer_subscriptions', $subscriptionQuery);
+            if (!$response['ok']) {
+                error_log('Activated PayMongo subscription could not be reloaded: ' . ($response['error'] ?: 'Supabase request failed.'));
+                http_response_code(500);
+                echo json_encode(['error' => 'Payment was confirmed, but subscription details could not be loaded. Please try again.']);
+                exit;
+            }
+            $subscription = supabase_row($response);
+        }
+    }
+
     echo json_encode([
         'active' => $subscriptionAccess['active'],
-        'subscription' => supabase_row($response),
+        'subscription' => $subscription ? array_intersect_key($subscription, array_flip([
+            'plan',
+            'status',
+            'expires_at',
+            'created_at',
+        ])) : null,
     ]);
     exit;
 }
