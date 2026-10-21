@@ -5,6 +5,7 @@ import { API_BASE } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { EVENT_TYPES } from '../lib/eventTypes';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
 const packageEventThemes = {
@@ -358,7 +359,7 @@ export default function AdminCaterManagement() {
             <p>Review applications, manage verified partners, and keep package offerings organized.</p>
           </div>
           <button className="admin-refresh" onClick={load} type="button" disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh data'}
+            {loading ? <span className="loading-spinner loading-spinner-inline" role="status" aria-label="Refreshing" /> : 'Refresh data'}
           </button>
         </div>
 
@@ -420,7 +421,7 @@ export default function AdminCaterManagement() {
                       <button className="cater-action approve" onClick={() => decideCaterer('approve_caterer', application.profileId)} type="button">Approve</button>
                     </div>
                   </div>
-                )) : <p className="cater-empty-state">{loading ? 'Loading applications...' : 'No caterer applications are waiting for review.'}</p>}
+                )) : loading ? <LoadingSpinner compact /> : <p className="cater-empty-state">No caterer applications are waiting for review.</p>}
               </div>
             </div>
             {selectedApplication && (
@@ -488,7 +489,7 @@ export default function AdminCaterManagement() {
                     <button className={`cater-action ${caterer.is_suspended ? 'approve' : 'reject'}`} onClick={() => { if (caterer.is_suspended) updateCatererSuspension(caterer, false); else { setRestrictionTarget(caterer); setRestrictionReason(''); } }} type="button">{caterer.is_suspended ? 'Reactivate' : 'Suspend'}</button>
                   </div>
                 </div>
-              )) : <p className="cater-empty-state">{loading ? 'Loading caterers...' : 'No verified caterers match these filters.'}</p>}
+              )) : loading ? <LoadingSpinner compact /> : <p className="cater-empty-state">No verified caterers match these filters.</p>}
             </div>
             {selectedCaterer && (
               <div className="cater-detail-overlay" role="dialog" aria-modal="true" aria-label={`Caterer details for ${selectedCaterer.business_name}`} onClick={() => setSelectedCatererId(null)}>
@@ -596,7 +597,7 @@ export default function AdminCaterManagement() {
                   </tbody>
                 </table>
               </div>
-            ) : <p className="cater-empty-state">{loading ? 'Loading packages...' : 'No packages match your search or category.'}</p>}
+            ) : loading ? <LoadingSpinner compact /> : <p className="cater-empty-state">No packages match your search or category.</p>}
           </section>
         )}
 

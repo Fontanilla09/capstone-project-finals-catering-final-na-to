@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 function imageUrl(path) {
   return /^https?:\/\//i.test(path) ? path : `${API_BASE}${path}`;
@@ -76,7 +77,7 @@ export default function PackageDetails() {
   }, [reportProof]);
 
   if (error) return <main className="packages-page"><p className="package-empty">{error}</p></main>;
-  if (!item) return <main className="packages-page"><p className="package-empty">Loading package...</p></main>;
+  if (!item) return <main className="packages-page" aria-busy="true"><LoadingSpinner fullPage /></main>;
 
   async function submitReport(event) {
     event.preventDefault();

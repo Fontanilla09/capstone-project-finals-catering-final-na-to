@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { API_BASE, requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import LoadingSpinner from './LoadingSpinner.jsx';
 
 const dashboardSections = {
   customer: [['overview', 'Dashboard', '/dashboard/customer'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages'], ['support', 'Help & Support', '/dashboard/customer/support'], ['settings', 'Settings', '/dashboard/customer/settings']],
@@ -668,7 +669,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
     );
   }
 
-  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><div className="dashboard-auth-loading" role="status" aria-label="Loading"><span className="packages-loading-spinner" aria-hidden="true" /></div></main>;
+  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><LoadingSpinner fullPage /></main>;
 
   return (
     <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { House, Mail, MapPin, Phone, ShieldCheck, Upload } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 export default function CatererProfile() {
   const [profile, setProfile] = useState(null);
@@ -223,7 +224,7 @@ export default function CatererProfile() {
     }
   }
 
-  if (!profile) return <DashboardPage role="caterer" section="profile"><p>{error || 'Loading profile...'}</p></DashboardPage>;
+  if (!profile) return <DashboardPage role="caterer" section="profile">{error ? <p>{error}</p> : <LoadingSpinner />}</DashboardPage>;
 
   return (
     <DashboardPage role="caterer" section="profile">

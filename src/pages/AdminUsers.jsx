@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 function accountName(user) { return user.role === 'customer' ? user.full_name : user.role === 'caterer' ? user.business_name : 'Super admin'; }
 function verificationLabel(user) {
@@ -180,7 +181,7 @@ export default function AdminUsers() {
   return <DashboardPage role="admin" section="users"><div className="admin-workspace admin-users-workspace">
     <div className="admin-intro admin-users-intro">
       <div><p className="eyebrow">Super admin tools</p><h2>User management</h2><p>Review account status, activity, and reports across your platform.</p></div>
-      <button className="admin-refresh" disabled={loading} onClick={load} type="button">{loading ? 'Refreshing...' : 'Refresh data'}</button>
+      <button className="admin-refresh" disabled={loading} onClick={load} type="button">{loading ? <span className="loading-spinner loading-spinner-inline" role="status" aria-label="Refreshing" /> : 'Refresh data'}</button>
     </div>
     {status && <p className="form-alert error-alert" role="alert">{status}</p>}
 
@@ -253,7 +254,7 @@ export default function AdminUsers() {
                 </tr>
               );
             })}
-            {!pagedUsers.length && <tr><td className="admin-users-empty" colSpan="9">{loading ? 'Loading users...' : 'No users match these filters.'}</td></tr>}
+            {!pagedUsers.length && <tr><td className="admin-users-empty" colSpan="9">{loading ? <LoadingSpinner compact /> : 'No users match these filters.'}</td></tr>}
           </tbody>
         </table>
       </div>

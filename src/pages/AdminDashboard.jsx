@@ -315,7 +315,7 @@ export default function AdminDashboard() {
                   <small>{detail}</small>
                 </div>
                 <span className={`health-status-text health-text-${serviceStatus}`}>
-                  {serviceStatus === 'healthy' ? 'Healthy' : serviceStatus === 'configured' ? 'Configured' : serviceStatus === 'not_configured' ? 'Not configured' : serviceStatus === 'checking' ? 'Checking' : serviceStatus === 'unavailable' ? 'Unavailable' : 'Error'}
+                  {serviceStatus === 'healthy' ? 'Healthy' : serviceStatus === 'configured' ? 'Configured' : serviceStatus === 'not_configured' ? 'Not configured' : serviceStatus === 'checking' ? <span className="loading-spinner loading-spinner-inline" role="status" aria-label="Checking" /> : serviceStatus === 'unavailable' ? 'Unavailable' : 'Error'}
                 </span>
               </div>
             ))}

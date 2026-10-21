@@ -277,7 +277,7 @@ export default function SubscriptionGate({ feature }) {
                 <li><Check size={15} aria-hidden="true" /> Generate AI photos for your event themes</li>
                 <li><Check size={15} aria-hidden="true" /> One-time QR Ph checkout with access duration by plan</li>
               </ul>
-              {statusLoading && <p className="subscription-feedback" role="status">Checking subscription status…</p>}
+              {statusLoading && <p className="subscription-feedback" role="status" aria-label="Checking subscription status"><span className="loading-spinner loading-spinner-inline" aria-hidden="true" /></p>}
               {paymentNeedsVerification && (
                 <p className="subscription-feedback is-error" role="alert">
                   We could not verify your payment yet. Do not pay again. We are checking automatically; if your access stays locked, reload this page or contact support with your PayMongo receipt.

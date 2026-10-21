@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { UsersRound } from 'lucide-react';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import { supabase } from '../lib/supabase';
 
 const currencyFormatter = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
@@ -159,7 +160,7 @@ export default function AdminCustomers() {
             <p>Review customer details, confirm accounts, and track verified payment totals.</p>
           </div>
           <button className="admin-refresh" disabled={loading} onClick={() => load()} type="button">
-            {loading ? 'Refreshing...' : 'Refresh data'}
+            {loading ? <span className="loading-spinner loading-spinner-inline" role="status" aria-label="Refreshing" /> : 'Refresh data'}
           </button>
         </div>
 
@@ -261,7 +262,7 @@ export default function AdminCustomers() {
                 {!pageCustomers.length && (
                   <tr><td className="admin-users-empty" colSpan={activeTab === 'applications' ? 8 : 7}>
                     {loading
-                      ? activeTab === 'applications' ? 'Loading applications...' : 'Loading customers...'
+                      ? <LoadingSpinner compact />
                       : error
                         ? 'Customer data is unavailable.'
                         : activeTab === 'applications'

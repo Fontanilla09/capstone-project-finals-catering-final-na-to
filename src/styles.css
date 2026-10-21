@@ -7242,6 +7242,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dashboard-page .dashboard-panel-header { margin: 0; }
 .dashboard-page .dashboard-panel-kicker { display: none; }
 .dashboard-page .dashboard-auth-loading { color: var(--ink-2); min-height: 100vh; padding: 15vh 24px; text-align: center; }
+.loading-state {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 240px;
+  width: 100%;
+}
+.loading-state-full-page { min-height: 100vh; min-height: 100dvh; }
+.loading-state-compact { min-height: 80px; }
+.loading-spinner {
+  animation: packages-spin .8s linear infinite;
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  border-top-color: var(--brand-600);
+  flex: 0 0 auto;
+  height: 32px;
+  width: 32px;
+}
+.loading-spinner-inline {
+  display: inline-block;
+  height: 16px;
+  vertical-align: middle;
+  width: 16px;
+}
 .dashboard-page-admin .admin-intro .eyebrow,
 .dashboard-page-admin .admin-analytics .eyebrow,
 .dashboard-page-admin .admin-chart-panel .eyebrow,

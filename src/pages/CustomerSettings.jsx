@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { requestJson } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 export default function CustomerSettings() {
   const [profile, setProfile] = useState({ fullName: '', phone: '', email: '' });
@@ -176,7 +177,7 @@ export default function CustomerSettings() {
 
         {status.error && <p className="form-alert error-alert" role="alert">{status.error}</p>}
         {status.success && <p className="form-alert success-alert" role="status">{status.success}</p>}
-        {loading ? <p className="muted-label">Loading account settings...</p> : (
+        {loading ? <LoadingSpinner /> : (
           <>
             <section className="customer-settings-card">
               <div className="customer-settings-card-heading">

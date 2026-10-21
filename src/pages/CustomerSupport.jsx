@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, LifeBuoy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const faqs = [
   {
@@ -127,7 +128,7 @@ export default function CustomerSupport() {
           {status.error && <p className="form-alert error-alert" role="alert">{status.error}</p>}
           {status.success && <p className="form-alert success-alert" role="status">{status.success}</p>}
           {loadingBookings ? (
-            <p className="muted-label">Loading your bookings...</p>
+            <LoadingSpinner compact />
           ) : bookings.length ? (
             <form className="customer-support-form" onSubmit={submitIssue}>
               <label htmlFor="support-booking">Which booking is this about?</label>

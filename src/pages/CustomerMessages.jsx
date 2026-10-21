@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import DashboardPage from "../components/DashboardPage.jsx";
+import LoadingSpinner from "../components/LoadingSpinner.jsx";
 
 function withTimeout(promise, timeoutMs) {
   let timeoutId;
@@ -219,9 +220,7 @@ export default function CustomerMessages() {
   if (!session)
     return (
       <main className="packages-page" aria-busy="true">
-        <div className="packages-loading" role="status" aria-label="Loading">
-          <span className="packages-loading-spinner" aria-hidden="true" />
-        </div>
+        <LoadingSpinner fullPage />
       </main>
     );
   return (

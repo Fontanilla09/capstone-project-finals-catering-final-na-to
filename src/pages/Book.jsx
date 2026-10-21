@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 function money(value) { return `₱${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
@@ -166,6 +167,7 @@ export default function Book() {
     catch (error) { setStatus(error.message); setLoading(false); }
   }
   if (!packageId || !catererId) return <main className="packages-page"><nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">Explore caterers</a></nav><section className="packages-content booking-message"><p className="eyebrow">Booking unavailable</p><h1>Choose a package first.</h1><p>{status || 'This booking link does not contain a valid package.'}</p><a className="button button-primary" href="/packages">Explore caterers <span>↗</span></a></section></main>;
+  if (!item && !status) return <main className="packages-page" aria-busy="true"><LoadingSpinner fullPage /></main>;
   const total = Number(item?.price || 0); const advance = total * 0.3; const balance = total - advance;
   return (
     <main className="packages-page">
@@ -213,7 +215,7 @@ export default function Book() {
           </form>
           <aside className="payment-summary">
             <p className="eyebrow">Online payment summary</p>
-            <h2>{item?.package_name || 'Loading package...'}</h2>
+            <h2>{item?.package_name || ''}</h2>
             <p className="payment-caterer">{item?.business_name || ''}</p>
             <div className="payment-row"><span>Package total</span><strong>{money(total)}</strong></div>
             <div className="payment-row advance"><span>Pay now · 30% down payment</span><strong>{money(advance)}</strong></div>

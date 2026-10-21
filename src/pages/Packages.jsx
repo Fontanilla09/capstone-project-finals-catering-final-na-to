@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { EVENT_TYPES } from '../lib/eventTypes';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const packagesPerPage = 12;
 
@@ -102,7 +103,7 @@ export default function Packages() {
         </div>
         {!loading && <span>{packages.length} {packages.length === 1 ? 'package' : 'packages'} · {catererCount} {catererCount === 1 ? 'caterer' : 'caterers'}</span>}
       </div>
-      {loading ? <div className="packages-loading" role="status"><span className="packages-loading-spinner" aria-hidden="true" />Finding the right packages for you...</div> : packages.length === 0 ? (
+      {loading ? <LoadingSpinner /> : packages.length === 0 ? (
         <div className="packages-empty-state">
           <span aria-hidden="true">✦</span>
           <h2>No packages found</h2>

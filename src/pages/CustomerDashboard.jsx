@@ -17,6 +17,7 @@ import {
 import { requestJson } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
 
 function statusClass(status) {
@@ -633,7 +634,7 @@ export default function CustomerDashboard() {
                 })}
             </ul>
           ) : !conversationsLoaded ? (
-            <p className="customer-messages-feedback">Loading conversations...</p>
+            <LoadingSpinner compact />
           ) : (
             <div className="customer-messages-empty"><MessageCircle size={20} aria-hidden="true" /><p>No conversations yet. Message a caterer to get started.</p><a href="/dashboard/messages">Go to messages</a></div>
           )}

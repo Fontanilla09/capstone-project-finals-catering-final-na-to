@@ -3,6 +3,7 @@ import { BanknoteArrowUp, LoaderCircle, RefreshCw } from 'lucide-react';
 import { requestJson } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const historyPageSize = 8;
 
@@ -123,7 +124,7 @@ export default function CatererEarnings() {
 
   return <DashboardPage role="caterer" section="earnings">
     {error && <p className="form-alert error-alert" role="alert">{error}</p>}
-    {!data ? <p>Loading earnings...</p> : <>
+    {!data ? <LoadingSpinner /> : <>
       <section className="verification-panel"><h2>PayPal earnings</h2><p>Customer payments are received by the platform first. Request a payout below to send the full amount to your PayPal account. No platform commission is deducted; PayPal processing fees may still apply.</p></section>
       <div className="stats-grid">
         <article className="stat-card"><h3>Total earnings</h3><strong>{money(data.summary?.total)}</strong></article>

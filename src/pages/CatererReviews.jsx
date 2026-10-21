@@ -3,6 +3,7 @@ import { ArrowLeft, Image as ImageIcon, Search, Star } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 function imageUrl(path) {
   if (!path) return '';
@@ -241,7 +242,7 @@ export default function CatererReviews() {
 
         {status && <p className="form-alert error-alert" role="alert">{status}</p>}
         {loading ? (
-          <p className="muted-label">Loading reviews...</p>
+          <LoadingSpinner />
         ) : selectedPackage ? (
           <>
             <button

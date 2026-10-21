@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const statusOptions = [
   ['open', 'Open'],
@@ -152,7 +153,7 @@ export default function AdminReports() {
             <p>Review concerns about caterers and packages, then record how each report was handled.</p>
           </div>
           <button className="admin-refresh" onClick={load} type="button" disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh reports'}
+            {loading ? <span className="loading-spinner loading-spinner-inline" role="status" aria-label="Refreshing" /> : 'Refresh reports'}
           </button>
         </div>
 
@@ -183,7 +184,7 @@ export default function AdminReports() {
 
         <section className="report-list" aria-label="Customer reports">
           {loading ? (
-            <p className="admin-empty">Loading reports...</p>
+            <LoadingSpinner />
           ) : visibleReports.length ? visibleReports.map((report) => (
             <article className={`report-card${report.status === 'dismissed' ? ' report-card-dismissed' : ''}`} key={report.id}>
               <div className="report-card-heading">

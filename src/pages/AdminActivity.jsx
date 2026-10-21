@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const actionLabels = {
   approve_customer: 'Customer account confirmed',
@@ -93,9 +94,9 @@ export default function AdminActivity() {
             <p>Review account confirmations, rejections, and other administrator decisions.</p>
           </div>
           <div className="admin-activity-controls">
-            <span className="admin-section-count">{loading ? 'Loading...' : `${visibleActivities.length} entries`}</span>
+            {!loading && <span className="admin-section-count">{`${visibleActivities.length} entries`}</span>}
             <button className="admin-refresh" disabled={loading} onClick={loadActivities} type="button">
-              {loading ? 'Refreshing...' : 'Refresh data'}
+              {loading ? <span className="loading-spinner loading-spinner-inline" role="status" aria-label="Refreshing" /> : 'Refresh data'}
             </button>
           </div>
         </div>
@@ -134,7 +135,7 @@ export default function AdminActivity() {
                 {!visibleActivities.length && (
                   <tr>
                     <td className="admin-users-empty" colSpan="4">
-                      {loading ? 'Loading activity...' : status ? 'Activity data is unavailable.' : 'No activity matches your search.'}
+                      {loading ? <LoadingSpinner compact /> : status ? 'Activity data is unavailable.' : 'No activity matches your search.'}
                     </td>
                   </tr>
                 )}
