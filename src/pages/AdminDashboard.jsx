@@ -6,6 +6,16 @@ import DashboardPage from '../components/DashboardPage.jsx';
 
 const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+function smoothLinePath(points) {
+  if (!points.length) return '';
+  return points.reduce((path, point, index) => {
+    if (index === 0) return `M ${point.x} ${point.y}`;
+    const previous = points[index - 1];
+    const middleX = (previous.x + point.x) / 2;
+    return `${path} C ${middleX} ${previous.y}, ${middleX} ${point.y}, ${point.x} ${point.y}`;
+  }, '');
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState({});
   const [analytics, setAnalytics] = useState({ statuses: {} });
@@ -15,6 +25,7 @@ export default function AdminDashboard() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [clock, setClock] = useState(Date.now());
   const [hoveredStatusKey, setHoveredStatusKey] = useState(null);
+  const [earningsView, setEarningsView] = useState('chart');
 
   async function load() {
     try {
@@ -124,8 +135,22 @@ export default function AdminDashboard() {
   const monthlyEarnings = Array.isArray(analytics.monthly_earnings) ? analytics.monthly_earnings : [];
   const monthlyEarningsMax = Math.max(
     ...monthlyEarnings.map((month) => Number(month.amount) || 0),
-    1,
+    10,
   );
+  const earningsAxisMax = Math.max(10, Math.ceil(monthlyEarningsMax / 10) * 10);
+  const earningsPoints = monthlyEarnings.map((month, index) => ({
+    ...month,
+    amount: Number(month.amount) || 0,
+    x: 30 + (index * 340) / Math.max(monthlyEarnings.length - 1, 1),
+    y: 164 - ((Number(month.amount) || 0) / earningsAxisMax) * 124,
+  }));
+  const earningsLinePath = smoothLinePath(earningsPoints);
+  const earningsAreaPath = earningsPoints.length
+    ? `${earningsLinePath} L ${earningsPoints.at(-1).x} 164 L ${earningsPoints[0].x} 164 Z`
+    : '';
+  const sixMonthEarnings = monthlyEarnings.reduce((sum, month) => sum + (Number(month.amount) || 0), 0);
+  const latestEarningsMonth = monthlyEarnings.at(-1);
+  const latestMonthSubscribers = Number(latestEarningsMonth?.subscribers) || 0;
   const monthlyEarningsDescription = monthlyEarnings
     .map((month) => `${month.month}: ${money(month.amount)}`)
     .join(', ');
@@ -269,47 +294,75 @@ export default function AdminDashboard() {
             </section>
 
             <section className="admin-chart-panel admin-subscription-earnings-panel" aria-labelledby="revenue-chart-title">
-              <div className="analytics-status-title">
+              <div className="admin-earnings-heading">
                 <div>
-                  <p className="eyebrow">Platform finances</p>
                   <h4 id="revenue-chart-title">Subscription earnings</h4>
+                  <span>Last 6 months</span>
                 </div>
-                <span>Last 6 months</span>
+                <div className="admin-earnings-view-toggle" role="group" aria-label="Subscription earnings view">
+                  <button aria-pressed={earningsView === 'chart'} className={earningsView === 'chart' ? 'active' : ''} onClick={() => setEarningsView('chart')} type="button">Chart</button>
+                  <button aria-pressed={earningsView === 'table'} className={earningsView === 'table' ? 'active' : ''} onClick={() => setEarningsView('table')} type="button">Table</button>
+                </div>
               </div>
-              <div
-                className="admin-earnings-chart"
-                role="img"
-                aria-label={`Monthly subscription earnings for the last six months: ${monthlyEarningsDescription || 'No paid subscriptions'}`}
-              >
-                {monthlyEarnings.length ? (
-                  <div className="admin-earnings-bars">
-                    {monthlyEarnings.map((month) => {
-                      const amount = Number(month.amount) || 0;
-                      const barHeight = amount > 0 ? Math.max((amount / monthlyEarningsMax) * 100, 4) : 0;
-                      return (
-                        <div className="admin-earnings-bar-column" key={month.month}>
-                          <strong>{money(amount)}</strong>
-                          <div className="admin-earnings-bar-track">
-                            <span style={{ height: `${barHeight}%` }} />
-                          </div>
-                          <span>{month.month}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="admin-earnings-empty">No paid subscription earnings in the last six months.</p>
-                )}
+              <div className="admin-earnings-total">
+                <strong>{money(analytics.subscription_earnings)}</strong>
+                <span>
+                  {latestMonthSubscribers} new subscriber{latestMonthSubscribers === 1 ? '' : 's'} in {latestEarningsMonth?.month || 'the current month'}
+                  {' · '}{money(sixMonthEarnings)} in the last 6 months
+                </span>
               </div>
-              <details className="chart-data-table">
-                <summary>View data as table</summary>
-                <div className="chart-data-table-wrap">
+              {earningsView === 'chart' ? monthlyEarnings.length ? (
+                <div className="admin-earnings-chart">
+                  <svg
+                    key={monthlyEarningsDescription}
+                    className="admin-earnings-line-chart"
+                    viewBox="0 0 400 205"
+                    role="img"
+                    aria-label={`Monthly subscription earnings for the last six months: ${monthlyEarningsDescription || 'No paid subscriptions'}`}
+                  >
+                    <defs>
+                      <linearGradient id="admin-earnings-area" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="var(--chart-1)" stopOpacity=".24" />
+                        <stop offset="100%" stopColor="var(--chart-1)" stopOpacity=".02" />
+                      </linearGradient>
+                    </defs>
+                    {[40, 102, 164].map((y) => (
+                      <line className="admin-earnings-gridline" key={y} x1="30" x2="370" y1={y} y2={y} />
+                    ))}
+                    <text className="admin-earnings-axis-label" x="396" y="36" textAnchor="end">{money(earningsAxisMax)}</text>
+                    <text className="admin-earnings-axis-label" x="396" y="98" textAnchor="end">{money(earningsAxisMax / 2)}</text>
+                    <text className="admin-earnings-axis-label" x="396" y="160" textAnchor="end">₱0</text>
+                    <path className="admin-earnings-area" d={earningsAreaPath} />
+                    <path className="admin-earnings-line" d={earningsLinePath} pathLength="1" />
+                    {earningsPoints.map((point, index) => (
+                      <g className="admin-earnings-point" key={point.month} style={{ '--point-delay': `${500 + index * 100}ms` }}>
+                        <circle cx={point.x} cy={point.y} r="3.5" />
+                        <title>{`${point.month}: ${money(point.amount)} · ${Number(point.subscribers) || 0} paid subscriptions`}</title>
+                      </g>
+                    ))}
+                    {earningsPoints.map((point) => (
+                      <text className="admin-earnings-month" key={`${point.month}-label`} x={point.x} y="190" textAnchor="middle">{point.month}</text>
+                    ))}
+                  </svg>
+                  <p className="admin-earnings-caption">Your trend will appear here as more caterers subscribe.</p>
+                </div>
+              ) : (
+                <p className="admin-earnings-empty">No paid subscription earnings in the last six months.</p>
+              ) : (
+                <div className="admin-earnings-table-wrap">
                   <table>
-                    <thead><tr><th>Month</th><th>Subscription earnings</th></tr></thead>
-                    <tbody>{monthlyEarnings.map((month) => <tr key={month.month}><th scope="row">{month.month}</th><td>{money(month.amount)}</td></tr>)}</tbody>
+                    <thead><tr><th>Month</th><th>New subscriptions</th><th>Earnings</th></tr></thead>
+                    <tbody>{monthlyEarnings.map((month) => (
+                      <tr key={month.month}>
+                        <th scope="row">{month.month}</th>
+                        <td>{Number(month.subscribers) || 0}</td>
+                        <td>{money(month.amount)}</td>
+                      </tr>
+                    ))}</tbody>
                   </table>
+                  {!monthlyEarnings.length && <p className="admin-earnings-empty">No paid subscription earnings in the last six months.</p>}
                 </div>
-              </details>
+              )}
             </section>
           </div>
         </section>

@@ -64,7 +64,8 @@ begin
             select jsonb_agg(
                 jsonb_build_object(
                     'month', to_char(months.month_start, 'Mon YY'),
-                    'amount', coalesce(month_totals.amount, 0)
+                    'amount', coalesce(month_totals.amount, 0),
+                    'subscribers', coalesce(month_totals.subscribers, 0)
                 )
                 order by months.month_start
             )
@@ -74,12 +75,13 @@ begin
                 interval '1 month'
             ) as months(month_start)
             left join (
-                select date_trunc('month', paid.updated_at) as month_start,
-                    sum(paid.amount)::numeric / 100 as amount
+                select date_trunc('month', paid.started_at) as month_start,
+                    sum(paid.amount)::numeric / 100 as amount,
+                    count(*) as subscribers
                 from public.caterer_subscriptions paid
                 where paid.status in ('active', 'expired')
-                  and paid.updated_at >= date_trunc('month', now()) - interval '5 months'
-                group by date_trunc('month', paid.updated_at)
+                  and paid.started_at >= date_trunc('month', now()) - interval '5 months'
+                group by date_trunc('month', paid.started_at)
             ) month_totals on month_totals.month_start = months.month_start
         ), '[]'::jsonb)
     )
