@@ -58,7 +58,30 @@ begin
         'subscription_earnings',
         coalesce(sum(s.amount), 0)::numeric / 100,
         'paid_subscriptions',
-        count(*)
+        count(*),
+        'monthly_earnings',
+        coalesce((
+            select jsonb_agg(
+                jsonb_build_object(
+                    'month', to_char(months.month_start, 'Mon YY'),
+                    'amount', coalesce(month_totals.amount, 0)
+                )
+                order by months.month_start
+            )
+            from generate_series(
+                date_trunc('month', now()) - interval '5 months',
+                date_trunc('month', now()),
+                interval '1 month'
+            ) as months(month_start)
+            left join (
+                select date_trunc('month', paid.updated_at) as month_start,
+                    sum(paid.amount)::numeric / 100 as amount
+                from public.caterer_subscriptions paid
+                where paid.status in ('active', 'expired')
+                  and paid.updated_at >= date_trunc('month', now()) - interval '5 months'
+                group by date_trunc('month', paid.updated_at)
+            ) month_totals on month_totals.month_start = months.month_start
+        ), '[]'::jsonb)
     )
     into result
     from public.caterer_subscriptions s

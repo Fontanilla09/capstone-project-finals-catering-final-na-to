@@ -121,10 +121,14 @@ export default function AdminDashboard() {
       return segment;
     });
   }, [statusRows, statusTotal]);
-  const financialMax = Math.max(Number(analytics.subscription_earnings) || 0, 1);
-  const financialRows = [
-    ['Subscription earnings', Number(analytics.subscription_earnings) || 0, 'var(--chart-1)'],
-  ];
+  const monthlyEarnings = Array.isArray(analytics.monthly_earnings) ? analytics.monthly_earnings : [];
+  const monthlyEarningsMax = Math.max(
+    ...monthlyEarnings.map((month) => Number(month.amount) || 0),
+    1,
+  );
+  const monthlyEarningsDescription = monthlyEarnings
+    .map((month) => `${month.month}: ${money(month.amount)}`)
+    .join(', ');
 
   const ageMs = lastUpdatedAt === null ? null : Math.max(0, clock - lastUpdatedAt);
   const stale = ageMs !== null && ageMs > 5 * 60 * 1000;
@@ -155,7 +159,7 @@ export default function AdminDashboard() {
           <button className="admin-refresh" onClick={refreshAll} type="button"><RefreshCw size={15} /> Refresh data</button>
         </div>
 
-        <div className="admin-stats">
+        <div className="admin-stats admin-overview-stats">
           {[
             { label: 'Total bookings', value: analytics.bookings, hint: 'Excluding cancelled requests', Icon: ClipboardList, tone: 'violet' },
             { label: 'Subscription earnings', value: money(analytics.subscription_earnings), hint: `${analytics.paid_subscriptions || 0} paid subscriptions`, Icon: ArrowUpRight, tone: 'blue' },
@@ -264,36 +268,45 @@ export default function AdminDashboard() {
               </details>
             </section>
 
-            <section className="admin-chart-panel" aria-labelledby="revenue-chart-title">
+            <section className="admin-chart-panel admin-subscription-earnings-panel" aria-labelledby="revenue-chart-title">
               <div className="analytics-status-title">
                 <div>
                   <p className="eyebrow">Platform finances</p>
-                  <h4 id="revenue-chart-title">Revenue snapshot</h4>
+                  <h4 id="revenue-chart-title">Subscription earnings</h4>
                 </div>
-                <span>All-time totals</span>
+                <span>Last 6 months</span>
               </div>
-              <div className="revenue-chart">
-                {financialRows.map(([label, value, color]) => (
-                  <div className="revenue-chart-row" key={label}>
-                    <div className="revenue-chart-label"><span>{label}</span><strong>{money(value)}</strong></div>
-                    <div
-                      className="revenue-chart-track"
-                      role="img"
-                      aria-label={`${label}: ${money(value)}`}
-                      title={`${label}: ${money(value)}`}
-                    >
-                      <span style={{ '--series-color': color, width: `${Math.min((value / financialMax) * 100, 100)}%` }} />
-                    </div>
+              <div
+                className="admin-earnings-chart"
+                role="img"
+                aria-label={`Monthly subscription earnings for the last six months: ${monthlyEarningsDescription || 'No paid subscriptions'}`}
+              >
+                {monthlyEarnings.length ? (
+                  <div className="admin-earnings-bars">
+                    {monthlyEarnings.map((month) => {
+                      const amount = Number(month.amount) || 0;
+                      const barHeight = amount > 0 ? Math.max((amount / monthlyEarningsMax) * 100, 4) : 0;
+                      return (
+                        <div className="admin-earnings-bar-column" key={month.month}>
+                          <strong>{money(amount)}</strong>
+                          <div className="admin-earnings-bar-track">
+                            <span style={{ height: `${barHeight}%` }} />
+                          </div>
+                          <span>{month.month}</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-                <p className="revenue-chart-note">Amounts compared against the larger total.</p>
+                ) : (
+                  <p className="admin-earnings-empty">No paid subscription earnings in the last six months.</p>
+                )}
               </div>
               <details className="chart-data-table">
                 <summary>View data as table</summary>
                 <div className="chart-data-table-wrap">
                   <table>
-                    <thead><tr><th>Measure</th><th>Amount</th></tr></thead>
-                    <tbody>{financialRows.map(([label, value]) => <tr key={label}><th scope="row">{label}</th><td>{money(value)}</td></tr>)}</tbody>
+                    <thead><tr><th>Month</th><th>Subscription earnings</th></tr></thead>
+                    <tbody>{monthlyEarnings.map((month) => <tr key={month.month}><th scope="row">{month.month}</th><td>{money(month.amount)}</td></tr>)}</tbody>
                   </table>
                 </div>
               </details>
