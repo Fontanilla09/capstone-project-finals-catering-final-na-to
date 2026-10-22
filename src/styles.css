@@ -8255,6 +8255,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dashboard-page .status-confirmed { background: color-mix(in srgb, var(--ok) 15%, var(--surface)); color: var(--ok); }
 .dashboard-page .status-completed { background: color-mix(in srgb, var(--info) 15%, var(--surface)); color: var(--info); }
 .dashboard-page .status-cancelled { background: color-mix(in srgb, var(--cancelled) 15%, var(--surface)); color: var(--cancelled); }
+:root[data-theme='dark'] .dashboard-page-customer .customer-table td { color: var(--ink-2); }
+:root[data-theme='dark'] .dashboard-page-customer .customer-table td strong { color: var(--ink); }
+:root[data-theme='dark'] .dashboard-page-customer .customer-table .muted-label,
+:root[data-theme='dark'] .dashboard-page-customer .customer-table .reviewed-label { color: var(--ink-2); }
+:root[data-theme='dark'] .dashboard-page-customer .customer-table tbody tr {
+  background: color-mix(in srgb, var(--surface-2) 62%, var(--surface));
+}
+:root[data-theme='dark'] .dashboard-page-customer .customer-table tbody tr:hover {
+  background: color-mix(in srgb, var(--brand-50) 78%, var(--surface));
+}
+:root[data-theme='dark'] .dashboard-page-customer .customer-table tbody tr:has(.empty-cell) {
+  background: transparent;
+}
+:root[data-theme='dark'] .dashboard-page-customer .customer-table :is(.payment-receipt-link, .gcash-customer-action) {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
 .dashboard-page .message-badge,
 .dashboard-page .dashboard-header-badge,
 .dashboard-page .admin-stat strong,
