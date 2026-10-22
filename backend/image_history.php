@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ];
     }
 
-    echo json_encode(['images' => $result]);
+    echo json_encode(['success' => true, 'images' => $result]);
     exit;
 }
 
