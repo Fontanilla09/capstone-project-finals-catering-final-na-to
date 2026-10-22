@@ -89,7 +89,7 @@ export default function Login() {
   return <main className="auth-page login-page">
     <section className="auth-card login-card">
       <div className="auth-intro login-intro">
-        <a className="brand" href="/">Cater<span>AI</span></a>
+        <a className="brand" href="/"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a>
         <div className="login-art" aria-hidden="true">
           <span className="login-art-label">A DAY TO REMEMBER</span>
           <div className="login-art-arch" />

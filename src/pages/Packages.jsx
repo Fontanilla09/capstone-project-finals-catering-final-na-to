@@ -89,7 +89,7 @@ export default function Packages() {
 
   return <main className="packages-page">
     <nav className="packages-nav">
-      <a className="brand" href="/">Cater<span>AI</span></a>
+      <a className="brand" href="/"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a>
       {session?.authenticated ? <a href={session.redirect}>Dashboard</a> : <a href="/login">Log in</a>}
     </nav>
     <section className="packages-content">

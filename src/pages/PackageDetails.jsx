@@ -75,7 +75,7 @@ export default function PackageDetails() {
   const mainImage = activeImage || images[0];
 
   return <main className="packages-page">
-    <nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">All packages</a></nav>
+    <nav className="packages-nav"><a className="brand" href="/"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a><a href="/packages">All packages</a></nav>
     <section className="package-detail-content">
       <a className="text-link" href="/packages">← Back to packages</a>
       <div className="product-layout">

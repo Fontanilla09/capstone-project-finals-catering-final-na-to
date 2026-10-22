@@ -192,13 +192,13 @@ export default function Book() {
       setLoading(false);
     }
   }
-  if (!packageId || !catererId) return <main className="packages-page"><nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">Explore caterers</a></nav><section className="packages-content booking-message"><p className="eyebrow">Booking unavailable</p><h1>Choose a package first.</h1><p>{status || 'This booking link does not contain a valid package.'}</p><a className="button button-primary" href="/packages">Explore caterers <span>↗</span></a></section></main>;
+  if (!packageId || !catererId) return <main className="packages-page"><nav className="packages-nav"><a className="brand" href="/"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a><a href="/packages">Explore caterers</a></nav><section className="packages-content booking-message"><p className="eyebrow">Booking unavailable</p><h1>Choose a package first.</h1><p>{status || 'This booking link does not contain a valid package.'}</p><a className="button button-primary" href="/packages">Explore caterers <span>↗</span></a></section></main>;
   if (!item && !status) return <main className="packages-page" aria-busy="true"><LoadingSpinner fullPage /></main>;
   const total = Number(item?.price || 0); const advance = total * 0.3; const balance = total - advance;
   return (
     <main className="packages-page booking-page">
       <nav className="packages-nav booking-nav">
-        <a className="brand" href="/">Cater<span>AI</span></a>
+        <a className="brand" href="/"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a>
         <div className="booking-nav-actions">
           <button
             className="booking-theme-toggle"

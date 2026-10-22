@@ -252,7 +252,7 @@ export default function Register() {
     <main className="register-page">
       <section className="register-shell" aria-label="Create an account">
         <aside className="register-welcome">
-          <a className="register-brand" href="/" aria-label="CaterAI home">Cater<span>AI</span></a>
+          <a className="register-brand" href="/" aria-label="CaterAI home"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a>
           <div className="register-welcome-copy">
             <p className="register-eyebrow">{accountType === 'customer' ? 'MADE FOR YOUR NEXT CELEBRATION' : 'GROW YOUR CATERING BUSINESS'}</p>
             <h1>{accountType === 'customer' ? <>Good plans<br /><em>start here.</em></> : <>More bookings<br /><em>start here.</em></>}</h1>

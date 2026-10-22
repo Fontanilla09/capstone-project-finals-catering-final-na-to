@@ -60,7 +60,7 @@ export default function Home() {
 
   return <main className="landing-page">
     <nav className="navbar" aria-label="Main navigation">
-      <a className="brand" href="/" onClick={closeMenu}>Cater<span>AI</span></a>
+      <a className="brand" href="/" onClick={closeMenu}><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a>
       <button
         className="mobile-menu-toggle"
         type="button"
@@ -144,7 +144,7 @@ export default function Home() {
     </section>
 
     <footer>
-      <a className="brand" href="/">Cater<span>AI</span></a>
+      <a className="brand" href="/"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></a>
       <p>© 2026 CaterAI. Beautiful spaces make lasting memories.</p>
       <a className="footer-cta" href="/packages">Let’s start planning <ArrowUpRight size={15} aria-hidden="true" /></a>
     </footer>
