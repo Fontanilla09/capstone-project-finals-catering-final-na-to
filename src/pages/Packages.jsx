@@ -15,20 +15,28 @@ export default function Packages() {
   const [eventTypes, setEventTypes] = useState([]);
   const [filters, setFilters] = useState({ search: '', event_type: '', sort: 'newest' });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [session, setSession] = useState(null);
   const [visiblePackageCount, setVisiblePackageCount] = useState(packagesPerPage);
 
   async function load(nextFilters = filters) {
     setLoading(true);
+    setLoadError('');
     try {
       if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
       const { data, error } = await supabase
         .from('packages')
-        .select('id, package_name, event_type, price, guest_count_min, guest_count_max, description, caterers!inner(id, business_name, city, rating, is_verified), package_images(image_path)')
+        .select('id, package_name, event_type, price, guest_count_min, guest_count_max, description, caterers!inner(id, business_name, city, is_verified), package_images(image_path)')
         .eq('caterers.is_verified', true)
         .limit(1, { referencedTable: 'package_images' })
         .order('created_at', { ascending: false });
       if (error) throw error;
+      const { data: ratingSummaries, error: ratingError } = await supabase.rpc('get_public_package_review_summaries');
+      if (ratingError) throw ratingError;
+      const ratingsByPackage = new Map((ratingSummaries || []).map((summary) => [
+        String(summary.package_id),
+        { rating: Number(summary.average_rating), review_count: Number(summary.review_count) },
+      ]));
       const search = nextFilters.search.trim().toLowerCase();
       const selectedEventType = nextFilters.event_type.trim().toLowerCase();
       const filtered = (data || [])
@@ -39,7 +47,8 @@ export default function Packages() {
           caterer_id: item.caterers?.id,
           business_name: item.caterers?.business_name,
           city: item.caterers?.city,
-          rating: item.caterers?.rating,
+          rating: ratingsByPackage.get(String(item.id))?.rating || null,
+          review_count: ratingsByPackage.get(String(item.id))?.review_count || 0,
           image_path: item.package_images?.[0]?.image_path,
           is_full: 0,
         }));
@@ -52,6 +61,8 @@ export default function Packages() {
     } catch (error) {
       setPackages([]);
       setEventTypes([]);
+      console.error('Could not load public packages and package ratings:', error);
+      setLoadError(error.message || 'Could not load packages. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -106,16 +117,18 @@ export default function Packages() {
       {loading ? <LoadingSpinner /> : packages.length === 0 ? (
         <div className="packages-empty-state">
           <span aria-hidden="true">✦</span>
-          <h2>No packages found</h2>
-          <p>Try another search or event type to discover more caterers.</p>
-          {(filters.search || filters.event_type) && <button className="button button-secondary" onClick={() => { const reset = { ...filters, search: '', event_type: '' }; setFilters(reset); load(reset); }} type="button">Clear filters</button>}
+          <h2>{loadError ? 'Unable to load packages' : 'No packages found'}</h2>
+          <p>{loadError || 'Try another search or event type to discover more caterers.'}</p>
+          {loadError
+            ? <button className="button button-secondary" onClick={() => load(filters)} type="button">Try again</button>
+            : (filters.search || filters.event_type) && <button className="button button-secondary" onClick={() => { const reset = { ...filters, search: '', event_type: '' }; setFilters(reset); load(reset); }} type="button">Clear filters</button>}
         </div>
       ) : <>
         <div className={`package-grid${visiblePackages.length === 1 ? ' package-grid-single' : ''}`}>
         {visiblePackages.map((item) => <article className="package-card" key={item.id}>
           {item.image_path ? <img className="package-card-image" src={imageUrl(item.image_path)} alt={`${item.package_name} sample`} loading="lazy" decoding="async" /> : <div className="package-card-image package-card-image-empty">CaterAI</div>}
           <div className="package-card-content">
-            <div className="package-card-top"><span>{item.event_type || 'Catering package'}</span><strong aria-label={item.rating ? `${item.rating} out of 5 stars` : 'Not rated yet'}>★ {item.rating || 'New'}</strong></div>
+            <div className="package-card-top"><span>{item.event_type || 'Catering package'}</span><strong aria-label={item.review_count ? `${item.rating} out of 5 stars from ${item.review_count} package reviews` : 'Not rated yet'}>★ {item.rating ? Number(item.rating).toFixed(1) : 'New'}{item.review_count > 0 && <span> ({item.review_count})</span>}</strong></div>
             <h2>{item.package_name}</h2>
             <p className="package-caterer">{item.business_name} <span>·</span> {item.city || 'Local caterer'}</p>
             <p className="package-card-description">{item.description || 'A thoughtfully prepared package for your event.'}</p>
