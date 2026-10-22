@@ -760,24 +760,26 @@ export default function CustomerDashboard() {
                     </td>
                     <td data-label="Action">
                       <div className="customer-reservation-actions">
-                        {item.reservation_status === 'cancelled' ? (
-                          <button className="button reservation-dismiss-button" onClick={() => removeRejectedReservation(item.id)} type="button" title="Remove cancelled booking" aria-label="Remove cancelled booking"><X size={16} aria-hidden="true" /></button>
-                        ) : (
-                          <>
-                            {['confirmed', 'completed'].includes(item.reservation_status) && Number(item.paid_amount) < Number(item.total_amount) && (
-                              <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(item.id)} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : balancePaymentLabel(item.id)}</button>
-                            )}
-                            {item.review_rating ? (
-                              <span className="reviewed-label">★ {item.review_rating} rated</span>
-                            ) : canReview(item) ? (
-                              <button className="button button-primary button-small" onClick={() => setReviewingId(item.id)} type="button">Rate catering</button>
-                            ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) >= Number(item.total_amount) ? (
-                              <span className="muted-label">Event upcoming</span>
-                            ) : !['confirmed', 'completed'].includes(item.reservation_status) ? (
-                              <span className="muted-label">Awaiting</span>
-                            ) : null}
-                          </>
-                        )}
+                        <div className="customer-reservation-primary-action">
+                          {item.reservation_status === 'cancelled' ? (
+                            <button className="button reservation-dismiss-button" onClick={() => removeRejectedReservation(item.id)} type="button" title="Remove cancelled booking" aria-label="Remove cancelled booking"><X size={16} aria-hidden="true" /></button>
+                          ) : (
+                            <>
+                              {['confirmed', 'completed'].includes(item.reservation_status) && Number(item.paid_amount) < Number(item.total_amount) && (
+                                <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(item.id)} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : balancePaymentLabel(item.id)}</button>
+                              )}
+                              {item.review_rating ? (
+                                <span className="reviewed-label">★ {item.review_rating} rated</span>
+                              ) : canReview(item) ? (
+                                <button className="button button-primary button-small" onClick={() => setReviewingId(item.id)} type="button">Rate catering</button>
+                              ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) >= Number(item.total_amount) ? (
+                                <span className="muted-label">Event upcoming</span>
+                              ) : !['confirmed', 'completed'].includes(item.reservation_status) ? (
+                                <span className="muted-label">Awaiting</span>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
                         <button
                           aria-label={`Report booking with ${item.business_name}`}
                           className="reservation-report-button"

@@ -1913,8 +1913,12 @@ button:active, a:active { transform: scale(.98); }
 .admin-status-rejected { background: #f9dfd6; color: #a74229; }
 .reservation-dismiss-button { align-items: center; background: transparent; border: 1px solid #e7b7a6; border-radius: 8px; color: #8e342a; display: inline-flex; height: 34px; justify-content: center; min-height: 34px; padding: 0; width: 34px; }
 .reservation-dismiss-button:hover { background: #f9dfd6; }
-.customer-reservation-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
-.reservation-report-button { align-items: center; background: transparent; border: 1px solid #d5ddd3; border-radius: 8px; color: #a85432; cursor: pointer; display: inline-flex; height: 36px; justify-content: center; min-height: 36px; padding: 0; transition: background .2s ease, border-color .2s ease; width: 36px; }
+.customer-table th:last-child,
+.customer-table td[data-label="Action"] { width: 220px; }
+.customer-reservation-actions { align-items: center; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) 30px; width: 100%; }
+.customer-reservation-primary-action { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.reservation-report-button { align-items: center; background: transparent; border: 1px solid #d5ddd3; border-radius: 8px; color: #a85432; cursor: pointer; display: inline-flex; flex: 0 0 30px; height: 30px; justify-content: center; min-height: 30px; padding: 0; transition: background .2s ease, border-color .2s ease; width: 30px; }
+.reservation-report-button svg { height: 13px; width: 13px; }
 .reservation-report-button:hover { background: #f5eee5; border-color: #c45b38; }
 .reservation-report-button:focus-visible { outline: 2px solid #c45b38; outline-offset: 2px; }
 
@@ -2942,9 +2946,17 @@ button:active, a:active { transform: scale(.98); }
     grid-column: 1 / -1;
   }
 
-  .customer-dashboard-panel .customer-table td[data-label="Action"] .button {
+  .customer-dashboard-panel .customer-table td[data-label="Action"] .button:not(.reservation-report-button) {
     justify-content: center;
     width: 100%;
+  }
+
+  .customer-dashboard-panel .customer-table td[data-label="Action"] {
+    width: auto;
+  }
+
+  .customer-dashboard-panel .customer-reservation-primary-action {
+    flex-wrap: wrap;
   }
 
   .customer-dashboard-panel .customer-table .empty-cell {
