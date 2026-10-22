@@ -8,6 +8,7 @@ import {
   CircleDollarSign,
   Clock3,
   CreditCard,
+  Flag,
   MessageCircle,
   Printer,
   ReceiptText,
@@ -82,6 +83,11 @@ export default function CustomerDashboard() {
   const [reviewText, setReviewText] = useState('');
   const [reviewImage, setReviewImage] = useState(null);
   const [reviewImagePreview, setReviewImagePreview] = useState('');
+  const [reportingReservation, setReportingReservation] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportError, setReportError] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
   const statusSnapshotRef = useRef(null);
 
   async function load() {
@@ -103,6 +109,7 @@ export default function CustomerDashboard() {
         setConversations(conversationData || []);
         setConversationsError('');
       }
+
       setConversationsLoaded(true);
 
       const customerId = data?.customer?.id;
@@ -189,6 +196,38 @@ export default function CustomerDashboard() {
       }
     } catch (error) {
       setStatus(error.message);
+    }
+  }
+
+  async function submitBookingReport(event) {
+    event.preventDefault();
+    setReportError('');
+    if (!reportingReservation) return;
+    if (!reportReason) {
+      setReportError('Select an issue type.');
+      return;
+    }
+    if (reportDetails.trim().length < 10) {
+      setReportError('Please describe the issue in at least 10 characters.');
+      return;
+    }
+
+    setReportSubmitting(true);
+    try {
+      const { error } = await supabase.rpc('submit_customer_booking_issue', {
+        p_reservation_id: Number(reportingReservation.id),
+        p_reason: reportReason,
+        p_details: reportDetails.trim(),
+      });
+      if (error) throw error;
+      setReportingReservation(null);
+      setReportReason('');
+      setReportDetails('');
+      setStatus(`Your report about booking #${reportingReservation.id} with ${reportingReservation.business_name} was sent to the admin team.`);
+    } catch (error) {
+      setReportError(error.message || 'Unable to submit your booking report.');
+    } finally {
+      setReportSubmitting(false);
     }
   }
 
@@ -720,24 +759,35 @@ export default function CustomerDashboard() {
                       ))}
                     </td>
                     <td data-label="Action">
-                      {item.reservation_status === 'cancelled' ? (
-                        <button className="button reservation-dismiss-button" onClick={() => removeRejectedReservation(item.id)} type="button" title="Remove cancelled booking" aria-label="Remove cancelled booking"><X size={16} aria-hidden="true" /></button>
-                      ) : (
-                        <>
-                          {['confirmed', 'completed'].includes(item.reservation_status) && Number(item.paid_amount) < Number(item.total_amount) && (
-                            <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(item.id)} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : balancePaymentLabel(item.id)}</button>
-                          )}
-                          {item.review_rating ? (
-                            <span className="reviewed-label">★ {item.review_rating} rated</span>
-                          ) : canReview(item) ? (
-                            <button className="button button-primary button-small" onClick={() => setReviewingId(item.id)} type="button">Rate catering</button>
-                          ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) >= Number(item.total_amount) ? (
-                            <span className="muted-label">Event upcoming</span>
-                          ) : !['confirmed', 'completed'].includes(item.reservation_status) ? (
-                            <span className="muted-label">Awaiting</span>
-                          ) : null}
-                        </>
-                      )}
+                      <div className="customer-reservation-actions">
+                        {item.reservation_status === 'cancelled' ? (
+                          <button className="button reservation-dismiss-button" onClick={() => removeRejectedReservation(item.id)} type="button" title="Remove cancelled booking" aria-label="Remove cancelled booking"><X size={16} aria-hidden="true" /></button>
+                        ) : (
+                          <>
+                            {['confirmed', 'completed'].includes(item.reservation_status) && Number(item.paid_amount) < Number(item.total_amount) && (
+                              <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(item.id)} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : balancePaymentLabel(item.id)}</button>
+                            )}
+                            {item.review_rating ? (
+                              <span className="reviewed-label">★ {item.review_rating} rated</span>
+                            ) : canReview(item) ? (
+                              <button className="button button-primary button-small" onClick={() => setReviewingId(item.id)} type="button">Rate catering</button>
+                            ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) >= Number(item.total_amount) ? (
+                              <span className="muted-label">Event upcoming</span>
+                            ) : !['confirmed', 'completed'].includes(item.reservation_status) ? (
+                              <span className="muted-label">Awaiting</span>
+                            ) : null}
+                          </>
+                        )}
+                        <button
+                          aria-label={`Report booking with ${item.business_name}`}
+                          className="reservation-report-button"
+                          onClick={() => { setReportingReservation(item); setReportReason(''); setReportDetails(''); setReportError(''); }}
+                          title="Report this booking"
+                          type="button"
+                        >
+                          <Flag size={16} aria-hidden="true" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )) : (
@@ -754,6 +804,58 @@ export default function CustomerDashboard() {
             </table>
           </div>
         </div>
+
+        {reportingReservation && (
+          <div className="account-reject-overlay" role="presentation" onClick={() => setReportingReservation(null)}>
+            <form
+              className="account-reject-form customer-booking-report-form"
+              onSubmit={submitBookingReport}
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="customer-booking-report-title"
+            >
+              <header>
+                <div>
+                  <p className="eyebrow eyebrow-soft">Customer support</p>
+                  <h3 id="customer-booking-report-title">Report a booking issue</h3>
+                  <p>This report will be sent privately to the admin team.</p>
+                </div>
+              </header>
+              <div className="customer-booking-report-summary">
+                <span><strong>Package</strong> {reportingReservation.package_name}</span>
+                <span><strong>Caterer</strong> {reportingReservation.business_name}</span>
+                <span><strong>Booking</strong> #{reportingReservation.id}</span>
+              </div>
+              <label htmlFor="customer-booking-report-reason">Issue type</label>
+              <select id="customer-booking-report-reason" value={reportReason} onChange={(event) => setReportReason(event.target.value)} required>
+                <option value="">Select an issue</option>
+                <option value="Payment problem">Payment problem</option>
+                <option value="Booking status problem">Booking status problem</option>
+                <option value="Cancellation or refund">Cancellation or refund</option>
+                <option value="Caterer did not arrive">Caterer did not arrive</option>
+                <option value="Other booking issue">Other booking issue</option>
+              </select>
+              <label htmlFor="customer-booking-report-details">Describe the issue</label>
+              <textarea
+                id="customer-booking-report-details"
+                value={reportDetails}
+                onChange={(event) => setReportDetails(event.target.value)}
+                minLength={10}
+                maxLength={2000}
+                placeholder="Tell us what happened and how we can help."
+                required
+              />
+              {reportError && <p className="form-alert error-alert" role="alert">{reportError}</p>}
+              <div className="account-reject-footer">
+                <button className="button button-secondary" onClick={() => setReportingReservation(null)} type="button">Cancel</button>
+                <button className="button button-primary" disabled={reportSubmitting} type="submit">
+                  {reportSubmitting ? 'Submitting...' : 'Submit report'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {reviewingId && (
           <form id="review-form" className="review-form" onSubmit={submitReview}>

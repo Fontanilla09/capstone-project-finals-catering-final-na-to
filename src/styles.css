@@ -1913,6 +1913,10 @@ button:active, a:active { transform: scale(.98); }
 .admin-status-rejected { background: #f9dfd6; color: #a74229; }
 .reservation-dismiss-button { align-items: center; background: transparent; border: 1px solid #e7b7a6; border-radius: 8px; color: #8e342a; display: inline-flex; height: 34px; justify-content: center; min-height: 34px; padding: 0; width: 34px; }
 .reservation-dismiss-button:hover { background: #f9dfd6; }
+.customer-reservation-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+.reservation-report-button { align-items: center; background: transparent; border: 1px solid #d5ddd3; border-radius: 8px; color: #a85432; cursor: pointer; display: inline-flex; height: 36px; justify-content: center; min-height: 36px; padding: 0; transition: background .2s ease, border-color .2s ease; width: 36px; }
+.reservation-report-button:hover { background: #f5eee5; border-color: #c45b38; }
+.reservation-report-button:focus-visible { outline: 2px solid #c45b38; outline-offset: 2px; }
 
 .reviewed-label,
 .muted-label {
@@ -6656,27 +6660,7 @@ textarea:focus-visible {
   padding: 7px 10px;
 }
 
-.package-report-link {
-  background: transparent;
-  border: 0;
-  color: #a85432;
-  cursor: pointer;
-  display: block;
-  font: inherit;
-  font-size: 12px;
-  margin: 12px auto 0;
-  padding: 5px;
-  text-decoration: underline;
-}
-
-.package-report-success {
-  color: #35613d;
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: center;
-}
-
-.package-report-form select {
+.customer-booking-report-form select {
   background: #fcfbf9;
   border: 1px solid #d5ddd3;
   border-radius: 8px;
@@ -6686,55 +6670,14 @@ textarea:focus-visible {
   padding: 9px 11px;
 }
 
-.reporting-caterer {
+.customer-booking-report-summary {
   background: #f6f2ea;
   border-radius: 8px;
   color: #405149;
-  margin: 0;
-  padding: 11px;
-}
-
-.report-proof-preview {
-  align-items: center;
-  background: #f6f2ea;
-  border: 1px solid #d5ddd3;
-  border-radius: 9px;
-  display: flex;
-  gap: 13px;
-  min-width: 0;
-  padding: 10px;
-}
-
-.report-proof-preview img {
-  border-radius: 6px;
-  flex: 0 0 82px;
-  height: 72px;
-  object-fit: cover;
-  width: 82px;
-}
-
-.report-proof-preview > div {
   display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.report-proof-preview strong,
-.report-proof-preview small,
-.report-upload-hint {
-  color: #65746c;
-  font-size: 11px;
-  overflow-wrap: anywhere;
-}
-
-.report-proof-preview strong {
-  color: #213331;
-}
-
-.report-proof-preview .package-report-link {
-  margin: 0;
-  text-align: left;
-  width: fit-content;
+  font-size: 13px;
+  gap: 7px;
+  padding: 12px;
 }
 
 .report-proof {
