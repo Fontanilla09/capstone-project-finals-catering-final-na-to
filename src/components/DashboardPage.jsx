@@ -34,6 +34,7 @@ import {
   getCachedCatererSubscription,
 } from '../lib/catererSubscription.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
+import cateraiLogo from '../../image.png';
 
 const dashboardSections = {
   customer: [['overview', 'Dashboard', '/dashboard/customer'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages'], ['support', 'Help & Support', '/dashboard/customer/support'], ['settings', 'Settings', '/dashboard/customer/settings']],
@@ -781,10 +782,10 @@ export default function DashboardPage({ role, section = 'overview', children, ba
 
       <div className="dashboard-shell">
         <aside id="dashboard-navigation" className={menuOpen ? 'dashboard-nav open' : 'dashboard-nav'} aria-label="Dashboard navigation">
-          <a className="dashboard-nav-brand" href="/">
-            <span className="dashboard-nav-brand-mark">C</span>
+          <div className="dashboard-nav-brand">
+            <img className="dashboard-nav-brand-mark" src={cateraiLogo} alt="" />
             <span>CaterAI</span>
-          </a>
+          </div>
           <div className="dashboard-menu-account">
             <div className="dashboard-user-pill" aria-label="Signed in user">
               {profileImageSrc ? <img className="dashboard-user-avatar dashboard-user-avatar-image" src={profileImageSrc} alt="Profile" onError={() => setProfileImage('')} /> : <div className="dashboard-user-avatar" aria-hidden="true">{getInitials(displayName)}</div>}

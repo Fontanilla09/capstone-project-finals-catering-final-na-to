@@ -7327,6 +7327,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .dashboard-page .dashboard-nav-brand {
   align-items: center;
+  background: transparent;
   color: var(--nav-ink);
   display: flex;
   font-family: var(--font-heading);
@@ -7337,17 +7338,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   margin: 2px 3px 12px;
   min-height: 42px;
   padding: 0 6px;
+  text-decoration: none;
+  cursor: default;
 }
 .dashboard-page .dashboard-nav-brand-mark {
-  align-items: center;
-  background: var(--accent);
-  border-radius: 12px;
-  color: var(--accent-ink);
-  display: inline-flex;
-  font-size: 15px;
-  height: 34px;
-  justify-content: center;
-  width: 34px;
+  border-radius: 10px;
+  display: block;
+  flex: 0 0 38px;
+  height: 38px;
+  object-fit: cover;
+  width: 38px;
 }
 .dashboard-page .dashboard-menu-account { border-bottom: 1px solid var(--nav-rule); margin: 0 0 8px; padding: 0 4px 13px; }
 .dashboard-page .dashboard-menu-account .dashboard-user-pill { width: 100%; }
