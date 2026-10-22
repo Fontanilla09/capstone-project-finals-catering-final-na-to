@@ -18,10 +18,18 @@ export default function AdminDashboard() {
 
   async function load() {
     try {
-      const { data: overview, error } = await supabase.rpc('get_admin_overview');
-      if (error) throw error;
+      const [overviewResult, subscriptionResult] = await Promise.all([
+        supabase.rpc('get_admin_overview'),
+        supabase.rpc('get_admin_subscription_earnings'),
+      ]);
+      if (overviewResult.error) throw overviewResult.error;
+      if (subscriptionResult.error) throw subscriptionResult.error;
+      const overview = overviewResult.data;
       setStats(overview.stats || {});
-      setAnalytics(overview.analytics || { statuses: {} });
+      setAnalytics({
+        ...(overview.analytics || { statuses: {} }),
+        ...(subscriptionResult.data || {}),
+      });
       setLastUpdatedAt(Date.now());
       setStatus('');
     } catch (error) {
@@ -63,6 +71,7 @@ export default function AdminDashboard() {
       .channel('admin-finance-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'caterer_subscriptions' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, load)
       .subscribe();
     return () => {
@@ -112,10 +121,10 @@ export default function AdminDashboard() {
       return segment;
     });
   }, [statusRows, statusTotal]);
-  const financialMax = Math.max(Number(analytics.revenue) || 0, Number(analytics.platform_commission) || 0, 1);
+  const financialMax = Math.max(Number(analytics.revenue) || 0, Number(analytics.subscription_earnings) || 0, 1);
   const financialRows = [
-    ['Collected revenue', Number(analytics.revenue) || 0, 'var(--chart-1)'],
-    ['Platform commission', Number(analytics.platform_commission) || 0, 'var(--chart-2)'],
+    ['Booking payment volume', Number(analytics.revenue) || 0, 'var(--chart-1)'],
+    ['Subscription earnings', Number(analytics.subscription_earnings) || 0, 'var(--chart-2)'],
   ];
 
   const ageMs = lastUpdatedAt === null ? null : Math.max(0, clock - lastUpdatedAt);
@@ -150,8 +159,8 @@ export default function AdminDashboard() {
         <div className="admin-stats">
           {[
             { label: 'Total bookings', value: analytics.bookings, hint: 'Excluding cancelled requests', Icon: ClipboardList, tone: 'violet' },
-            { label: 'Collected revenue', value: money(analytics.revenue), hint: `${analytics.completed_payments || 0} completed payments`, Icon: CircleDollarSign, tone: 'green' },
-            { label: 'Platform commission', value: money(analytics.platform_commission), hint: '2.5% admin earnings', Icon: ArrowUpRight, tone: 'blue' },
+            { label: 'Booking payment volume', value: money(analytics.revenue), hint: `${analytics.completed_payments || 0} completed payments`, Icon: CircleDollarSign, tone: 'green' },
+            { label: 'Subscription earnings', value: money(analytics.subscription_earnings), hint: `${analytics.paid_subscriptions || 0} paid subscriptions`, Icon: ArrowUpRight, tone: 'blue' },
             { label: 'Average booking', value: money(analytics.average_booking), hint: 'Across active bookings', Icon: CalendarDays, tone: 'amber' },
           ].map(({ label, value, hint, Icon, tone }) => (
             <article className={`admin-stat admin-stat-${tone}`} key={label}>
