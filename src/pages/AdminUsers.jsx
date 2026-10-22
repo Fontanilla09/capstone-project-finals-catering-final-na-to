@@ -159,7 +159,6 @@ export default function AdminUsers() {
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [permitPreview]);
-  async function decideCaterer(action, catererProfileId) { try { const { error } = await supabase.rpc('set_caterer_verification', { caterer_id: catererProfileId, approved: action === 'approve_caterer' }); if (error) throw error; setStatus('Caterer verified.'); await load(); } catch (error) { setStatus(error.message); } }
   async function openPermit(path) {
     if (!path || typeof path !== 'string' || path.trim() === '') return;
     const trimmed = path.trim();
@@ -226,8 +225,6 @@ export default function AdminUsers() {
           <tbody>
             {pagedUsers.map((user, index) => {
               const state = verificationLabel(user);
-              const canReview = user.role === 'caterer' && user.caterer_verification_submitted === true && !user.caterer_verified && !user.rejection_reason;
-              const profileId = user.role === 'customer' ? user.customer_id ?? user.id : user.caterer_id ?? user.id;
               return (
                 <tr key={user.id}>
                   <td className="admin-users-check-column"><input aria-label={`Select ${accountName(user)}`} checked={selectedUsers.includes(user.id)} onChange={() => toggleUserSelection(user.id)} type="checkbox" /></td>
@@ -245,9 +242,6 @@ export default function AdminUsers() {
                   <td data-label="Reports">{user.reports ? <span className="admin-users-report-count">⚑ {user.reports}</span> : '—'}</td>
                   <td data-label="Actions">
                     <div className="admin-users-actions">
-                      {canReview && <>
-                        <button className="admin-users-approve" disabled={loading} onClick={() => decideCaterer('approve_caterer', profileId)} type="button">Approve</button>
-                      </>}
                       {user.role === 'caterer' && user.business_permit && <button className="admin-users-permit" onClick={() => openPermit(user.business_permit)} type="button">Permit</button>}
                     </div>
                   </td>
