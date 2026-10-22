@@ -77,5 +77,18 @@ export default function ResetPassword() {
     }
   }
 
-  return <main className="auth-page"><section className="auth-card"><div className="auth-intro"><a className="brand" href="/">Cater<span>AI</span></a><p className="eyebrow">Account recovery</p><h1>A fresh start,<br /><em>securely.</em></h1><p>Choose a new password for your CaterAI account.</p></div><form className="auth-form" onSubmit={submit}><h2>Set a new password</h2>{ready ? <><label htmlFor="password">New password</label><input id="password" name="password" type="password" autoComplete="new-password" minLength="6" placeholder="At least 6 characters" value={password} onChange={(event) => setPassword(event.target.value)} required /><label htmlFor="confirm-password">Confirm new password</label><input id="confirm-password" name="confirm-password" type="password" autoComplete="new-password" minLength="6" placeholder="Enter your new password again" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /><button className="button button-primary auth-submit" disabled={loading} type="submit">{loading ? 'Updating...' : 'Update password'} <span>↗</span></button></> : null}{status.error && <p className="form-alert error-alert" role="alert">{status.error}</p>}{status.success && <p className="form-alert success-alert" role="status">{status.success}</p>}<p className="auth-note"><a href={status.success ? '/login' : '/forgot-password'}>{status.success ? 'Back to sign in' : 'Request another reset link'}</a></p></form></section></main>;
+  async function cancelRecovery() {
+    setLoading(true);
+    setStatus({ error: '', success: '' });
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+      window.location.replace('/login');
+    } catch (error) {
+      setStatus({ error: error.message, success: '' });
+      setLoading(false);
+    }
+  }
+
+  return <main className="auth-page"><section className="auth-card"><div className="auth-intro"><a className="brand" href="/">Cater<span>AI</span></a><p className="eyebrow">Account recovery</p><h1>A fresh start,<br /><em>securely.</em></h1><p>Choose a new password for your CaterAI account.</p></div><form className="auth-form" onSubmit={submit}><h2>Set a new password</h2>{ready ? <><p className="auth-description">Your current password stays the same until you submit a new one.</p><label htmlFor="password">New password</label><input id="password" name="password" type="password" autoComplete="new-password" minLength="6" placeholder="At least 6 characters" value={password} onChange={(event) => setPassword(event.target.value)} required /><label htmlFor="confirm-password">Confirm new password</label><input id="confirm-password" name="confirm-password" type="password" autoComplete="new-password" minLength="6" placeholder="Enter your new password again" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /><button className="button button-primary auth-submit" disabled={loading} type="submit">{loading ? 'Updating...' : 'Update password'} <span>↗</span></button><button className="auth-note" disabled={loading} onClick={cancelRecovery} type="button">Cancel and return to sign in</button></> : null}{status.error && <p className="form-alert error-alert" role="alert">{status.error}</p>}{status.success && <p className="form-alert success-alert" role="status">{status.success}</p>}<p className="auth-note"><a href={status.success ? '/login' : '/forgot-password'}>{status.success ? 'Back to sign in' : 'Request another reset link'}</a></p></form></section></main>;
 }
