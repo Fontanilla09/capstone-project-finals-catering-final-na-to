@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Check, CreditCard, LocateFixed, LockKeyhole, Moon, QrCode, Sun } from 'lucide-react';
 import { requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 function money(value) { return `₱${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+
+function getInitialTheme() {
+  try {
+    return localStorage.getItem('caterai-theme') === 'dark' ? 'dark' : 'light';
+  } catch (error) {
+    console.warn('Failed to read the saved theme preference:', error);
+    return 'light';
+  }
+}
 
 function VenueAddressPicker({ value, onChange }) {
   const mapRef = useRef(null); const markerRef = useRef(null); const searchTimerRef = useRef(null);
@@ -109,7 +119,7 @@ function VenueAddressPicker({ value, onChange }) {
     }, () => setStatus('Please allow location access or search for an address instead.'), { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 });
   }
 
-  return <div className="venue-picker"><input name="venue_address" type="hidden" value={value} required readOnly /><div className="venue-search-row"><input aria-label="Search venue address" value={query} onChange={searchAddress} placeholder="Search address or landmark" /><button type="button" onClick={useCurrentLocation}>Use my location</button></div>{searching && <p className="venue-picker-status">Searching addresses...</p>}{status && <p className="venue-picker-status">{status}</p>}{results.length > 0 && <div className="venue-results">{results.map((result) => <button key={result.place_id} type="button" onClick={() => selectLocation(result)}>{result.display_name}</button>)}</div>}<div className="venue-address-heading">Or enter the event address</div><div className="venue-address-grid"><label>City / Municipality<input name="venue_city" value={parts.city} onChange={(event) => updatePart('city', event.target.value)} placeholder="Mamburao" /></label><label>Barangay<input name="venue_barangay" value={parts.barangay} onChange={(event) => updatePart('barangay', event.target.value)} placeholder="Payompon" /></label><label>Postal code<input name="venue_postal" inputMode="numeric" value={parts.postal} onChange={(event) => updatePart('postal', event.target.value)} placeholder="5106" /></label><label className="venue-street-field">Street, building, house no.<input name="venue_street" value={parts.street} onChange={(event) => updatePart('street', event.target.value)} placeholder="Purok / street / building" /></label></div><p className="venue-map-hint">Tap the map or drag the pin to the exact event location.</p><div className="venue-map" id="venue-address-map" />{value && <p className="venue-selected">Event venue: {value}</p>}</div>;
+  return <div className="venue-picker"><input name="venue_address" type="hidden" value={value} required readOnly /><div className="venue-search-row"><input aria-label="Search venue address" value={query} onChange={searchAddress} placeholder="e.g. Municipal Hall" /><button type="button" onClick={useCurrentLocation}><LocateFixed size={15} aria-hidden="true" />Use my location</button></div>{searching && <p className="venue-picker-status">Searching addresses...</p>}{status && <p className="venue-picker-status">{status}</p>}{results.length > 0 && <div className="venue-results">{results.map((result) => <button key={result.place_id} type="button" onClick={() => selectLocation(result)}>{result.display_name}</button>)}</div>}<div className="venue-address-grid"><label>City / Municipality<input name="venue_city" value={parts.city} onChange={(event) => updatePart('city', event.target.value)} placeholder="Mamburao" /></label><label>Barangay<input name="venue_barangay" value={parts.barangay} onChange={(event) => updatePart('barangay', event.target.value)} placeholder="Payompon" /></label><label>Postal code <span>(optional)</span><input name="venue_postal" inputMode="numeric" value={parts.postal} onChange={(event) => updatePart('postal', event.target.value)} placeholder="5106" /></label><label className="venue-street-field">Street, building, house no.<input name="venue_street" value={parts.street} onChange={(event) => updatePart('street', event.target.value)} placeholder="Purok / street / building" /></label></div><p className="venue-map-hint">Tap the map or drag the pin to the exact event location.</p><div className="venue-map" id="venue-address-map" />{value && <p className="venue-selected">Event venue: {value}</p>}</div>;
 }
 
 export default function Book() {
@@ -119,7 +129,17 @@ export default function Book() {
   const [venueAddress, setVenueAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('paypal');
   const [gcashOption, setGcashOption] = useState(null);
+  const [theme, setTheme] = useState(getInitialTheme);
   const today = new Date().toISOString().split('T')[0]; const maxBookingDate = `${new Date().getFullYear() + 2}-12-31`;
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    try {
+      localStorage.setItem('caterai-theme', theme);
+    } catch (error) {
+      console.warn('Failed to save the theme preference:', error);
+    }
+  }, [theme]);
   useEffect(() => {
     async function loadPackage() {
       if (!packageId || !catererId) return;
@@ -170,13 +190,30 @@ export default function Book() {
   if (!item && !status) return <main className="packages-page" aria-busy="true"><LoadingSpinner fullPage /></main>;
   const total = Number(item?.price || 0); const advance = total * 0.3; const balance = total - advance;
   return (
-    <main className="packages-page">
-      <nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">Cancel</a></nav>
-      <section className="packages-content">
-        <p className="eyebrow">Request your booking</p>
-        <h1>Tell us about<br /><em>your event.</em></h1>
+    <main className="packages-page booking-page">
+      <nav className="packages-nav booking-nav">
+        <a className="brand" href="/">Cater<span>AI</span></a>
+        <div className="booking-nav-actions">
+          <button
+            className="booking-theme-toggle"
+            type="button"
+            onClick={() => setTheme((currentTheme) => currentTheme === 'light' ? 'dark' : 'light')}
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? <Moon size={17} aria-hidden="true" /> : <Sun size={17} aria-hidden="true" />}
+          </button>
+          <a href="/packages">Cancel</a>
+        </div>
+      </nav>
+      <section className="packages-content booking-content">
+        <header className="booking-heading">
+          <p className="booking-step-label"><strong>Request your booking</strong><span>· Step 1 of 2</span></p>
+          <h1>Tell us about your event</h1>
+          <p>Share a few details so the caterer can prepare for your event.</p>
+        </header>
         <div className="booking-layout">
-          <form className="auth-form booking-form" onSubmit={submit}>
+          <form id="booking-form" className="auth-form booking-form" onSubmit={submit}>
             {status && <p className="form-alert error-alert">{status}</p>}
             {gcashOption ? (
               <section className="gcash-submitted-state">
@@ -185,44 +222,61 @@ export default function Book() {
               </section>
             ) : (
               <>
-                <label>Event date</label>
-                <input name="event_date" type="date" min={today} max={maxBookingDate} required />
-                <label>Event start time</label>
-                <input name="event_time" type="time" required />
-                <label>Venue name</label>
-                <input name="venue_name" placeholder="Grand Ballroom" required />
-                <label>Venue address</label>
-                <VenueAddressPicker value={venueAddress} onChange={setVenueAddress} />
-                <fieldset className="booking-payment-method">
-                  <legend>Payment method</legend>
-                  <label>
-                    <input type="radio" name="payment_method" value="paypal" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} />
-                    PayPal
-                  </label>
-                  <label className={!item?.gcash_qr_code ? 'booking-payment-disabled' : ''}>
-                    <input type="radio" name="payment_method" value="gcash" checked={paymentMethod === 'gcash'} disabled={!item?.gcash_qr_code} onChange={() => setPaymentMethod('gcash')} />
-                    Other · GCash{!item?.gcash_qr_code ? ' (not set up by caterer)' : ''}
-                  </label>
-                </fieldset>
-                <label className="check-label"><input name="agree_terms" type="checkbox" required /> I agree to the booking terms and 30% down payment.</label>
-                <button className="button button-primary auth-submit" disabled={loading || !item} type="submit">
-                  {loading ? 'Preparing payment…' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span>↗</span>
-                </button>
+                <section className="booking-section">
+                  <h2><span>1</span>Event details</h2>
+                  <div className="booking-fields-two">
+                    <label className="booking-field">Event date<input name="event_date" type="date" min={today} max={maxBookingDate} required /></label>
+                    <label className="booking-field">Start time<input name="event_time" type="time" required /></label>
+                  </div>
+                </section>
+                <section className="booking-section">
+                  <h2><span>2</span>Venue</h2>
+                  <label className="booking-field">Venue name<input name="venue_name" placeholder="Grand Ballroom" required /></label>
+                  <div className="booking-field booking-address-field">
+                    <span>Search address or landmark</span>
+                    <VenueAddressPicker value={venueAddress} onChange={setVenueAddress} />
+                  </div>
+                </section>
+                <section className="booking-section booking-payment-section">
+                  <h2><span>3</span>Payment method</h2>
+                  <fieldset className="booking-payment-method">
+                    <legend className="visually-hidden">Choose a payment method</legend>
+                    <label className={paymentMethod === 'paypal' ? 'booking-payment-option is-selected' : 'booking-payment-option'}>
+                      <input type="radio" name="payment_method" value="paypal" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} />
+                      <span className="booking-payment-icon"><CreditCard size={19} aria-hidden="true" /></span>
+                      <span className="booking-payment-copy"><strong>PayPal</strong><small>Pay your down payment online. You’ll be redirected to PayPal.</small></span>
+                      <span className="booking-payment-check">{paymentMethod === 'paypal' && <Check size={13} aria-hidden="true" />}</span>
+                    </label>
+                    <label className={`${paymentMethod === 'gcash' ? 'booking-payment-option is-selected' : 'booking-payment-option'}${!item?.gcash_qr_code ? ' booking-payment-disabled' : ''}`}>
+                      <input type="radio" name="payment_method" value="gcash" checked={paymentMethod === 'gcash'} disabled={!item?.gcash_qr_code} onChange={() => setPaymentMethod('gcash')} />
+                      <span className="booking-payment-icon"><QrCode size={19} aria-hidden="true" /></span>
+                      <span className="booking-payment-copy"><strong>GCash</strong><small>{item?.gcash_qr_code ? 'Scan the caterer’s GCash QR and upload your receipt.' : 'Not set up by the caterer yet.'}</small></span>
+                      <span className="booking-payment-check">{paymentMethod === 'gcash' && <Check size={13} aria-hidden="true" />}</span>
+                    </label>
+                  </fieldset>
+                </section>
               </>
             )}
           </form>
           <aside className="payment-summary">
-            <p className="eyebrow">Online payment summary</p>
-            <h2>{item?.package_name || ''}</h2>
-            <p className="payment-caterer">{item?.business_name || ''}</p>
+            <p className="payment-summary-label">Booking summary</p>
+            <div className="payment-summary-package">
+              <span className="payment-summary-avatar">{(item?.package_name || 'C').charAt(0).toUpperCase()}</span>
+              <span><strong>{item?.package_name || ''}</strong><small>{item?.business_name || ''}</small></span>
+            </div>
+            <div className="payment-progress" aria-label="30 percent down payment, 70 percent remaining"><span /></div>
             <div className="payment-row"><span>Package total</span><strong>{money(total)}</strong></div>
             <div className="payment-row advance"><span>Pay now · 30% down payment</span><strong>{money(advance)}</strong></div>
             <div className="payment-row"><span>Remaining balance · 70%</span><strong>{money(balance)}</strong></div>
             <p className="payment-note">
               {paymentMethod === 'gcash'
-                ? 'Scan the caterer’s GCash QR and upload your receipt. Payment is pending until the caterer confirms it.'
-                : 'You will be redirected to PayPal to securely complete your online payment.'}
+                ? <><LockKeyhole size={15} aria-hidden="true" /><span>Scan the caterer’s GCash QR and upload your receipt. The payment will be reviewed by the caterer.</span></>
+                : <><LockKeyhole size={15} aria-hidden="true" /><span>You’ll be redirected to PayPal to securely complete your online payment.</span></>}
             </p>
+            <label className="booking-terms"><input form="booking-form" name="agree_terms" type="checkbox" required /> <span>I agree to the booking terms and 30% down payment.</span></label>
+            <button className="booking-submit" form="booking-form" disabled={loading || !item || Boolean(gcashOption)} type="submit">
+              {loading ? 'Preparing payment…' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span aria-hidden="true">↗</span>
+            </button>
           </aside>
         </div>
       </section>
