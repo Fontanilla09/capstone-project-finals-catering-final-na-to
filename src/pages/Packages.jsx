@@ -26,7 +26,7 @@ export default function Packages() {
       if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
       const { data, error } = await supabase
         .from('packages')
-        .select('id, package_name, event_type, price, guest_count_min, guest_count_max, description, caterers!inner(id, business_name, city, is_verified), package_images(image_path)')
+        .select('id, package_name, event_type, price, description, caterers!inner(id, business_name, city, is_verified), package_images(image_path)')
         .eq('caterers.is_verified', true)
         .limit(1, { referencedTable: 'package_images' })
         .order('created_at', { ascending: false });
@@ -98,7 +98,7 @@ export default function Packages() {
         <aside className="packages-hero-note" aria-label="CaterAI package highlights">
           <span className="packages-hero-note-mark" aria-hidden="true">✦</span>
           <strong>Make room for a good gathering.</strong>
-          <span>Compare menus, guest capacity, and local caterers in one place.</span>
+          <span>Compare menus, package details, and local caterers in one place.</span>
         </aside>
       </div>
       <form className="package-filters" onSubmit={(event) => { event.preventDefault(); load(filters); }}>
@@ -133,7 +133,7 @@ export default function Packages() {
             <p className="package-caterer">{item.business_name} <span>·</span> {item.city || 'Local caterer'}</p>
             <p className="package-card-description">{item.description || 'A thoughtfully prepared package for your event.'}</p>
             {Number(item.is_full) === 1 && <strong className="package-full-label">Package full</strong>}
-            <div className="package-footer"><div><strong>₱{Number(item.price).toLocaleString()}</strong><span>Starting price</span></div><span>{item.guest_count_min}-{item.guest_count_max} guests</span></div>
+            <div className="package-footer"><div><strong>₱{Number(item.price).toLocaleString()}</strong><span>Starting price</span></div></div>
             <a className="package-link" href={`/packages/${item.id}?caterer=${item.caterer_id}`}>View package <span aria-hidden="true">↗</span></a>
           </div>
         </article>)}

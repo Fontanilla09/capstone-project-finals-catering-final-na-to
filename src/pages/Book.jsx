@@ -189,8 +189,6 @@ export default function Book() {
                 <input name="event_date" type="date" min={today} max={maxBookingDate} required />
                 <label>Event start time</label>
                 <input name="event_time" type="time" required />
-                <label>Number of guests</label>
-                <input name="guest_count" type="number" min="1" required />
                 <label>Venue name</label>
                 <input name="venue_name" placeholder="Grand Ballroom" required />
                 <label>Venue address</label>

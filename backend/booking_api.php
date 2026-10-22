@@ -21,14 +21,13 @@ if (!$user['ok'] || $user['role'] !== 'customer' || empty($user['customer_id']))
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 $package_id = (int) ($input['package_id'] ?? 0);
 $caterer_id = (int) ($input['caterer_id'] ?? 0);
-$guest_count = (int) ($input['guest_count'] ?? 0);
 $event_date = trim((string) ($input['event_date'] ?? ''));
 $event_time = trim((string) ($input['event_time'] ?? ''));
 $venue_name = trim((string) ($input['venue_name'] ?? ''));
 $venue_address = trim((string) ($input['venue_address'] ?? ''));
 $payment_method = (string) ($input['payment_method'] ?? 'paypal');
 
-if (!$package_id || !$caterer_id || !$guest_count || !$event_date || !$event_time || !$venue_name || !$venue_address || !in_array($payment_method, ['paypal', 'gcash'], true)) {
+if (!$package_id || !$caterer_id || !$event_date || !$event_time || !$venue_name || !$venue_address || !in_array($payment_method, ['paypal', 'gcash'], true)) {
     http_response_code(422);
     echo json_encode(['error' => 'Complete all event details.']);
     exit;
@@ -80,7 +79,7 @@ $reservation_response = supabase_request('POST', 'reservations', [], [
     'event_time' => $event_time,
     'event_type' => $package['event_type'] ?? null,
     'location' => $venue_name . ' - ' . $venue_address,
-    'guest_count' => $guest_count,
+    'guest_count' => null,
     'total_amount' => $total,
     'advance_payment' => $advance,
     'balance_amount' => $balance,

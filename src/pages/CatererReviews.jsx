@@ -75,7 +75,6 @@ function ReviewCards({ reviews, eventType, onViewImage }) {
           </div>
           <div className="caterer-review-event-meta">
             <span>{eventIcon(review.event_type || eventType)} {review.event_type || eventType || 'Event'}</span>
-            {review.guest_count && <span>{review.guest_count} guests</span>}
             <span>{formatDate(review.event_date)}</span>
           </div>
           <p className="caterer-review-package-line">

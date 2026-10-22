@@ -510,7 +510,6 @@ export default function CustomerDashboard() {
                     <strong>{nextEvent.package_name || 'Catering event'}</strong>
                     <p className="customer-next-event-meta">
                       {nextEvent.business_name || 'Your caterer'} · {formatEventDate(nextEvent.event_date)}
-                      {nextEvent.guest_count ? ` · ${nextEvent.guest_count} guests` : ''}
                     </p>
                   </div>
                   <span className="customer-next-event-icon" aria-hidden="true"><CalendarDays size={26} /></span>
@@ -674,7 +673,6 @@ export default function CustomerDashboard() {
                   <th>Package</th>
                   <th>Caterer</th>
                   <th>Date</th>
-                  <th>Guests</th>
                   <th>Payment</th>
                   <th>Status</th>
                   <th>Action</th>
@@ -686,7 +684,6 @@ export default function CustomerDashboard() {
                     <td data-label="Package"><strong>{item.package_name}</strong></td>
                     <td data-label="Caterer">{item.business_name}</td>
                     <td data-label="Date">{item.event_date}</td>
-                    <td data-label="Guests">{item.guest_count}</td>
                     <td data-label="Payment">
                       <div>₱{Number(item.paid_amount).toLocaleString()} / ₱{Number(item.total_amount).toLocaleString()}</div>
                       {(item.payments || []).map((payment, index) => (

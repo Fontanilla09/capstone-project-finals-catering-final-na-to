@@ -216,7 +216,6 @@ export default function ViewReservations() {
                       <th scope="col">Package</th>
                       <th scope="col">Customer</th>
                       <th scope="col">Event date</th>
-                      <th scope="col">Guests</th>
                       <th scope="col">Venue</th>
                       <th scope="col">Payment</th>
                       <th scope="col">Total</th>
@@ -231,7 +230,6 @@ export default function ViewReservations() {
                           <strong>{formatEventDate(item.event_date)}</strong>
                           <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
                         </td>
-                        <td>{Number(item.guest_count || 0).toLocaleString('en-PH')}</td>
                         <td className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
                         <td><span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span></td>
                         <td><strong>{formatCurrency(item.total_amount)}</strong></td>
@@ -258,7 +256,6 @@ export default function ViewReservations() {
                       <th scope="col">Package / status</th>
                       <th scope="col">Customer</th>
                       <th scope="col">Event date</th>
-                      <th scope="col">Guests</th>
                       <th scope="col">Venue</th>
                       <th scope="col">Payment</th>
                       <th scope="col">Total</th>
@@ -279,7 +276,6 @@ export default function ViewReservations() {
                           <strong>{formatEventDate(item.event_date)}</strong>
                           <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
                         </td>
-                        <td>{Number(item.guest_count || 0).toLocaleString('en-PH')}</td>
                         <td className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
                         <td>
                           <span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>

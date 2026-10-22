@@ -54,8 +54,6 @@ create table if not exists public.packages (
     description text,
     event_type varchar(50),
     price numeric(10,2) not null,
-    guest_count_min integer,
-    guest_count_max integer,
     includes text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
@@ -77,7 +75,7 @@ create table if not exists public.reservations (
     event_time time,
     event_type varchar(50),
     location text not null,
-    guest_count integer not null,
+    guest_count integer,
     total_amount numeric(10,2) not null,
     advance_payment numeric(10,2),
     balance_amount numeric(10,2),

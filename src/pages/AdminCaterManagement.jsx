@@ -69,7 +69,7 @@ export default function AdminCaterManagement() {
       supabase.rpc('get_admin_accounts'),
       supabase
         .from('packages')
-        .select('id, caterer_id, package_name, event_type, price, guest_count_min, guest_count_max, description, created_at, package_images(image_path), caterers!inner(business_name, is_verified)')
+        .select('id, caterer_id, package_name, event_type, price, description, created_at, package_images(image_path), caterers!inner(business_name, is_verified)')
         .eq('caterers.is_verified', true)
         .order('created_at', { ascending: false }),
       supabase
@@ -672,7 +672,6 @@ export default function AdminCaterManagement() {
                         <span className="admin-package-event">{item.event_type || 'Other'}</span>
                         <h3>{item.package_name}</h3>
                         <p className="admin-package-caterer">{item.caterers?.business_name || 'Caterer not specified'}</p>
-                        <p className="admin-package-guests"><span aria-hidden="true">♟</span> {item.guest_count_min || 0}–{item.guest_count_max || 0} guests</p>
                         <strong className="admin-package-price">{money(item.price)} <small>per package</small></strong>
                       </div>
                     </article>
@@ -682,7 +681,7 @@ export default function AdminCaterManagement() {
             ) : (
               <div className="admin-package-table-wrap">
                 <table className="admin-package-table">
-                  <thead><tr><th>Photo</th><th>Package</th><th>Event type</th><th>Caterer</th><th>Guest range</th><th>Price</th></tr></thead>
+                  <thead><tr><th>Photo</th><th>Package</th><th>Event type</th><th>Caterer</th><th>Price</th></tr></thead>
                   <tbody>
                     {visiblePackages.map((item) => (
                       <tr key={item.id}>
@@ -690,7 +689,6 @@ export default function AdminCaterManagement() {
                         <td data-label="Package"><strong>{item.package_name}</strong></td>
                         <td data-label="Event type">{item.event_type || 'Other'}</td>
                         <td data-label="Caterer">{item.caterers?.business_name || 'Caterer not specified'}</td>
-                        <td data-label="Guest range">{item.guest_count_min || 0}–{item.guest_count_max || 0}</td>
                         <td data-label="Price">{money(item.price)}</td>
                       </tr>
                     ))}
