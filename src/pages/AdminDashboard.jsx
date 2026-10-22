@@ -5,6 +5,7 @@ import { API_BASE } from '../lib/api';
 import DashboardPage from '../components/DashboardPage.jsx';
 
 const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const monthLabel = (value) => String(value || '').replace(/\s+\d{2,4}$/, '');
 
 function smoothLinePath(points) {
   if (!points.length) return '';
@@ -152,7 +153,7 @@ export default function AdminDashboard() {
   const latestEarningsMonth = monthlyEarnings.at(-1);
   const latestMonthSubscribers = Number(latestEarningsMonth?.subscribers) || 0;
   const monthlyEarningsDescription = monthlyEarnings
-    .map((month) => `${month.month}: ${money(month.amount)}`)
+    .map((month) => `${monthLabel(month.month)}: ${money(month.amount)}`)
     .join(', ');
 
   const ageMs = lastUpdatedAt === null ? null : Math.max(0, clock - lastUpdatedAt);
@@ -307,7 +308,7 @@ export default function AdminDashboard() {
               <div className="admin-earnings-total">
                 <strong>{money(analytics.subscription_earnings)}</strong>
                 <span>
-                  {latestMonthSubscribers} new subscriber{latestMonthSubscribers === 1 ? '' : 's'} in {latestEarningsMonth?.month || 'the current month'}
+                  {latestMonthSubscribers} new subscriber{latestMonthSubscribers === 1 ? '' : 's'} in {monthLabel(latestEarningsMonth?.month) || 'the current month'}
                   {' · '}{money(sixMonthEarnings)} in the last 6 months
                 </span>
               </div>
@@ -341,7 +342,7 @@ export default function AdminDashboard() {
                       </g>
                     ))}
                     {earningsPoints.map((point) => (
-                      <text className="admin-earnings-month" key={`${point.month}-label`} x={point.x} y="190" textAnchor="middle">{point.month}</text>
+                      <text className="admin-earnings-month" key={`${point.month}-label`} x={point.x} y="190" textAnchor="middle">{monthLabel(point.month)}</text>
                     ))}
                   </svg>
                   <p className="admin-earnings-caption">Your trend will appear here as more caterers subscribe.</p>
@@ -354,7 +355,7 @@ export default function AdminDashboard() {
                     <thead><tr><th>Month</th><th>New subscriptions</th><th>Earnings</th></tr></thead>
                     <tbody>{monthlyEarnings.map((month) => (
                       <tr key={month.month}>
-                        <th scope="row">{month.month}</th>
+                        <th scope="row">{monthLabel(month.month)}</th>
                         <td>{Number(month.subscribers) || 0}</td>
                         <td>{money(month.amount)}</td>
                       </tr>

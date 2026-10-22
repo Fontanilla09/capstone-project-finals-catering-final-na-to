@@ -8114,29 +8114,35 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: color-mix(in srgb, var(--series-color, var(--brand-600)) 10%, var(--surface));
   transform: translateX(3px);
 }
-.dashboard-page .reservation-donut-total { overflow: hidden; }
+.dashboard-page .reservation-donut-total { overflow: visible; }
 .dashboard-page .reservation-donut-center-copy {
   align-items: center;
   animation: reservation-center-enter .24s cubic-bezier(.2, .75, .25, 1) both;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   max-width: 100%;
+  padding: 0 12px;
   text-align: center;
+  width: 100%;
 }
 .dashboard-page .reservation-donut-center-copy strong {
   line-height: 1.1;
   transition: color .2s ease, transform .2s ease;
 }
 .dashboard-page .reservation-donut-center-copy span {
-  max-width: 90%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .dashboard-page .reservation-donut-center-copy small {
   color: var(--muted);
   font-size: 8px;
+  line-height: 1.25;
+  max-width: 100%;
   margin-top: 3px;
+  overflow-wrap: anywhere;
 }
 @keyframes reservation-center-enter {
   from { opacity: 0; transform: translateY(5px) scale(.94); }

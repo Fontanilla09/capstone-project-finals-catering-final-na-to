@@ -63,7 +63,7 @@ begin
         coalesce((
             select jsonb_agg(
                 jsonb_build_object(
-                    'month', to_char(months.month_start, 'Mon YY'),
+                    'month', to_char(months.month_start, 'Mon'),
                     'amount', coalesce(month_totals.amount, 0),
                     'subscribers', coalesce(month_totals.subscribers, 0)
                 )
