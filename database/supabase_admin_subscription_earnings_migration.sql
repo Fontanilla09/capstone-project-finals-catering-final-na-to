@@ -25,7 +25,6 @@ begin
         ),
         'analytics', jsonb_build_object(
             'bookings', (select count(*) from public.reservations where reservation_status <> 'cancelled'),
-            'average_booking', coalesce((select avg(total_amount) from public.reservations where reservation_status <> 'cancelled'), 0),
             'statuses', coalesce((select jsonb_object_agg(reservation_status, status_count) from (
                 select reservation_status, count(*) as status_count
                 from public.reservations

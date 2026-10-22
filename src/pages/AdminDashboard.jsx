@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownToLine, ArrowUpRight, Building2, CalendarDays, ClipboardList, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpRight, Building2, ClipboardList, RefreshCw, ShieldCheck, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { API_BASE } from '../lib/api';
 import DashboardPage from '../components/DashboardPage.jsx';
@@ -159,7 +159,6 @@ export default function AdminDashboard() {
           {[
             { label: 'Total bookings', value: analytics.bookings, hint: 'Excluding cancelled requests', Icon: ClipboardList, tone: 'violet' },
             { label: 'Subscription earnings', value: money(analytics.subscription_earnings), hint: `${analytics.paid_subscriptions || 0} paid subscriptions`, Icon: ArrowUpRight, tone: 'blue' },
-            { label: 'Average booking', value: money(analytics.average_booking), hint: 'Across active bookings', Icon: CalendarDays, tone: 'amber' },
           ].map(({ label, value, hint, Icon, tone }) => (
             <article className={`admin-stat admin-stat-${tone}`} key={label}>
               <div className="admin-stat-top"><span>{label}</span><i><Icon size={18} /></i></div>
