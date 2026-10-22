@@ -89,8 +89,16 @@ $reservation_response = supabase_request('POST', 'reservations', [], [
 ]);
 $reservation = supabase_row($reservation_response);
 if (!$reservation) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Unable to create the booking in Supabase.']);
+    $reservation_error = is_array($reservation_response['data'] ?? null)
+        ? (string) ($reservation_response['data']['message'] ?? '')
+        : '';
+    $is_caterer_full = $reservation_error === 'Caterer already has an active booking.';
+    http_response_code($is_caterer_full ? 409 : 500);
+    echo json_encode([
+        'error' => $is_caterer_full
+            ? 'This caterer already has an active booking. All of their packages are fully booked.'
+            : 'Unable to create the booking in Supabase.',
+    ]);
     exit;
 }
 

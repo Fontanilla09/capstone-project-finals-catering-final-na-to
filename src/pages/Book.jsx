@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Check, CreditCard, LocateFixed, LockKeyhole, Moon, QrCode, Sun } from 'lucide-react';
 import { requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { getUnavailableCatererIds } from '../lib/catererAvailability';
 import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
@@ -154,8 +155,10 @@ export default function Book() {
           .maybeSingle();
         if (error) throw error;
         if (!data) throw new Error('Package not found or not available.');
-        setItem({ ...data, business_name: data.caterers?.business_name, gcash_qr_code: data.caterers?.gcash_qr_code });
-        setStatus('');
+        const unavailableCatererIds = await getUnavailableCatererIds();
+        const isFull = unavailableCatererIds.has(String(data.caterer_id));
+        setItem({ ...data, business_name: data.caterers?.business_name, gcash_qr_code: data.caterers?.gcash_qr_code, is_full: isFull });
+        setStatus(isFull ? 'This caterer already has an active booking. All of their packages are fully booked.' : '');
       } catch (error) {
         setStatus(error.message);
       }
@@ -184,7 +187,10 @@ export default function Book() {
       }
       window.location.href = result.approval_url;
     }
-    catch (error) { setStatus(error.message); setLoading(false); }
+    catch (error) {
+      setStatus(error.message);
+      setLoading(false);
+    }
   }
   if (!packageId || !catererId) return <main className="packages-page"><nav className="packages-nav"><a className="brand" href="/">Cater<span>AI</span></a><a href="/packages">Explore caterers</a></nav><section className="packages-content booking-message"><p className="eyebrow">Booking unavailable</p><h1>Choose a package first.</h1><p>{status || 'This booking link does not contain a valid package.'}</p><a className="button button-primary" href="/packages">Explore caterers <span>↗</span></a></section></main>;
   if (!item && !status) return <main className="packages-page" aria-busy="true"><LoadingSpinner fullPage /></main>;
@@ -215,6 +221,7 @@ export default function Book() {
         <div className="booking-layout">
           <form id="booking-form" className="auth-form booking-form" onSubmit={submit}>
             {status && <p className="form-alert error-alert">{status}</p>}
+            {item?.is_full && <p className="package-full-label">Caterer fully booked</p>}
             {gcashOption ? (
               <section className="gcash-submitted-state">
                 <h2>Booking request created</h2>
@@ -274,8 +281,8 @@ export default function Book() {
                 : <><LockKeyhole size={15} aria-hidden="true" /><span>You’ll be redirected to PayPal to securely complete your online payment.</span></>}
             </p>
             <label className="booking-terms"><input form="booking-form" name="agree_terms" type="checkbox" required /> <span>I agree to the booking terms and 30% down payment.</span></label>
-            <button className="booking-submit" form="booking-form" disabled={loading || !item || Boolean(gcashOption)} type="submit">
-              {loading ? 'Preparing payment…' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span aria-hidden="true">↗</span>
+            <button className="booking-submit" form="booking-form" disabled={loading || !item || item.is_full || Boolean(gcashOption)} type="submit">
+              {loading ? 'Preparing payment…' : item?.is_full ? 'Caterer fully booked' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span aria-hidden="true">↗</span>
             </button>
           </aside>
         </div>

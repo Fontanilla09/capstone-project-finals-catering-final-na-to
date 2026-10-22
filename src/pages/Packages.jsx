@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { API_BASE } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { EVENT_TYPES } from '../lib/eventTypes';
+import { getUnavailableCatererIds } from '../lib/catererAvailability';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const packagesPerPage = 12;
@@ -31,7 +32,10 @@ export default function Packages() {
         .limit(1, { referencedTable: 'package_images' })
         .order('created_at', { ascending: false });
       if (error) throw error;
-      const { data: ratingSummaries, error: ratingError } = await supabase.rpc('get_public_package_review_summaries');
+      const [{ data: ratingSummaries, error: ratingError }, unavailableCatererIds] = await Promise.all([
+        supabase.rpc('get_public_package_review_summaries'),
+        getUnavailableCatererIds(),
+      ]);
       if (ratingError) throw ratingError;
       const ratingsByPackage = new Map((ratingSummaries || []).map((summary) => [
         String(summary.package_id),
@@ -50,7 +54,7 @@ export default function Packages() {
           rating: ratingsByPackage.get(String(item.id))?.rating || null,
           review_count: ratingsByPackage.get(String(item.id))?.review_count || 0,
           image_path: item.package_images?.[0]?.image_path,
-          is_full: 0,
+          is_full: unavailableCatererIds.has(String(item.caterers?.id)) ? 1 : 0,
         }));
       if (nextFilters.sort === 'price_low') filtered.sort((a, b) => Number(a.price) - Number(b.price));
       if (nextFilters.sort === 'price_high') filtered.sort((a, b) => Number(b.price) - Number(a.price));
@@ -132,7 +136,7 @@ export default function Packages() {
             <h2>{item.package_name}</h2>
             <p className="package-caterer">{item.business_name} <span>·</span> {item.city || 'Local caterer'}</p>
             <p className="package-card-description">{item.description || 'A thoughtfully prepared package for your event.'}</p>
-            {Number(item.is_full) === 1 && <strong className="package-full-label">Package full</strong>}
+            {Number(item.is_full) === 1 && <strong className="package-full-label">Caterer fully booked</strong>}
             <div className="package-footer"><div><strong>₱{Number(item.price).toLocaleString()}</strong><span>Starting price</span></div></div>
             <a className="package-link" href={`/packages/${item.id}?caterer=${item.caterer_id}`}>View package <span aria-hidden="true">↗</span></a>
           </div>
