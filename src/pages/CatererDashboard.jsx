@@ -209,10 +209,11 @@ export default function CatererDashboard() {
   let reservationOffset = 0;
   const reservationChartRows = reservationStatusRows.map((row) => {
     const segmentLength = reservationTotal ? (row.value / reservationTotal) * reservationCircumference : 0;
+    const segmentGap = Math.min(3, segmentLength * 0.12);
     const chartRow = {
       ...row,
       percentage: reservationTotal ? Math.round((row.value / reservationTotal) * 1000) / 10 : 0,
-      dashLength: Math.max(segmentLength - 14, 0),
+      dashLength: Math.max(segmentLength - segmentGap, 0),
       offset: -reservationOffset,
     };
     reservationOffset += segmentLength;

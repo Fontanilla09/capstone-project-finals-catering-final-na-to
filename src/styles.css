@@ -981,6 +981,21 @@ footer { align-items: center; display: flex; justify-content: space-between; mar
 @keyframes admin-rise-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes admin-donut-draw { from { stroke-dashoffset: 264; } to { stroke-dashoffset: var(--donut-offset); } }
 @keyframes admin-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 1200px) {
+  .dashboard-page-caterer .caterer-dashboard-main-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-chart-content {
+    grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.2fr);
+    max-width: 660px;
+  }
+
+  .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-donut-wrap {
+    max-width: 250px;
+  }
+}
+
 @media (max-width: 1100px) {
   .dashboard-page-admin .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-page-admin .admin-community-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2312,7 +2327,7 @@ button:active, a:active { transform: scale(.98); }
 }
 
 .admin-overview-stats {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .admin-chart-panel {
@@ -4478,33 +4493,37 @@ textarea:focus-visible {
 
 .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-chart-content {
   gap: 12px;
-  grid-template-columns: minmax(116px, .9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(145px, .9fr) minmax(0, 1.1fr);
   justify-items: stretch;
   margin: 14px auto 0;
   max-width: none;
 }
 
 .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-donut-wrap {
-  max-width: 176px;
+  max-width: 200px;
+}
+
+.dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-donut-segment {
+  stroke-linecap: butt;
 }
 
 .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-legend-item {
-  gap: 6px;
-  grid-template-columns: 9px minmax(0, 1fr) 20px 32px;
-  min-height: 37px;
-  padding: 5px 6px;
+  gap: 8px;
+  grid-template-columns: 9px minmax(0, 1fr) 24px 36px;
+  min-height: 40px;
+  padding: 6px 8px;
 }
 
 .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-legend-label {
-  font-size: 10px;
-}
-
-.dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-legend-item strong {
   font-size: 11px;
 }
 
+.dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-legend-item strong {
+  font-size: 12px;
+}
+
 .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-legend-item small {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .dashboard-page-caterer .caterer-dashboard-panel.caterer-upcoming-events {
@@ -4919,14 +4938,14 @@ textarea:focus-visible {
     gap: 10px;
   }
 
-  .dashboard-page-caterer .caterer-booking-chart-content {
+  .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-chart-content {
     gap: 12px;
     grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr);
     justify-items: stretch;
     margin-top: 16px;
   }
 
-  .dashboard-page-caterer .caterer-booking-donut-wrap {
+  .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-donut-wrap {
     max-width: 170px;
   }
 
@@ -4939,14 +4958,14 @@ textarea:focus-visible {
     display: none;
   }
 
-  .dashboard-page-caterer .caterer-booking-legend-item {
+  .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-legend-item {
     gap: 6px;
     grid-template-columns: 8px minmax(0, 1fr) 20px 30px;
     min-height: 38px;
     padding: 5px 4px;
   }
 
-  .dashboard-page-caterer .caterer-booking-legend-label {
+  .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-legend-label {
     font-size: 11px;
     min-width: 0;
     overflow-wrap: anywhere;
@@ -5584,7 +5603,7 @@ textarea:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .dashboard-page-caterer .caterer-booking-donut-wrap {
+  .dashboard-page-caterer .caterer-dashboard-panel .caterer-booking-donut-wrap {
     margin-inline: auto;
   }
 

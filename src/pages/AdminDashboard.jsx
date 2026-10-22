@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownToLine, ArrowUpRight, Building2, ClipboardList, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { ArrowUpRight, Building2, ClipboardList, RefreshCw, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { API_BASE } from '../lib/api';
 import DashboardPage from '../components/DashboardPage.jsx';
@@ -94,7 +94,10 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const pendingCount = Number(stats.pending || 0) + Number(stats.customer_pending || 0);
+  const caterersNotYetVerified = Math.max(
+    Number(stats.caterers || 0) - Number(stats.verified || 0),
+    0,
+  );
   const statusRows = useMemo(() => {
     const statuses = analytics.statuses || {};
     const knownStatuses = [
@@ -189,6 +192,8 @@ export default function AdminDashboard() {
           {[
             { label: 'Total bookings', value: analytics.bookings, hint: 'Excluding cancelled requests', Icon: ClipboardList, tone: 'violet' },
             { label: 'Subscription earnings', value: money(analytics.subscription_earnings), hint: `${analytics.paid_subscriptions || 0} paid subscriptions`, Icon: ArrowUpRight, tone: 'blue' },
+            { label: 'Caterers', value: stats.caterers ?? 0, hint: `${stats.verified ?? 0} verified · ${caterersNotYetVerified} not yet`, Icon: Building2, tone: 'green' },
+            { label: 'Customers', value: stats.customers ?? 0, hint: 'Registered accounts', Icon: Users, tone: 'amber' },
           ].map(({ label, value, hint, Icon, tone }) => (
             <article className={`admin-stat admin-stat-${tone}`} key={label}>
               <div className="admin-stat-top"><span>{label}</span><i><Icon size={18} /></i></div>
@@ -205,13 +210,6 @@ export default function AdminDashboard() {
               <h3>Platform analytics</h3>
             </div>
             <span className="admin-live-label"><i /> Live database summary</span>
-          </div>
-
-          <div className="admin-community-stats">
-            <article><i><Building2 size={17} /></i><span>Registered caterers</span><strong>{stats.caterers ?? 0}</strong></article>
-            <article><i><ShieldCheck size={17} /></i><span>Verified partners</span><strong>{stats.verified ?? 0}</strong></article>
-            <article><i><Users size={17} /></i><span>Customers</span><strong>{stats.customers ?? 0}</strong></article>
-            <article className="admin-community-pending"><i><ArrowDownToLine size={17} /></i><span>Needs review</span><strong>{pendingCount}</strong></article>
           </div>
 
           <div className="admin-chart-grid">
