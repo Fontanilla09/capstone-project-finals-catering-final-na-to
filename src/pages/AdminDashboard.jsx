@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownToLine, ArrowUpRight, Building2, CalendarDays, CircleDollarSign, ClipboardList, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpRight, Building2, CalendarDays, ClipboardList, RefreshCw, ShieldCheck, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { API_BASE } from '../lib/api';
 import DashboardPage from '../components/DashboardPage.jsx';
@@ -121,10 +121,9 @@ export default function AdminDashboard() {
       return segment;
     });
   }, [statusRows, statusTotal]);
-  const financialMax = Math.max(Number(analytics.revenue) || 0, Number(analytics.subscription_earnings) || 0, 1);
+  const financialMax = Math.max(Number(analytics.subscription_earnings) || 0, 1);
   const financialRows = [
-    ['Booking payment volume', Number(analytics.revenue) || 0, 'var(--chart-1)'],
-    ['Subscription earnings', Number(analytics.subscription_earnings) || 0, 'var(--chart-2)'],
+    ['Subscription earnings', Number(analytics.subscription_earnings) || 0, 'var(--chart-1)'],
   ];
 
   const ageMs = lastUpdatedAt === null ? null : Math.max(0, clock - lastUpdatedAt);
@@ -159,7 +158,6 @@ export default function AdminDashboard() {
         <div className="admin-stats">
           {[
             { label: 'Total bookings', value: analytics.bookings, hint: 'Excluding cancelled requests', Icon: ClipboardList, tone: 'violet' },
-            { label: 'Booking payment volume', value: money(analytics.revenue), hint: `${analytics.completed_payments || 0} completed payments`, Icon: CircleDollarSign, tone: 'green' },
             { label: 'Subscription earnings', value: money(analytics.subscription_earnings), hint: `${analytics.paid_subscriptions || 0} paid subscriptions`, Icon: ArrowUpRight, tone: 'blue' },
             { label: 'Average booking', value: money(analytics.average_booking), hint: 'Across active bookings', Icon: CalendarDays, tone: 'amber' },
           ].map(({ label, value, hint, Icon, tone }) => (
