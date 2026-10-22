@@ -7372,6 +7372,91 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .cater-rating { color: #936b16; font-weight: 700; white-space: nowrap; }
 .cater-suspension-reason { color: #873f34; font-size: 13px; }
 
+.subscription-directory {
+  margin-top: 18px;
+  min-width: 0;
+}
+
+.subscription-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, auto);
+}
+
+.subscription-toolbar select {
+  background: #fffdf9;
+  border: 1px solid #dce2dc;
+  border-radius: 8px;
+  color: #213331;
+  font: inherit;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.subscription-table {
+  background: #fffdf9;
+  border: 1px solid #e5e2dc;
+  border-radius: 12px;
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.subscription-table-header,
+.subscription-table-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(190px, 1.6fr) minmax(76px, .65fr) minmax(88px, .7fr) minmax(145px, 1.1fr) minmax(145px, 1.1fr) minmax(86px, .65fr);
+  min-width: 850px;
+  padding: 12px 18px;
+}
+
+.subscription-table-header {
+  background: #f0eee8;
+  border-bottom: 1px solid #dfe7df;
+  color: #66756d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.subscription-table-row {
+  border-bottom: 1px solid #e5e2dc;
+  color: #1d2a25;
+  font-size: 13px;
+  min-height: 68px;
+}
+
+.subscription-table-row:last-child { border-bottom: 0; }
+.subscription-table-row:hover { background: rgba(184, 201, 191, 0.18); }
+.subscription-table-row > * { min-width: 0; }
+.subscription-table-row > span { overflow-wrap: anywhere; }
+.subscription-table-row .cater-name-cell strong { overflow-wrap: anywhere; }
+
+@media (max-width: 700px) {
+  .subscription-toolbar { grid-template-columns: 1fr; }
+  .subscription-table-header { display: none; }
+  .subscription-table-row {
+    gap: 10px 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+    padding: 14px;
+  }
+  .subscription-table-row .cater-name-cell { grid-column: 1 / -1; }
+  .subscription-table-row > span { font-size: 12px; }
+  .subscription-table-row > span::before {
+    color: #758078;
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+  }
+}
+
 .cater-restriction-overlay {
   align-items: center;
   background: rgba(18, 29, 27, .52);
@@ -8106,12 +8191,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme='dark'] .dashboard-page-admin .cater-summary-card span,
 :root[data-theme='dark'] .dashboard-page-admin .cater-name-cell small,
 :root[data-theme='dark'] .dashboard-page-admin .cater-directory-row,
+:root[data-theme='dark'] .dashboard-page-admin .subscription-table-row,
 :root[data-theme='dark'] .dashboard-page-admin .cater-empty-state {
   color: var(--ink-2);
 }
 
 :root[data-theme='dark'] .dashboard-page-admin .cater-summary-card,
 :root[data-theme='dark'] .dashboard-page-admin .cater-applications-table,
+:root[data-theme='dark'] .dashboard-page-admin .subscription-table,
+:root[data-theme='dark'] .dashboard-page-admin .subscription-toolbar select,
 :root[data-theme='dark'] .dashboard-page-admin .cater-directory-toolbar select,
 :root[data-theme='dark'] .dashboard-page-admin .admin-package-toolbar select,
 :root[data-theme='dark'] .dashboard-page-admin .admin-package-view-toggle,
@@ -8131,6 +8219,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme='dark'] .dashboard-page-admin .cater-tab-bar,
 :root[data-theme='dark'] .dashboard-page-admin .cater-directory-header,
 :root[data-theme='dark'] .dashboard-page-admin .cater-directory-row,
+:root[data-theme='dark'] .dashboard-page-admin .subscription-table-row,
 :root[data-theme='dark'] .dashboard-page-admin .cater-table-header,
 :root[data-theme='dark'] .dashboard-page-admin .cater-table-row {
   border-color: var(--line);
@@ -8149,6 +8238,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 :root[data-theme='dark'] .dashboard-page-admin .cater-directory-header,
+:root[data-theme='dark'] .dashboard-page-admin .subscription-table-header,
 :root[data-theme='dark'] .dashboard-page-admin .cater-table-header,
 :root[data-theme='dark'] .dashboard-page-admin .admin-package-table th {
   background: var(--surface-2);
@@ -8156,6 +8246,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 :root[data-theme='dark'] .dashboard-page-admin .cater-directory-row:hover,
+:root[data-theme='dark'] .dashboard-page-admin .subscription-table-row:hover,
 :root[data-theme='dark'] .dashboard-page-admin .cater-table-row:hover {
   background: color-mix(in srgb, var(--surface-2) 78%, transparent);
 }

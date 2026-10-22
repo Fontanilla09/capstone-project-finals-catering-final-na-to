@@ -8,6 +8,13 @@ import DashboardPage from '../components/DashboardPage.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
+const subscriptionDate = (value) => {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? 'Not available'
+    : date.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+};
 const packageEventThemes = {
   anniversary: { icon: '💞', color: 'rose' },
   birthday: { icon: '🎂', color: 'orange' },
@@ -30,6 +37,9 @@ export default function AdminCaterManagement() {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [verifiedCaterers, setVerifiedCaterers] = useState([]);
   const [verifiedCatererCount, setVerifiedCatererCount] = useState(0);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [subscriptionSearch, setSubscriptionSearch] = useState('');
+  const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState('all');
   const [packages, setPackages] = useState([]);
   const [selectedTheme, setSelectedTheme] = useState('');
   const [activeTab, setActiveTab] = useState('applications');
@@ -46,6 +56,7 @@ export default function AdminCaterManagement() {
   const [savingRestriction, setSavingRestriction] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const [rejectingAccount, setRejectingAccount] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [permitPreview, setPermitPreview] = useState(null);
@@ -54,7 +65,7 @@ export default function AdminCaterManagement() {
   async function load() {
     setLoading(true);
     setError('');
-    const [accountsResult, packagesResult, caterersResult] = await Promise.all([
+    const [accountsResult, packagesResult, caterersResult, subscriptionsResult] = await Promise.all([
       supabase.rpc('get_admin_accounts'),
       supabase
         .from('packages')
@@ -66,6 +77,7 @@ export default function AdminCaterManagement() {
         .select('id, business_name, phone, address, city, is_verified, is_suspended, suspension_reason, created_at, business_permit, rating')
         .eq('is_verified', true)
         .order('business_name', { ascending: true }),
+      supabase.rpc('get_admin_caterer_subscriptions'),
     ]);
 
     const errors = [];
@@ -112,12 +124,22 @@ export default function AdminCaterManagement() {
     } else {
       setPackages(packagesResult.data || []);
     }
+    if (subscriptionsResult.error) {
+      errors.push(`Unable to load caterer subscriptions: ${subscriptionsResult.error.message}`);
+    } else {
+      setSubscriptions(subscriptionsResult.data || []);
+    }
     setError(errors.join(' '));
     setLoading(false);
   }
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -309,6 +331,26 @@ export default function AdminCaterManagement() {
       if (catererSort === 'rating-desc') return Number(second.rating || 0) - Number(first.rating || 0);
       return first.business_name.localeCompare(second.business_name);
     });
+  const visibleSubscriptions = subscriptions
+    .map((subscription) => {
+      const isExpired = subscription.status === 'expired'
+        || (subscription.status === 'active'
+          && (!subscription.expires_at || Date.parse(subscription.expires_at) <= currentTime));
+      return {
+        ...subscription,
+        displayStatus: isExpired ? 'expired' : subscription.status,
+      };
+    })
+    .filter((subscription) => {
+      const search = subscriptionSearch.trim().toLocaleLowerCase();
+      const matchesSearch = !search || [
+        subscription.business_name,
+        subscription.email,
+      ].some((value) => value?.toLocaleLowerCase().includes(search));
+      const matchesStatus = subscriptionStatusFilter === 'all'
+        || subscription.displayStatus === subscriptionStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
 
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
   const selectedApplication = applications.find((application) => application.id === selectedApplicationId) || null;
@@ -387,6 +429,7 @@ export default function AdminCaterManagement() {
         <div className="cater-tab-bar" aria-label="Cater management tabs">
           <button className={`cater-tab ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => { setActiveTab('applications'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Applications <span>{pendingApprovals.length}</span></button>
           <button className={`cater-tab ${activeTab === 'caterers' ? 'active' : ''}`} onClick={() => { setActiveTab('caterers'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Caterers <span>{verifiedCatererCount}</span></button>
+          <button className={`cater-tab ${activeTab === 'subscriptions' ? 'active' : ''}`} onClick={() => { setActiveTab('subscriptions'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Subscriptions <span>{subscriptions.length}</span></button>
           <button className={`cater-tab ${activeTab === 'packages' ? 'active' : ''}`} onClick={() => { setActiveTab('packages'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Packages <span>{packages.length}</span></button>
         </div>
 
@@ -531,6 +574,63 @@ export default function AdminCaterManagement() {
                 </aside>
               </div>
             )}
+          </section>
+        )}
+
+        {activeTab === 'subscriptions' && (
+          <section className="subscription-directory" aria-label="Caterer subscriptions">
+            <div className="subscription-toolbar">
+              <input
+                aria-label="Search subscriptions"
+                className="cater-search"
+                onChange={(event) => setSubscriptionSearch(event.target.value)}
+                placeholder="Search caterer or email..."
+                type="search"
+                value={subscriptionSearch}
+              />
+              <select
+                aria-label="Filter subscriptions by status"
+                onChange={(event) => setSubscriptionStatusFilter(event.target.value)}
+                value={subscriptionStatusFilter}
+              >
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            <div className="subscription-table" role="table" aria-label="Subscription records">
+              <div className="subscription-table-header" role="row">
+                <span role="columnheader">Caterer</span>
+                <span role="columnheader">Plan</span>
+                <span role="columnheader">Amount</span>
+                <span role="columnheader">Started</span>
+                <span role="columnheader">Expires</span>
+                <span role="columnheader">Status</span>
+              </div>
+              {visibleSubscriptions.length ? visibleSubscriptions.map((subscription) => (
+                <div className="subscription-table-row" key={subscription.subscription_id} role="row">
+                  <div className="cater-name-cell" role="cell">
+                    <strong>{subscription.business_name || 'Caterer account'}</strong>
+                    <small>{subscription.email || 'No email provided'}</small>
+                  </div>
+                  <span data-label="Plan" role="cell">{subscription.plan === 'yearly' ? 'Yearly' : 'Monthly'}</span>
+                  <span data-label="Amount" role="cell">{money(subscription.amount)}</span>
+                  <span data-label="Started" role="cell">{subscriptionDate(subscription.started_at)}</span>
+                  <span data-label="Expires" role="cell">{subscriptionDate(subscription.expires_at)}</span>
+                  <span data-label="Status" role="cell">
+                    <span className={`cater-badge ${subscription.displayStatus === 'active' ? 'verified' : subscription.displayStatus === 'expired' ? 'suspended' : subscription.displayStatus === 'pending' ? 'pending' : 'muted'}`}>
+                      {subscription.displayStatus || 'Unknown'}
+                    </span>
+                  </span>
+                </div>
+              )) : loading ? <LoadingSpinner compact /> : (
+                <p className="cater-empty-state">
+                  {subscriptions.length ? 'No subscriptions match these filters.' : 'No caterer subscriptions have been recorded yet.'}
+                </p>
+              )}
+            </div>
           </section>
         )}
 
