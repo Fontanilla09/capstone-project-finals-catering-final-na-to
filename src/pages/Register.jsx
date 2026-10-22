@@ -1,14 +1,22 @@
-import { useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, FileText, LockKeyhole, Mail, Phone, Store, UploadCloud, UserRound, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, CircleCheck, Eye, EyeOff, FileText, LockKeyhole, Mail, Phone, Store, UploadCloud, UserRound, X } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const emptyForm = { full_name: '', business_name: '', email: '', phone: '', address: '', city: '', paypal_email: '', password: '' };
+
+function maskEmail(email) {
+  const [localPart, domain] = email.split('@');
+  return `${localPart.slice(0, Math.min(2, localPart.length))}•••@${domain}`;
+}
 
 export default function Register() {
   const requestedType = new URLSearchParams(window.location.search).get('account_type');
   const [accountType, setAccountType] = useState(requestedType === 'caterer' ? 'caterer' : 'customer');
   const [form, setForm] = useState(emptyForm);
   const [status, setStatus] = useState({ error: '', success: '' });
+  const [confirmationEmail, setConfirmationEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState('');
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [catererStep, setCatererStep] = useState(1);
@@ -18,8 +26,30 @@ export default function Register() {
   const formRef = useRef(null);
   const permitInputRef = useRef(null);
   const gcashInputRef = useRef(null);
+  const confirmationModalRef = useRef(null);
+  const previousFocusRef = useRef(null);
   const nameField = accountType === 'customer' ? 'full_name' : 'business_name';
   const confirmationRedirectUrl = `${window.location.origin}/login?confirmed=1`;
+
+  useEffect(() => {
+    if (!confirmationEmail) return undefined;
+
+    previousFocusRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    confirmationModalRef.current?.focus();
+
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setConfirmationEmail('');
+    }
+
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+      previousFocusRef.current?.focus?.();
+    };
+  }, [confirmationEmail]);
 
   function update(event) {
     const { name, value } = event.target;
@@ -37,6 +67,25 @@ export default function Register() {
     if (gcashInputRef.current) gcashInputRef.current.value = '';
     setPermitName('');
     setGcashName('');
+  }
+
+  async function resendConfirmation() {
+    setResendingConfirmation(true);
+    setResendStatus('');
+    try {
+      if (!isSupabaseConfigured) throw new Error('Email confirmation is temporarily unavailable. Please try again later.');
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: confirmationEmail,
+        options: { emailRedirectTo: confirmationRedirectUrl },
+      });
+      if (error) throw new Error(error.message);
+      setResendStatus('A new verification email is on its way. Check your inbox and spam folder.');
+    } catch (error) {
+      setResendStatus(error.message);
+    } finally {
+      setResendingConfirmation(false);
+    }
   }
 
   function validateCurrentStep() {
@@ -129,10 +178,7 @@ export default function Register() {
 
       if (accountType === 'caterer' && values.business_permit?.size) {
         if (!data.session) {
-          setStatus({
-            error: '',
-            success: `Account created. Email confirmation is required. Check ${values.email} and its spam folder for a confirmation link. After confirming and signing in, upload your business permit and optional GCash QR from Business profile.`,
-          });
+          setConfirmationEmail(values.email.trim());
           setForm(emptyForm);
           setCatererStep(1);
           setPermitName('');
@@ -181,10 +227,15 @@ export default function Register() {
         }
       }
 
-      const success = data.session
-        ? 'Account created. Email confirmation appears to be disabled in Supabase, so no confirmation email was requested. Sign in after admin approval.'
-        : `Account created. Email confirmation is required. Check ${values.email} and its spam folder for a confirmation link. If no email arrives, check Supabase email confirmation and SMTP settings.`;
-      setStatus({ error: '', success: `${success}${gcashUploadNotice}` });
+      if (!data.session) {
+        setConfirmationEmail(values.email.trim());
+        setResendStatus('');
+      } else {
+        setStatus({
+          error: '',
+          success: `Your account was created. You can sign in after it is approved by an administrator.${gcashUploadNotice}`,
+        });
+      }
       setForm(emptyForm);
       setCatererStep(1);
       setPermitName('');
@@ -517,6 +568,60 @@ export default function Register() {
           <p className="register-privacy">Your information is used to set up and secure your account.</p>
         </div>
       </section>
+      {confirmationEmail && (
+        <div
+          className="register-confirmation-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setConfirmationEmail('');
+          }}
+        >
+          <section
+            aria-labelledby="register-confirmation-title"
+            aria-modal="true"
+            className="register-confirmation-modal"
+            ref={confirmationModalRef}
+            role="dialog"
+            tabIndex={-1}
+          >
+            <button
+              aria-label="Close email verification message"
+              className="register-confirmation-close"
+              onClick={() => setConfirmationEmail('')}
+              type="button"
+            >
+              <X size={19} aria-hidden="true" />
+            </button>
+            <span className="register-confirmation-icon"><CircleCheck size={27} aria-hidden="true" /></span>
+            <p className="register-eyebrow">ONE LAST STEP</p>
+            <h2 id="register-confirmation-title">Check your email</h2>
+            <p className="register-confirmation-copy">
+              We sent a verification link to <strong>{maskEmail(confirmationEmail)}</strong>.
+              Open the email and click the link to verify your account.
+            </p>
+            <p className="register-confirmation-hint">Can’t find it? Check your spam or junk folder.</p>
+            {accountType === 'caterer' && (
+              <p className="register-confirmation-hint">
+                After verifying and signing in, you can upload your business permit and GCash QR from your Business Profile.
+              </p>
+            )}
+            {resendStatus && (
+              <p className="register-confirmation-feedback" role="status">{resendStatus}</p>
+            )}
+            <a className="register-confirmation-primary" href="https://mail.google.com/" rel="noreferrer" target="_blank">
+              <Mail size={17} aria-hidden="true" /> Open Gmail
+            </a>
+            <button
+              className="register-confirmation-resend"
+              disabled={resendingConfirmation}
+              onClick={resendConfirmation}
+              type="button"
+            >
+              {resendingConfirmation ? 'Sending...' : 'Resend verification email'}
+            </button>
+            <a className="register-confirmation-login" href="/login">Return to sign in</a>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
