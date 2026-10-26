@@ -92,11 +92,16 @@ if (!$reservation) {
     $reservation_error = is_array($reservation_response['data'] ?? null)
         ? (string) ($reservation_response['data']['message'] ?? '')
         : '';
-    $is_caterer_full = $reservation_error === 'Caterer already has an active booking.';
-    http_response_code($is_caterer_full ? 409 : 500);
+    $reservation_error_code = is_array($reservation_response['data'] ?? null)
+        ? (string) ($reservation_response['data']['code'] ?? '')
+        : '';
+    $is_date_unavailable = $reservation_error === 'Caterer already has a booking on this date.'
+        || ($reservation_error_code === '23505'
+            && strpos($reservation_error, 'reservations_one_active_caterer_booking_per_date') !== false);
+    http_response_code($is_date_unavailable ? 409 : 500);
     echo json_encode([
-        'error' => $is_caterer_full
-            ? 'This caterer already has an active booking. All of their packages are fully booked.'
+        'error' => $is_date_unavailable
+            ? 'This caterer already has a booking on the selected date. Please choose another date.'
             : 'Unable to create the booking in Supabase.',
     ]);
     exit;

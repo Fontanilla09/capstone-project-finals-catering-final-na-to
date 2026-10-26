@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Check, CreditCard, LocateFixed, LockKeyhole, Moon, QrCode, Sun } from 'lucide-react';
 import { requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { getUnavailableCatererIds } from '../lib/catererAvailability';
+import { isCatererAvailableOnDate } from '../lib/catererAvailability';
 import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
@@ -128,6 +128,8 @@ export default function Book() {
   const packageId = Number(query.get('package') || 0); const catererId = Number(query.get('caterer') || 0);
   const [status, setStatus] = useState(''); const [loading, setLoading] = useState(false); const [item, setItem] = useState(null);
   const [venueAddress, setVenueAddress] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [dateAvailability, setDateAvailability] = useState({ date: '', status: 'idle' });
   const [paymentMethod, setPaymentMethod] = useState('paypal');
   const [gcashOption, setGcashOption] = useState(null);
   const [theme, setTheme] = useState(getInitialTheme);
@@ -155,18 +157,38 @@ export default function Book() {
           .maybeSingle();
         if (error) throw error;
         if (!data) throw new Error('Package not found or not available.');
-        const unavailableCatererIds = await getUnavailableCatererIds();
-        const isFull = unavailableCatererIds.has(String(data.caterer_id));
-        setItem({ ...data, business_name: data.caterers?.business_name, gcash_qr_code: data.caterers?.gcash_qr_code, is_full: isFull });
-        setStatus(isFull ? 'This caterer already has an active booking. All of their packages are fully booked.' : '');
+        setItem({ ...data, business_name: data.caterers?.business_name, gcash_qr_code: data.caterers?.gcash_qr_code });
       } catch (error) {
         setStatus(error.message);
       }
     }
     loadPackage();
   }, [packageId, catererId]);
+  useEffect(() => {
+    if (!eventDate || !item) {
+      setDateAvailability({ date: '', status: 'idle' });
+      return undefined;
+    }
+    let current = true;
+    setDateAvailability({ date: eventDate, status: 'checking' });
+    isCatererAvailableOnDate(catererId, eventDate)
+      .then((available) => {
+        if (current) setDateAvailability({ date: eventDate, status: available ? 'available' : 'unavailable' });
+      })
+      .catch((error) => {
+        console.error('Could not check caterer availability for the selected date:', error);
+        if (current) setDateAvailability({ date: eventDate, status: 'error' });
+      });
+    return () => { current = false; };
+  }, [catererId, eventDate, item]);
   async function submit(event) {
     event.preventDefault(); if (!packageId || !catererId) { setStatus('This booking link is invalid. Please choose a package first.'); return; }
+    if (dateAvailability.date !== eventDate || dateAvailability.status !== 'available') {
+      setStatus(dateAvailability.status === 'unavailable'
+        ? 'This caterer already has a booking on the selected date. Please choose another date.'
+        : 'Please wait for the selected date availability check to finish.');
+      return;
+    }
     setLoading(true); setStatus('');
     try {
       const values = Object.fromEntries(new FormData(event.currentTarget));
@@ -189,6 +211,9 @@ export default function Book() {
     }
     catch (error) {
       setStatus(error.message);
+      if (error.message?.includes('already has a booking on the selected date')) {
+        setDateAvailability({ date: eventDate, status: 'unavailable' });
+      }
       setLoading(false);
     }
   }
@@ -221,7 +246,6 @@ export default function Book() {
         <div className="booking-layout">
           <form id="booking-form" className="auth-form booking-form" onSubmit={submit}>
             {status && <p className="form-alert error-alert">{status}</p>}
-            {item?.is_full && <p className="package-full-label">Caterer fully booked</p>}
             {gcashOption ? (
               <section className="gcash-submitted-state">
                 <h2>Booking request created</h2>
@@ -232,7 +256,7 @@ export default function Book() {
                 <section className="booking-section">
                   <h2><span>1</span>Event details</h2>
                   <div className="booking-fields-two">
-                    <label className="booking-field">Event date<input name="event_date" type="date" min={today} max={maxBookingDate} required /></label>
+                    <label className="booking-field">Event date<input name="event_date" type="date" min={today} max={maxBookingDate} value={eventDate} onChange={(event) => { setEventDate(event.target.value); setStatus(''); setDateAvailability({ date: event.target.value, status: event.target.value ? 'checking' : 'idle' }); }} required />{dateAvailability.date === eventDate && dateAvailability.status === 'checking' && <small role="status">Checking availability…</small>}{dateAvailability.date === eventDate && dateAvailability.status === 'available' && <small role="status">Available for this date.</small>}{dateAvailability.date === eventDate && dateAvailability.status === 'unavailable' && <small className="form-alert error-alert" role="alert">This caterer is already booked on this date. Choose another date.</small>}{dateAvailability.date === eventDate && dateAvailability.status === 'error' && <small className="form-alert error-alert" role="alert">Could not check this date. Please choose the date again to retry.</small>}</label>
                     <label className="booking-field">Start time<input name="event_time" type="time" required /></label>
                   </div>
                 </section>
@@ -281,8 +305,8 @@ export default function Book() {
                 : <><LockKeyhole size={15} aria-hidden="true" /><span>You’ll be redirected to PayPal to securely complete your online payment.</span></>}
             </p>
             <label className="booking-terms"><input form="booking-form" name="agree_terms" type="checkbox" required /> <span>I agree to the booking terms and 30% down payment.</span></label>
-            <button className="booking-submit" form="booking-form" disabled={loading || !item || item.is_full || Boolean(gcashOption)} type="submit">
-              {loading ? 'Preparing payment…' : item?.is_full ? 'Caterer fully booked' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span aria-hidden="true">↗</span>
+            <button className="booking-submit" form="booking-form" disabled={loading || !item || !eventDate || dateAvailability.date !== eventDate || dateAvailability.status !== 'available' || Boolean(gcashOption)} type="submit">
+              {loading ? 'Preparing payment…' : dateAvailability.status === 'checking' ? 'Checking availability…' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span aria-hidden="true">↗</span>
             </button>
           </aside>
         </div>
