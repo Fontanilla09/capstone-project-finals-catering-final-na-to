@@ -3746,6 +3746,102 @@ textarea:focus-visible {
   gap: 14px;
 }
 
+.dashboard-page-caterer .caterer-earnings-page {
+  display: grid;
+  gap: 18px;
+}
+
+.dashboard-page-caterer .caterer-earnings-heading {
+  margin: 0;
+}
+
+.dashboard-page-caterer .caterer-earnings-heading h2 {
+  color: var(--caterer-ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(25px, 2.5vw, 34px);
+  font-weight: 700;
+  letter-spacing: -.04em;
+  margin: 0;
+}
+
+.dashboard-page-caterer .caterer-earnings-summary {
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-page-caterer .caterer-earnings-payouts {
+  background: #fff;
+  border: 1px solid var(--caterer-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(36, 55, 46, .04);
+  padding: 20px;
+}
+
+.dashboard-page-caterer .caterer-earnings-payouts > .analytics-status-title {
+  margin: 0;
+}
+
+.dashboard-page-caterer .caterer-earnings-payouts > .analytics-status-title h2 {
+  font-size: 19px;
+  margin: 0;
+}
+
+.dashboard-page-caterer .caterer-earnings-payout-list {
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.dashboard-page-caterer .caterer-earnings-payout-list .caterer-payout-card {
+  background: #fbfaf7;
+  border: 1px solid var(--caterer-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+  padding: 16px;
+}
+
+.dashboard-page-caterer .caterer-earnings-payout-list .caterer-payout-card h3,
+.dashboard-page-caterer .caterer-earnings-payout-list .caterer-payout-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-page-caterer .caterer-earnings-payout-list .caterer-payout-card > strong {
+  color: var(--caterer-green);
+  font-size: 20px;
+}
+
+.dashboard-page-caterer .caterer-earnings-payout-list .caterer-payout-card > .button {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.dashboard-page-caterer .caterer-earnings-empty {
+  align-items: center;
+  background: #fbfaf7;
+  border: 1px dashed var(--caterer-border);
+  border-radius: 12px;
+  color: var(--caterer-muted);
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  min-height: 64px;
+  padding: 14px 16px;
+}
+
+.dashboard-page-caterer .caterer-earnings-empty > svg {
+  color: var(--caterer-green);
+  flex: 0 0 auto;
+}
+
+.dashboard-page-caterer .caterer-earnings-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+
 .dashboard-page-caterer .stat-card {
   background: #fff;
   border: 1px solid var(--caterer-border);
@@ -5595,6 +5691,15 @@ textarea:focus-visible {
   .dashboard-page-caterer .dashboard-shell {
     padding-left: 13px;
     padding-right: 13px;
+  }
+
+  .dashboard-page-caterer .caterer-earnings-summary,
+  .dashboard-page-caterer .caterer-earnings-payout-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-page-caterer .caterer-earnings-payouts {
+    padding: 14px;
   }
 
   .dashboard-page-caterer .stat-card {
@@ -12633,10 +12738,77 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .booking-form .venue-map {
+  background: #e8eeea;
   border: 1px solid #dce3d7;
-  border-radius: 14px;
-  height: 220px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(22, 37, 30, .08);
+  height: 260px;
   margin: 0;
+  position: relative;
+}
+
+.booking-form .venue-map .leaflet-control-zoom {
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 3px 12px rgba(22, 37, 30, .2);
+  margin: 0 12px 12px 0;
+  overflow: hidden;
+}
+
+.booking-form .venue-map .leaflet-control-zoom a {
+  align-items: center;
+  background: #fff;
+  color: #20362e;
+  display: flex;
+  font-family: var(--font-body);
+  font-size: 19px;
+  height: 36px;
+  justify-content: center;
+  transition: background .15s, color .15s;
+  width: 36px;
+}
+
+.booking-form .venue-map .leaflet-control-zoom a:hover {
+  background: #eaf1eb;
+  color: #1f6b5c;
+}
+
+.booking-form .venue-map .leaflet-control-attribution {
+  background: rgba(255, 255, 255, .9);
+  border-radius: 7px 0 0;
+  color: #52625d;
+  font-family: var(--font-body);
+  font-size: 10px;
+  padding: 3px 7px;
+}
+
+.booking-form .venue-map .leaflet-control-attribution a {
+  color: #1f6b5c;
+}
+
+.venue-map-marker-icon {
+  background: transparent;
+  border: 0;
+}
+
+.venue-map-marker {
+  align-items: center;
+  background: #c45b38;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 3px 10px rgba(22, 37, 30, .35);
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  transform: rotate(-45deg);
+  width: 30px;
+}
+
+.venue-map-marker > span {
+  background: #fff;
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
 }
 
 .booking-form .venue-selected {
@@ -13041,6 +13213,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 
   .booking-form .venue-map {
-    height: 190px;
+    height: 220px;
   }
 }

@@ -46,7 +46,18 @@ function VenueAddressPicker({ value, onChange }) {
     if (!mapRef.current) return;
     mapRef.current.setView([latitude, longitude], Math.max(mapRef.current.getZoom(), 16));
     if (markerRef.current) markerRef.current.remove();
-    markerRef.current = L.marker([latitude, longitude], { draggable: true }).addTo(mapRef.current);
+    const icon = L.divIcon({
+      className: 'venue-map-marker-icon',
+      html: '<span class="venue-map-marker"><span></span></span>',
+      iconSize: [34, 42],
+      iconAnchor: [17, 40],
+    });
+    markerRef.current = L.marker([latitude, longitude], {
+      alt: 'Selected event venue',
+      draggable: true,
+      icon,
+      title: 'Selected event venue',
+    }).addTo(mapRef.current);
     markerRef.current.on('dragend', ({ target }) => {
       const position = target.getLatLng();
       reverseLookup(position.lat, position.lng);
@@ -120,7 +131,7 @@ function VenueAddressPicker({ value, onChange }) {
     }, () => setStatus('Please allow location access or search for an address instead.'), { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 });
   }
 
-  return <div className="venue-picker"><input name="venue_address" type="hidden" value={value} required readOnly /><div className="venue-search-row"><input aria-label="Search venue address" value={query} onChange={searchAddress} placeholder="e.g. Municipal Hall" /><button type="button" onClick={useCurrentLocation}><LocateFixed size={15} aria-hidden="true" />Use my location</button></div>{searching && <p className="venue-picker-status">Searching addresses...</p>}{status && <p className="venue-picker-status">{status}</p>}{results.length > 0 && <div className="venue-results">{results.map((result) => <button key={result.place_id} type="button" onClick={() => selectLocation(result)}>{result.display_name}</button>)}</div>}<div className="venue-address-grid"><label>City / Municipality<input name="venue_city" value={parts.city} onChange={(event) => updatePart('city', event.target.value)} placeholder="Mamburao" /></label><label>Barangay<input name="venue_barangay" value={parts.barangay} onChange={(event) => updatePart('barangay', event.target.value)} placeholder="Payompon" /></label><label>Postal code <span>(optional)</span><input name="venue_postal" inputMode="numeric" value={parts.postal} onChange={(event) => updatePart('postal', event.target.value)} placeholder="5106" /></label><label className="venue-street-field">Street, building, house no.<input name="venue_street" value={parts.street} onChange={(event) => updatePart('street', event.target.value)} placeholder="Purok / street / building" /></label></div><p className="venue-map-hint">Tap the map or drag the pin to the exact event location.</p><div className="venue-map" id="venue-address-map" />{value && <p className="venue-selected">Event venue: {value}</p>}</div>;
+  return <div className="venue-picker"><input name="venue_address" type="hidden" value={value} required readOnly /><div className="venue-search-row"><input aria-label="Search venue address" value={query} onChange={searchAddress} placeholder="e.g. Municipal Hall" /><button type="button" onClick={useCurrentLocation}><LocateFixed size={15} aria-hidden="true" />Use my location</button></div>{searching && <p className="venue-picker-status">Searching addresses...</p>}{status && <p className="venue-picker-status">{status}</p>}{results.length > 0 && <div className="venue-results">{results.map((result) => <button key={result.place_id} type="button" onClick={() => selectLocation(result)}>{result.display_name}</button>)}</div>}<div className="venue-address-grid"><label>City / Municipality<input name="venue_city" value={parts.city} onChange={(event) => updatePart('city', event.target.value)} placeholder="Mamburao" /></label><label>Barangay<input name="venue_barangay" value={parts.barangay} onChange={(event) => updatePart('barangay', event.target.value)} placeholder="Payompon" /></label><label>Postal code <span>(optional)</span><input name="venue_postal" inputMode="numeric" value={parts.postal} onChange={(event) => updatePart('postal', event.target.value)} placeholder="5106" /></label><label className="venue-street-field">Street, building, house no.<input name="venue_street" value={parts.street} onChange={(event) => updatePart('street', event.target.value)} placeholder="Purok / street / building" /></label></div><p className="venue-map-hint">Tap the map or drag the pin to the exact event location.</p><div className="venue-map" id="venue-address-map" role="application" aria-label="Interactive map to select the event venue" />{value && <p className="venue-selected">Event venue: {value}</p>}</div>;
 }
 
 export default function Book() {

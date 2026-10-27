@@ -125,24 +125,26 @@ export default function CatererEarnings() {
   return <DashboardPage role="caterer" section="earnings">
     {error && <p className="form-alert error-alert" role="alert">{error}</p>}
     {!data ? <LoadingSpinner /> : <>
-      <section className="verification-panel"><h2>PayPal earnings</h2><p>Customer payments are received by the platform first. Request a payout below to send the full amount to your PayPal account. No platform commission is deducted; PayPal processing fees may still apply.</p></section>
-      <div className="stats-grid">
-        <article className="stat-card"><h3>Total earnings</h3><strong>{money(data.summary?.total)}</strong></article>
-        <article className="stat-card"><h3>Paid out</h3><strong>{money(data.summary?.paid)}</strong></article>
-        <article className="stat-card"><h3>Pending payout</h3><strong>{money(data.summary?.pending)}</strong></article>
-      </div>
-      <div className="analytics-status-title">
-        <h2>{showHistory ? 'Payout history' : 'Payouts'}</h2>
-        <button className="button button-secondary button-small" onClick={() => { setShowHistory((show) => !show); setHistoryPage(1); }} type="button" aria-pressed={showHistory}>
-          {showHistory ? 'Back to payouts' : `History (${payoutHistory.length})`}
-        </button>
-      </div>
-      {showHistory ? (
-        payoutHistory.length ? (
-          <>
-            <p className="caterer-history-scroll-hint">Scroll horizontally to see all payout details.</p>
-            <div className="caterer-reservation-history-wrap caterer-payout-history-wrap" role="region" aria-label="Payout history" tabIndex="0">
-              <table className="caterer-reservation-history-table caterer-payout-history-table" aria-label="Payout history">
+      <div className="caterer-earnings-page">
+        <header className="caterer-earnings-heading"><h2>Earnings</h2></header>
+        <div className="stats-grid caterer-earnings-summary">
+          <article className="stat-card"><h3>Total earnings</h3><strong>{money(data.summary?.total)}</strong></article>
+          <article className="stat-card"><h3>Paid out</h3><strong>{money(data.summary?.paid)}</strong></article>
+          <article className="stat-card"><h3>Pending payout</h3><strong>{money(data.summary?.pending)}</strong></article>
+        </div>
+        <section className="caterer-earnings-payouts">
+          <div className="analytics-status-title">
+            <h2>{showHistory ? 'Payout history' : 'Payouts'}</h2>
+            <button className="button button-secondary button-small" onClick={() => { setShowHistory((show) => !show); setHistoryPage(1); }} type="button" aria-pressed={showHistory}>
+              {showHistory ? 'Back to payouts' : `History (${payoutHistory.length})`}
+            </button>
+          </div>
+          {showHistory ? (
+            payoutHistory.length ? (
+              <>
+                <p className="caterer-history-scroll-hint">Scroll horizontally to see all payout details.</p>
+                <div className="caterer-reservation-history-wrap caterer-payout-history-wrap" role="region" aria-label="Payout history" tabIndex="0">
+                  <table className="caterer-reservation-history-table caterer-payout-history-table" aria-label="Payout history">
                 <thead>
                   <tr>
                     <th scope="col">Package</th>
@@ -191,43 +193,53 @@ export default function CatererEarnings() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-            {payoutHistory.length > historyPageSize && (
-              <div className="analytics-status-title caterer-reservation-pagination" aria-label="Payment history pages">
-                <span className="caterer-reservation-pagination-range">
-                  Showing {(currentHistoryPage - 1) * historyPageSize + 1}–{Math.min(currentHistoryPage * historyPageSize, payoutHistory.length)} of {payoutHistory.length}
-                </span>
-                <div className="caterer-reservation-pagination-controls">
-                  <button className="button button-secondary button-small" disabled={currentHistoryPage === 1} onClick={() => setHistoryPage((page) => Math.max(1, page - 1))} type="button">Previous</button>
-                  <span aria-live="polite">Page {currentHistoryPage} of {historyPageCount}</span>
-                  <button className="button button-secondary button-small" disabled={currentHistoryPage === historyPageCount} onClick={() => setHistoryPage((page) => Math.min(historyPageCount, page + 1))} type="button">Next</button>
+                  </table>
                 </div>
+                {payoutHistory.length > historyPageSize && (
+                  <div className="analytics-status-title caterer-reservation-pagination" aria-label="Payment history pages">
+                    <span className="caterer-reservation-pagination-range">
+                      Showing {(currentHistoryPage - 1) * historyPageSize + 1}–{Math.min(currentHistoryPage * historyPageSize, payoutHistory.length)} of {payoutHistory.length}
+                    </span>
+                    <div className="caterer-reservation-pagination-controls">
+                      <button className="button button-secondary button-small" disabled={currentHistoryPage === 1} onClick={() => setHistoryPage((page) => Math.max(1, page - 1))} type="button">Previous</button>
+                      <span aria-live="polite">Page {currentHistoryPage} of {historyPageCount}</span>
+                      <button className="button button-secondary button-small" disabled={currentHistoryPage === historyPageCount} onClick={() => setHistoryPage((page) => Math.min(historyPageCount, page + 1))} type="button">Next</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="caterer-earnings-empty">
+                <BanknoteArrowUp size={20} aria-hidden="true" />
+                <p>No payment history yet.</p>
               </div>
-            )}
-          </>
-        ) : (
-          <p>No payment history yet.</p>
-        )
-      ) : activePayouts.length > 0 ? (
-        <div className="reservation-list">
-          {activePayouts.map((payout) => <article className="package-card caterer-payout-card" key={payout.id}>
-            <h3>{payout.package_name}</h3>
-            <p>Reservation #{payout.reservation_id} · {payout.event_date}</p>
-            <p>Gross {money(payout.gross_amount)} · Platform fee {money(payout.platform_fee)}</p>
-            <strong>{money(payout.caterer_amount)}</strong>
-            <span className={`admin-status admin-status-${payout.payout_status}`}>{payout.payout_status}</span>
-            {payout.payout_status === 'processing' && <p role="status">PayPal is processing this payout. Status refreshes automatically.</p>}
-            {payout.payout_status === 'pending' && <button className="button button-primary button-small" disabled={busyPayoutId !== null} onClick={() => handlePayout(payout, 'request')} type="button">{busyPayoutId === payout.id ? <LoaderCircle className="payout-loading-spinner" size={15} aria-hidden="true" /> : <BanknoteArrowUp size={15} aria-hidden="true" />}{busyPayoutId === payout.id ? 'Requesting…' : 'Request payout'}</button>}
-            {payout.payout_status === 'processing' && <button className="button button-secondary button-small" disabled={busyPayoutId !== null} onClick={() => handlePayout(payout, 'status')} type="button">{busyPayoutId === payout.id ? <LoaderCircle className="payout-loading-spinner" size={15} aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}{busyPayoutId === payout.id ? 'Checking…' : 'Check payout status'}</button>}
-            {payoutFeedback[payout.id] && (
-              <p className={`payout-inline-feedback payout-inline-feedback-${payoutFeedback[payout.id].type}`} role={payoutFeedback[payout.id].type === 'error' ? 'alert' : 'status'}>
-                {payoutFeedback[payout.id].message}
-              </p>
-            )}
-          </article>)}
-        </div>
-      ) :       <p>No payouts are waiting for a payout request.</p>}
+            )
+          ) : activePayouts.length > 0 ? (
+            <div className="reservation-list caterer-earnings-payout-list">
+              {activePayouts.map((payout) => <article className="package-card caterer-payout-card" key={payout.id}>
+                <h3>{payout.package_name}</h3>
+                <p>Reservation #{payout.reservation_id} · {payout.event_date}</p>
+                <p>Gross {money(payout.gross_amount)} · Platform fee {money(payout.platform_fee)}</p>
+                <strong>{money(payout.caterer_amount)}</strong>
+                <span className={`admin-status admin-status-${payout.payout_status}`}>{payout.payout_status}</span>
+                {payout.payout_status === 'processing' && <p role="status">PayPal is processing this payout. Status refreshes automatically.</p>}
+                {payout.payout_status === 'pending' && <button className="button button-primary button-small" disabled={busyPayoutId !== null} onClick={() => handlePayout(payout, 'request')} type="button">{busyPayoutId === payout.id ? <LoaderCircle className="payout-loading-spinner" size={15} aria-hidden="true" /> : <BanknoteArrowUp size={15} aria-hidden="true" />}{busyPayoutId === payout.id ? 'Requesting…' : 'Request payout'}</button>}
+                {payout.payout_status === 'processing' && <button className="button button-secondary button-small" disabled={busyPayoutId !== null} onClick={() => handlePayout(payout, 'status')} type="button">{busyPayoutId === payout.id ? <LoaderCircle className="payout-loading-spinner" size={15} aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}{busyPayoutId === payout.id ? 'Checking…' : 'Check payout status'}</button>}
+                {payoutFeedback[payout.id] && (
+                  <p className={`payout-inline-feedback payout-inline-feedback-${payoutFeedback[payout.id].type}`} role={payoutFeedback[payout.id].type === 'error' ? 'alert' : 'status'}>
+                    {payoutFeedback[payout.id].message}
+                  </p>
+                )}
+              </article>)}
+            </div>
+          ) : (
+            <div className="caterer-earnings-empty">
+              <BanknoteArrowUp size={20} aria-hidden="true" />
+              <p>No payouts are waiting for a payout request.</p>
+            </div>
+          )}
+        </section>
+      </div>
     </>}
   </DashboardPage>;
 }
