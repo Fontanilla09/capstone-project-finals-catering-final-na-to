@@ -5599,7 +5599,139 @@ textarea:focus-visible {
 
   .dashboard-page-caterer .caterer-history-scroll-hint,
   .dashboard-page-caterer .caterer-active-scroll-hint {
+    display: none;
+  }
+
+  .dashboard-page-caterer .caterer-active-reservations-wrap,
+  .dashboard-page-caterer .caterer-reservation-history-wrap {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    margin-top: 0;
+    overflow: visible;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table,
+  .dashboard-page-caterer .caterer-reservation-history-table.caterer-active-reservations-table {
     display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table thead {
+    border: 0;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table tbody tr {
+    background: var(--surface, #fff);
+    border: 1px solid var(--caterer-border);
+    border-radius: 14px;
+    box-shadow: 0 5px 16px rgba(36, 55, 46, .05);
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    padding: 6px 14px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table tbody tr:hover {
+    background: var(--surface, #fff);
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table td,
+  .dashboard-page-caterer .caterer-reservation-history-table.caterer-active-reservations-table td {
+    align-items: flex-start;
+    border-bottom: 1px solid var(--caterer-border);
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(84px, .7fr) minmax(0, 1.3fr);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 10px 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table td::before {
+    color: var(--caterer-muted);
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table td > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table td .caterer-history-time {
+    white-space: normal;
+  }
+
+  .dashboard-page-caterer .caterer-active-reservations-table td:first-child .caterer-history-payment {
+    display: inline-flex;
+    margin-top: 5px;
+  }
+
+  .dashboard-page-caterer .caterer-active-reservations-table td:nth-child(4),
+  .dashboard-page-caterer .caterer-active-reservations-table td:last-child {
+    white-space: normal;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-row-action {
+    flex-wrap: wrap;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-row-action .button {
+    min-height: 38px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-summary {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-summary article {
+    align-content: start;
+    border-radius: 11px;
+    gap: 5px;
+    min-width: 0;
+    padding: 11px 10px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-summary article > span {
+    font-size: 10px;
+    min-height: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-summary article > strong {
+    font-size: 24px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-summary article > small {
+    display: none;
   }
 
   .dashboard-page-caterer .caterer-reservation-pagination {
@@ -5691,6 +5823,27 @@ textarea:focus-visible {
   .dashboard-page-caterer .dashboard-shell {
     padding-left: 13px;
     padding-right: 13px;
+  }
+
+  .dashboard-page-caterer .caterer-reservations-heading {
+    align-items: flex-start;
+  }
+
+  .dashboard-page-caterer .caterer-reservations-heading .button {
+    font-size: 11px;
+    min-height: 38px;
+    padding: 7px 9px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table tbody tr {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+
+  .dashboard-page-caterer .caterer-reservation-history-table td,
+  .dashboard-page-caterer .caterer-reservation-history-table.caterer-active-reservations-table td {
+    gap: 8px;
+    grid-template-columns: 76px minmax(0, 1fr);
   }
 
   .dashboard-page-caterer .caterer-earnings-summary,

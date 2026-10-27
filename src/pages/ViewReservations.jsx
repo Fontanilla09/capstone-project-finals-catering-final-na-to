@@ -224,15 +224,15 @@ export default function ViewReservations() {
                   <tbody>
                     {pagedReservations.map((item) => (
                       <tr key={item.id}>
-                        <td><strong>{item.package_name || 'Catering package'}</strong></td>
-                        <td>{item.customer_name || 'Customer'}</td>
-                        <td>
+                        <td data-label="Package"><strong>{item.package_name || 'Catering package'}</strong></td>
+                        <td data-label="Customer">{item.customer_name || 'Customer'}</td>
+                        <td data-label="Event date">
                           <strong>{formatEventDate(item.event_date)}</strong>
                           <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
                         </td>
-                        <td className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
-                        <td><span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span></td>
-                        <td><strong>{formatCurrency(item.total_amount)}</strong></td>
+                        <td data-label="Venue" className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
+                        <td data-label="Payment"><span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span></td>
+                        <td data-label="Total"><strong>{formatCurrency(item.total_amount)}</strong></td>
                       </tr>
                     ))}
                   </tbody>
@@ -265,27 +265,27 @@ export default function ViewReservations() {
                   <tbody>
                     {pagedReservations.map((item) => (
                       <tr key={item.id}>
-                        <td>
+                        <td data-label="Package / status">
                           <strong>{item.package_name || 'Catering package'}</strong>
                           <span className={`caterer-history-payment caterer-history-payment-${item.reservation_status || 'pending'}`}>
                             {item.reservation_status || 'pending'}
                           </span>
                         </td>
-                        <td>{item.customer_name || 'Customer'}</td>
-                        <td>
+                        <td data-label="Customer">{item.customer_name || 'Customer'}</td>
+                        <td data-label="Event date">
                           <strong>{formatEventDate(item.event_date)}</strong>
                           <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
                         </td>
-                        <td className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
-                        <td>
+                        <td data-label="Venue" className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
+                        <td data-label="Payment">
                           <span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>
                             {item.payment_status || 'pending'}
                           </span>
                           <span className="caterer-history-time">Down payment: {formatCurrency(item.advance_payment)}</span>
                           <span className="caterer-history-time">Balance: {formatCurrency(item.payment_status === 'completed' ? 0 : item.balance_amount)}</span>
                         </td>
-                        <td><strong>{formatCurrency(item.total_amount)}</strong></td>
-                        <td>
+                        <td data-label="Total"><strong>{formatCurrency(item.total_amount)}</strong></td>
+                        <td data-label="Action">
                           <div className="caterer-reservation-row-action">
                             {item.reservation_status === 'pending' && item.payment_status === 'partial' ? (
                               <button className="button button-primary button-small" onClick={() => accept(item.id)} type="button">Accept</button>
