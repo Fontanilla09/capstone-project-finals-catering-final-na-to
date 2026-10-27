@@ -169,6 +169,10 @@ export default function Book() {
       setDateAvailability({ date: '', status: 'idle' });
       return undefined;
     }
+    if (!isSupabaseConfigured || !supabase) {
+      setDateAvailability({ date: eventDate, status: 'error' });
+      return undefined;
+    }
     let current = true;
     setDateAvailability({ date: eventDate, status: 'checking' });
     isCatererAvailableOnDate(catererId, eventDate)
