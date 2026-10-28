@@ -2,18 +2,12 @@ import { useEffect, useState } from 'react';
 import { Activity, CalendarCheck2, CalendarDays, Clock3, MessageSquareText, Package, Star, UsersRound, WalletCards } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import { formatEventTimeRange } from '../lib/eventTime';
 
 function money(value) { return `₱${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
 function getEventDate(value) {
   return new Date(`${value}T00:00:00`);
-}
-
-function formatEventTime(eventDate, eventTime) {
-  if (!eventTime) return 'Time not set';
-  const dateTime = new Date(`${eventDate}T${eventTime}`);
-  if (Number.isNaN(dateTime.getTime())) return eventTime;
-  return dateTime.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
 }
 
 function formatActivityDate(value) {
@@ -415,7 +409,7 @@ export default function CatererDashboard() {
                           <h4>{event.package_name || 'Catering event'}</h4>
                           <div className="caterer-upcoming-event-meta">
                             <span><UsersRound size={14} aria-hidden="true" />{event.customer_name || 'Customer'}</span>
-                            <span><Clock3 size={14} aria-hidden="true" /><time dateTime={`${event.event_date}T${event.event_time || '00:00:00'}`}>{formatEventTime(event.event_date, event.event_time)}</time></span>
+                            <span><Clock3 size={14} aria-hidden="true" /><time dateTime={`${event.event_date}T${event.event_time || '00:00:00'}`}>{formatEventTimeRange(event.event_time, event.event_end_time)}</time></span>
                           </div>
                         </div>
                       </article>

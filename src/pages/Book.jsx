@@ -140,6 +140,8 @@ export default function Book() {
   const [status, setStatus] = useState(''); const [loading, setLoading] = useState(false); const [item, setItem] = useState(null);
   const [venueAddress, setVenueAddress] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [eventStartTime, setEventStartTime] = useState('');
+  const [eventEndTime, setEventEndTime] = useState('');
   const [dateAvailability, setDateAvailability] = useState({ date: '', status: 'idle' });
   const [paymentMethod, setPaymentMethod] = useState('paypal');
   const [gcashOption, setGcashOption] = useState(null);
@@ -198,6 +200,10 @@ export default function Book() {
   }, [catererId, eventDate, item]);
   async function submit(event) {
     event.preventDefault(); if (!packageId || !catererId) { setStatus('This booking link is invalid. Please choose a package first.'); return; }
+    if (!eventStartTime || !eventEndTime || eventEndTime <= eventStartTime) {
+      setStatus('End time must be later than start time.');
+      return;
+    }
     if (dateAvailability.date !== eventDate || dateAvailability.status !== 'available') {
       setStatus(dateAvailability.status === 'unavailable'
         ? 'This caterer already has a booking on the selected date. Please choose another date.'
@@ -270,9 +276,48 @@ export default function Book() {
               <>
                 <section className="booking-section">
                   <h2><span>1</span>Event details</h2>
-                  <div className="booking-fields-two">
-                    <label className="booking-field">Event date<input name="event_date" type="date" min={today} max={maxBookingDate} value={eventDate} onChange={(event) => { setEventDate(event.target.value); setStatus(''); setDateAvailability({ date: event.target.value, status: event.target.value ? 'checking' : 'idle' }); }} required />{dateAvailability.date === eventDate && dateAvailability.status === 'checking' && <small className="booking-date-message" role="status">Checking availability…</small>}{dateAvailability.date === eventDate && dateAvailability.status === 'available' && <small className="booking-date-message booking-date-success" role="status">Available for this date.</small>}{dateAvailability.date === eventDate && dateAvailability.status === 'unavailable' && <small className="booking-date-message form-alert error-alert" role="alert">This caterer is already booked on this date. Choose another date.</small>}{dateAvailability.date === eventDate && dateAvailability.status === 'error' && <small className="booking-date-message form-alert error-alert" role="alert">Could not check this date. Please choose the date again to retry.</small>}</label>
-                    <label className="booking-field">Start time<input name="event_time" type="time" required /></label>
+                  <div className="booking-fields-event-time">
+                    <label className="booking-field">
+                      Event date
+                      <input
+                        name="event_date"
+                        type="date"
+                        min={today}
+                        max={maxBookingDate}
+                        value={eventDate}
+                        onChange={(event) => {
+                          setEventDate(event.target.value);
+                          setStatus('');
+                          setDateAvailability({ date: event.target.value, status: event.target.value ? 'checking' : 'idle' });
+                        }}
+                        required
+                      />
+                      {dateAvailability.date === eventDate && dateAvailability.status === 'checking' && <small className="booking-date-message" role="status">Checking availability…</small>}
+                      {dateAvailability.date === eventDate && dateAvailability.status === 'available' && <small className="booking-date-message booking-date-success" role="status">Available</small>}
+                      {dateAvailability.date === eventDate && dateAvailability.status === 'unavailable' && <small className="booking-date-message form-alert error-alert" role="alert">Not available</small>}
+                      {dateAvailability.date === eventDate && dateAvailability.status === 'error' && <small className="booking-date-message form-alert error-alert" role="alert">Could not check this date. Please choose the date again to retry.</small>}
+                    </label>
+                    <label className="booking-field">
+                      Start time
+                      <input
+                        name="event_time"
+                        type="time"
+                        value={eventStartTime}
+                        onChange={(event) => setEventStartTime(event.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="booking-field">
+                      End time
+                      <input
+                        name="event_end_time"
+                        type="time"
+                        min={eventStartTime || undefined}
+                        value={eventEndTime}
+                        onChange={(event) => setEventEndTime(event.target.value)}
+                        required
+                      />
+                    </label>
                   </div>
                 </section>
                 <section className="booking-section">

@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
+import { formatEventTimeRange } from '../lib/eventTime';
 
 function statusClass(status) {
   return `status-pill status-${status}`;
@@ -548,7 +549,7 @@ export default function CustomerDashboard() {
                     </h2>
                     <strong>{nextEvent.package_name || 'Catering event'}</strong>
                     <p className="customer-next-event-meta">
-                      {nextEvent.business_name || 'Your caterer'} · {formatEventDate(nextEvent.event_date)}
+                      {nextEvent.business_name || 'Your caterer'} · {formatEventDate(nextEvent.event_date)} · {formatEventTimeRange(nextEvent.event_time, nextEvent.event_end_time)}
                     </p>
                   </div>
                   <span className="customer-next-event-icon" aria-hidden="true"><CalendarDays size={26} /></span>
@@ -722,7 +723,10 @@ export default function CustomerDashboard() {
                   <tr key={item.id}>
                     <td data-label="Package"><strong>{item.package_name}</strong></td>
                     <td data-label="Caterer">{item.business_name}</td>
-                    <td data-label="Date">{item.event_date}</td>
+                    <td data-label="Date">
+                      <strong>{formatEventDate(item.event_date)}</strong>
+                      <span className="customer-reservation-time">{formatEventTimeRange(item.event_time, item.event_end_time)}</span>
+                    </td>
                     <td data-label="Payment">
                       <div>₱{Number(item.paid_amount).toLocaleString()} / ₱{Number(item.total_amount).toLocaleString()}</div>
                       {(item.payments || []).map((payment, index) => (

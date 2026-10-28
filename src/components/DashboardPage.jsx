@@ -604,21 +604,24 @@ export default function DashboardPage({ role, section = 'overview', children, ba
     if (!authChecked || role !== 'admin') return undefined;
     let active = true;
     const loadAdminCounts = async () => {
-      const [accountsResult, reportsResult] = await Promise.all([
+      const [accountsResult, customersResult, reportsResult] = await Promise.all([
         supabase.rpc('get_admin_accounts'),
+        supabase.rpc('get_admin_customers'),
         supabase.from('customer_reports').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_review']),
       ]);
       if (!active) return;
       if (!accountsResult.error) {
         const accounts = accountsResult.data || [];
-        const pendingCustomers = accounts.filter((user) => (
-          user.role === 'customer' && !user.customer_verified && !user.rejection_reason
-        )).length;
         const pendingCaterers = accounts.filter((user) => (
           user.role === 'caterer' && !user.caterer_verified && !user.rejection_reason
         )).length;
-        setPendingCustomerCount(pendingCustomers);
         setPendingAccountCount(pendingCaterers);
+      }
+      if (!customersResult.error) {
+        const pendingCustomers = (customersResult.data || []).filter((customer) => (
+          !customer.is_verified && !customer.rejection_reason
+        )).length;
+        setPendingCustomerCount(pendingCustomers);
       }
       if (!reportsResult.error) setOpenReportCount(reportsResult.count || 0);
     };

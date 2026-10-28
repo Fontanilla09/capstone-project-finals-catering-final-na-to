@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, Eye, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import { formatEventTimeRange } from '../lib/eventTime';
 
 const reservationsPerPage = 4;
 const historyReservationsPerPage = 8;
@@ -24,14 +25,6 @@ function formatEventDate(value) {
     : date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function formatEventTime(eventDate, eventTime) {
-  if (!eventTime) return 'Time not set';
-  const date = new Date(`${eventDate}T${eventTime}`);
-  return Number.isNaN(date.getTime())
-    ? eventTime
-    : date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
-}
-
 export default function ViewReservations() {
   const [reservations, setReservations] = useState([]); const [status, setStatus] = useState('');
   const [gcashSubmissions, setGcashSubmissions] = useState([]);
@@ -39,6 +32,7 @@ export default function ViewReservations() {
   const [showHistory, setShowHistory] = useState(false);
   const [page, setPage] = useState(1);
   const [rejectingReservation, setRejectingReservation] = useState(null);
+  const [viewingReservation, setViewingReservation] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   async function load() {
     try {
@@ -69,6 +63,14 @@ export default function ViewReservations() {
     } catch (error) { setStatus(error.message); }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!viewingReservation) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setViewingReservation(null);
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [viewingReservation]);
   async function reviewGcash(payment, approve) {
     if (reviewingGcashId !== null) return;
     let reviewNote = null;
@@ -219,6 +221,7 @@ export default function ViewReservations() {
                       <th scope="col">Venue</th>
                       <th scope="col">Payment</th>
                       <th scope="col">Total</th>
+                      <th scope="col">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -228,11 +231,14 @@ export default function ViewReservations() {
                         <td data-label="Customer">{item.customer_name || 'Customer'}</td>
                         <td data-label="Event date">
                           <strong>{formatEventDate(item.event_date)}</strong>
-                          <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
+                          <span className="caterer-history-time">{formatEventTimeRange(item.event_time, item.event_end_time)}</span>
                         </td>
-                        <td data-label="Venue" className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
+                        <td data-label="Venue" className="caterer-history-venue" title={item.venue_address || item.location || ''}>{item.venue_name || item.location || 'Not provided'}</td>
                         <td data-label="Payment"><span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span></td>
                         <td data-label="Total"><strong>{formatCurrency(item.total_amount)}</strong></td>
+                        <td data-label="Action">
+                          <button className="button button-secondary button-small" onClick={() => setViewingReservation(item)} type="button"><Eye size={14} aria-hidden="true" /> View</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -274,9 +280,9 @@ export default function ViewReservations() {
                         <td data-label="Customer">{item.customer_name || 'Customer'}</td>
                         <td data-label="Event date">
                           <strong>{formatEventDate(item.event_date)}</strong>
-                          <span className="caterer-history-time">{formatEventTime(item.event_date, item.event_time)}</span>
+                          <span className="caterer-history-time">{formatEventTimeRange(item.event_time, item.event_end_time)}</span>
                         </td>
-                        <td data-label="Venue" className="caterer-history-venue" title={item.location || ''}>{item.location || 'Not provided'}</td>
+                        <td data-label="Venue" className="caterer-history-venue" title={item.venue_address || item.location || ''}>{item.venue_name || item.location || 'Not provided'}</td>
                         <td data-label="Payment">
                           <span className={`caterer-history-payment caterer-history-payment-${item.payment_status || 'pending'}`}>
                             {item.payment_status || 'pending'}
@@ -287,6 +293,7 @@ export default function ViewReservations() {
                         <td data-label="Total"><strong>{formatCurrency(item.total_amount)}</strong></td>
                         <td data-label="Action">
                           <div className="caterer-reservation-row-action">
+                            <button className="button button-secondary button-small" onClick={() => setViewingReservation(item)} type="button"><Eye size={14} aria-hidden="true" /> View</button>
                             {item.reservation_status === 'pending' && item.payment_status === 'partial' ? (
                               <button className="button button-primary button-small" onClick={() => accept(item.id)} type="button">Accept</button>
                             ) : item.reservation_status === 'pending' && item.payment_status === 'pending' ? (
@@ -323,6 +330,73 @@ export default function ViewReservations() {
               <span aria-live="polite">Page {currentPage} of {pageCount}</span>
               <button className="button button-secondary button-small" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} type="button">Next</button>
             </div>
+          </div>
+        )}
+        {viewingReservation && (
+          <div
+            className="reservation-details-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reservation-details-title"
+            onClick={() => setViewingReservation(null)}
+          >
+            <section className="reservation-details-modal" onClick={(event) => event.stopPropagation()}>
+              <header className="reservation-details-header">
+                <div>
+                  <p className="eyebrow eyebrow-soft">Booking details</p>
+                  <h2 id="reservation-details-title">{viewingReservation.package_name || 'Catering package'}</h2>
+                  <p>Reservation #{viewingReservation.id} · {viewingReservation.customer_name || 'Customer'}</p>
+                </div>
+                <button className="payment-receipt-close" onClick={() => setViewingReservation(null)} type="button" aria-label="Close booking details"><X size={18} /></button>
+              </header>
+              <div className="reservation-details-status">
+                <span className={`caterer-history-payment caterer-history-payment-${viewingReservation.reservation_status || 'pending'}`}>{viewingReservation.reservation_status || 'pending'}</span>
+                <span className={`caterer-history-payment caterer-history-payment-${viewingReservation.payment_status || 'pending'}`}>{viewingReservation.payment_status || 'pending'} payment</span>
+              </div>
+              <section className="reservation-details-section">
+                <h3>Customer</h3>
+                <dl>
+                  <div><dt>Name</dt><dd>{viewingReservation.customer_name || 'Not provided'}</dd></div>
+                  <div><dt>Email</dt><dd>{viewingReservation.customer_email || 'Not provided'}</dd></div>
+                  <div><dt>Phone</dt><dd>{viewingReservation.customer_phone || 'Not provided'}</dd></div>
+                </dl>
+              </section>
+              <section className="reservation-details-section">
+                <h3>Event</h3>
+                <dl>
+                  <div><dt>Event type</dt><dd>{viewingReservation.event_type || 'Not provided'}</dd></div>
+                  <div><dt>Date</dt><dd>{formatEventDate(viewingReservation.event_date)}</dd></div>
+                  <div><dt>Time</dt><dd>{formatEventTimeRange(viewingReservation.event_time, viewingReservation.event_end_time)}</dd></div>
+                  <div><dt>Guests</dt><dd>{viewingReservation.guest_count ?? 'Not provided'}</dd></div>
+                </dl>
+              </section>
+              <section className="reservation-details-section">
+                <h3>Venue</h3>
+                <dl>
+                  <div><dt>Venue name</dt><dd>{viewingReservation.venue_name || (viewingReservation.location?.split(' - ')[0] ?? 'Not provided')}</dd></div>
+                  <div className="reservation-details-wide"><dt>Address</dt><dd>{viewingReservation.venue_address || viewingReservation.location?.split(' - ').slice(1).join(' - ') || viewingReservation.location || 'Not provided'}</dd></div>
+                  <div><dt>City / Municipality</dt><dd>{viewingReservation.venue_city || 'Not provided'}</dd></div>
+                  <div><dt>Barangay</dt><dd>{viewingReservation.venue_barangay || 'Not provided'}</dd></div>
+                  <div><dt>Street / Building</dt><dd>{viewingReservation.venue_street || 'Not provided'}</dd></div>
+                  <div><dt>Postal code</dt><dd>{viewingReservation.venue_postal || 'Not provided'}</dd></div>
+                </dl>
+              </section>
+              <section className="reservation-details-section">
+                <h3>Payment</h3>
+                <dl>
+                  <div><dt>Method</dt><dd>{viewingReservation.booking_payment_method || 'Not recorded'}</dd></div>
+                  <div><dt>Package total</dt><dd>{formatCurrency(viewingReservation.total_amount)}</dd></div>
+                  <div><dt>Down payment</dt><dd>{formatCurrency(viewingReservation.advance_payment)}</dd></div>
+                  <div><dt>Remaining balance</dt><dd>{formatCurrency(viewingReservation.payment_status === 'completed' ? 0 : viewingReservation.balance_amount)}</dd></div>
+                </dl>
+              </section>
+              {viewingReservation.special_requests && (
+                <section className="reservation-details-section">
+                  <h3>Special requests</h3>
+                  <p>{viewingReservation.special_requests}</p>
+                </section>
+              )}
+            </section>
           </div>
         )}
         {rejectingReservation && (

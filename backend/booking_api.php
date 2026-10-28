@@ -23,13 +23,27 @@ $package_id = (int) ($input['package_id'] ?? 0);
 $caterer_id = (int) ($input['caterer_id'] ?? 0);
 $event_date = trim((string) ($input['event_date'] ?? ''));
 $event_time = trim((string) ($input['event_time'] ?? ''));
+$event_end_time = trim((string) ($input['event_end_time'] ?? ''));
 $venue_name = trim((string) ($input['venue_name'] ?? ''));
 $venue_address = trim((string) ($input['venue_address'] ?? ''));
+$venue_city = trim((string) ($input['venue_city'] ?? ''));
+$venue_barangay = trim((string) ($input['venue_barangay'] ?? ''));
+$venue_postal = trim((string) ($input['venue_postal'] ?? ''));
+$venue_street = trim((string) ($input['venue_street'] ?? ''));
 $payment_method = (string) ($input['payment_method'] ?? 'paypal');
 
-if (!$package_id || !$caterer_id || !$event_date || !$event_time || !$venue_name || !$venue_address || !in_array($payment_method, ['paypal', 'gcash'], true)) {
+if (!$package_id || !$caterer_id || !$event_date || !$event_time || !$event_end_time || !$venue_name || !$venue_address || !in_array($payment_method, ['paypal', 'gcash'], true)) {
     http_response_code(422);
     echo json_encode(['error' => 'Complete all event details.']);
+    exit;
+}
+if (
+    !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $event_time)
+    || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $event_end_time)
+    || $event_end_time <= $event_time
+) {
+    http_response_code(422);
+    echo json_encode(['error' => 'End time must be later than start time.']);
     exit;
 }
 
@@ -77,7 +91,15 @@ $reservation_response = supabase_request('POST', 'reservations', [], [
     'package_id' => $package_id,
     'event_date' => $event_date,
     'event_time' => $event_time,
+    'event_end_time' => $event_end_time,
     'event_type' => $package['event_type'] ?? null,
+    'venue_name' => $venue_name,
+    'venue_address' => $venue_address,
+    'venue_city' => $venue_city !== '' ? $venue_city : null,
+    'venue_barangay' => $venue_barangay !== '' ? $venue_barangay : null,
+    'venue_postal' => $venue_postal !== '' ? $venue_postal : null,
+    'venue_street' => $venue_street !== '' ? $venue_street : null,
+    'booking_payment_method' => $payment_method,
     'location' => $venue_name . ' - ' . $venue_address,
     'guest_count' => null,
     'total_amount' => $total,
