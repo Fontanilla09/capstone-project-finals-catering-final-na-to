@@ -20,7 +20,7 @@ begin
             'customers', (select count(*) from public.customers),
             'caterers', (select count(*) from public.caterers),
             'verified', (select count(*) from public.caterers where is_verified = true),
-            'pending', (select count(*) from public.caterers where verification_submitted = true and is_verified = false),
+            'pending', (select count(*) from public.caterers where is_verified = false),
             'customer_pending', (select count(*) from public.customers where is_verified = false)
         ),
         'analytics', jsonb_build_object(

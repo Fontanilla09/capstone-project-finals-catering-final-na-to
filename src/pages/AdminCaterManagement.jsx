@@ -87,7 +87,6 @@ export default function AdminCaterManagement() {
     } else {
       const pending = accounts.filter((account) =>
         account.role === 'caterer'
-        && account.caterer_verification_submitted === true
         && !account.caterer_verified
         && !account.rejection_reason,
       );

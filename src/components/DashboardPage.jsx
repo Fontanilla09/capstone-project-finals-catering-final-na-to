@@ -615,7 +615,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
           user.role === 'customer' && !user.customer_verified && !user.rejection_reason
         )).length;
         const pendingCaterers = accounts.filter((user) => (
-          user.role === 'caterer' && user.caterer_verification_submitted === true && !user.caterer_verified && !user.rejection_reason
+          user.role === 'caterer' && !user.caterer_verified && !user.rejection_reason
         )).length;
         setPendingCustomerCount(pendingCustomers);
         setPendingAccountCount(pendingCaterers);
