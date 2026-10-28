@@ -18,6 +18,11 @@ function formatCurrency(amount) {
   return `₱${Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatPaymentMethod(value) {
+  if (!value) return 'Not recorded';
+  return value === 'paypal' ? 'PayPal' : value === 'gcash' ? 'GCash' : value;
+}
+
 function formatEventDate(value) {
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime())
@@ -367,7 +372,6 @@ export default function ViewReservations() {
                   <div><dt>Event type</dt><dd>{viewingReservation.event_type || 'Not provided'}</dd></div>
                   <div><dt>Date</dt><dd>{formatEventDate(viewingReservation.event_date)}</dd></div>
                   <div><dt>Time</dt><dd>{formatEventTimeRange(viewingReservation.event_time, viewingReservation.event_end_time)}</dd></div>
-                  <div><dt>Guests</dt><dd>{viewingReservation.guest_count ?? 'Not provided'}</dd></div>
                 </dl>
               </section>
               <section className="reservation-details-section">
@@ -384,7 +388,7 @@ export default function ViewReservations() {
               <section className="reservation-details-section">
                 <h3>Payment</h3>
                 <dl>
-                  <div><dt>Method</dt><dd>{viewingReservation.booking_payment_method || 'Not recorded'}</dd></div>
+                  <div><dt>Method</dt><dd>{formatPaymentMethod(viewingReservation.booking_payment_method)}</dd></div>
                   <div><dt>Package total</dt><dd>{formatCurrency(viewingReservation.total_amount)}</dd></div>
                   <div><dt>Down payment</dt><dd>{formatCurrency(viewingReservation.advance_payment)}</dd></div>
                   <div><dt>Remaining balance</dt><dd>{formatCurrency(viewingReservation.payment_status === 'completed' ? 0 : viewingReservation.balance_amount)}</dd></div>
