@@ -8,7 +8,8 @@ import {
   CircleDollarSign,
   Clock3,
   CreditCard,
-  Flag,
+  MoreHorizontal,
+  ChevronDown,
   MessageCircle,
   Printer,
   ReceiptText,
@@ -79,6 +80,8 @@ export default function CustomerDashboard() {
   const [payingBalanceId, setPayingBalanceId] = useState(null);
   const [gcashOptions, setGcashOptions] = useState([]);
   const [cancellationRequests, setCancellationRequests] = useState({});
+  const [openReservationMenu, setOpenReservationMenu] = useState(null);
+  const [openBalanceMenu, setOpenBalanceMenu] = useState(null);
   const [gcashOption, setGcashOption] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [rating, setRating] = useState(5);
@@ -279,6 +282,27 @@ export default function CustomerDashboard() {
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [receipt]);
+
+  useEffect(() => {
+    if (openReservationMenu === null && openBalanceMenu === null) return undefined;
+    function closeMenus(event) {
+      if (event.type === 'keydown' && event.key === 'Escape') {
+        setOpenReservationMenu(null);
+        setOpenBalanceMenu(null);
+        return;
+      }
+      if (event.type === 'pointerdown' && !event.target.closest('.customer-action-menu, .customer-balance-menu')) {
+        setOpenReservationMenu(null);
+        setOpenBalanceMenu(null);
+      }
+    }
+    document.addEventListener('pointerdown', closeMenus);
+    window.addEventListener('keydown', closeMenus);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenus);
+      window.removeEventListener('keydown', closeMenus);
+    };
+  }, [openReservationMenu, openBalanceMenu]);
 
   async function payBalance(id) {
     if (payingBalanceId !== null) return;
@@ -793,7 +817,7 @@ export default function CustomerDashboard() {
                       )}
                       {item.reservation_status !== 'cancelled' && cancellationRequest?.request_status !== 'pending' && (
                         <>
-                          {['down_payment', 'balance'].map((paymentType) => {
+                          {['down_payment'].map((paymentType) => {
                             const option = findGcashOption(item.id, paymentType);
                             if (!option) return null;
                             if (option.latest_submission_status === 'pending') {
@@ -816,52 +840,130 @@ export default function CustomerDashboard() {
                               Receipt not approved: {option.latest_submission_note || 'Please upload a clear receipt showing your payment.'}
                             </p>
                           ))}
+                          {balanceGcashPending(item.id) && (
+                            <p className="gcash-customer-pending">GCash balance receipt submitted · awaiting caterer confirmation</p>
+                          )}
                         </>
                       )}
                     </td>
                     <td data-label="Action">
                       <div className="customer-reservation-actions">
-                        <div className="customer-reservation-primary-action">
-                          {item.reservation_status === 'cancelled' && !cancellationRequest ? (
-                            <button className="button reservation-dismiss-button" onClick={() => removeRejectedReservation(item.id)} type="button" title="Remove cancelled booking" aria-label="Remove cancelled booking"><X size={16} aria-hidden="true" /></button>
-                          ) : (
-                            <>
-                              {['pending', 'confirmed'].includes(item.reservation_status) && cancellationRequest?.request_status !== 'pending' && (
+                        {['confirmed', 'completed'].includes(item.reservation_status)
+                          && cancellationRequest?.request_status !== 'pending'
+                          && Number(item.paid_amount) < Number(item.total_amount) && (
+                          <div className="customer-balance-menu">
+                            <button
+                              aria-expanded={openBalanceMenu === String(item.id)}
+                              aria-haspopup="menu"
+                              className="button button-primary button-small customer-balance-trigger"
+                              disabled={payingBalanceId !== null || balanceGcashPending(item.id)}
+                              onClick={() => {
+                                setOpenReservationMenu(null);
+                                setOpenBalanceMenu((current) => current === String(item.id) ? null : String(item.id));
+                              }}
+                              type="button"
+                            >
+                              {payingBalanceId === item.id ? 'Opening PayPal…' : 'Pay balance'}
+                              <ChevronDown size={14} aria-hidden="true" />
+                            </button>
+                            {openBalanceMenu === String(item.id) && (
+                              <div className="customer-action-popover customer-balance-popover" role="menu">
+                                {findGcashOption(item.id, 'balance') && (
+                                  <button
+                                    disabled={balanceGcashPending(item.id)}
+                                    onClick={() => {
+                                      setOpenBalanceMenu(null);
+                                      openGcashPayment(findGcashOption(item.id, 'balance'));
+                                    }}
+                                    role="menuitem"
+                                    type="button"
+                                  >
+                                    {balanceGcashPending(item.id) ? 'GCash receipt pending' : 'Pay with GCash'}
+                                  </button>
+                                )}
                                 <button
-                                  className="button button-secondary button-small"
-                                  onClick={() => requestCancellation(item)}
+                                  disabled={payingBalanceId !== null || balanceGcashPending(item.id)}
+                                  onClick={() => {
+                                    setOpenBalanceMenu(null);
+                                    payBalance(item.id);
+                                  }}
+                                  role="menuitem"
                                   type="button"
                                 >
-                                  Request cancellation
+                                  Pay with PayPal
                                 </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {canReview(item) && !item.review_rating && (
+                          <button className="button button-secondary button-small" onClick={() => setReviewingId(item.id)} type="button">
+                            Rate catering
+                          </button>
+                        )}
+                        {item.review_rating && <span className="reviewed-label">★ {item.review_rating} rated</span>}
+                        <div className="customer-action-menu">
+                          <button
+                            aria-expanded={openReservationMenu === String(item.id)}
+                            aria-haspopup="menu"
+                            aria-label={`More actions for ${item.package_name}`}
+                            className="customer-action-menu-trigger"
+                            onClick={() => {
+                              setOpenBalanceMenu(null);
+                              setOpenReservationMenu((current) => current === String(item.id) ? null : String(item.id));
+                            }}
+                            type="button"
+                          >
+                            <MoreHorizontal size={19} aria-hidden="true" />
+                          </button>
+                          {openReservationMenu === String(item.id) && (
+                            <div className="customer-action-popover" role="menu">
+                              {item.reservation_status === 'cancelled' ? (
+                                !cancellationRequest && (
+                                  <button
+                                    className="customer-action-danger"
+                                    onClick={() => {
+                                      setOpenReservationMenu(null);
+                                      removeRejectedReservation(item.id);
+                                    }}
+                                    role="menuitem"
+                                    type="button"
+                                  >
+                                    Remove booking
+                                  </button>
+                                )
+                              ) : (
+                                ['pending', 'confirmed'].includes(item.reservation_status) && (
+                                  <button
+                                    className="customer-action-danger"
+                                    disabled={cancellationRequest?.request_status === 'pending'}
+                                    onClick={() => {
+                                      setOpenReservationMenu(null);
+                                      requestCancellation(item);
+                                    }}
+                                    role="menuitem"
+                                    type="button"
+                                  >
+                                    {cancellationRequest?.request_status === 'pending' ? 'Cancellation requested' : 'Request cancel'}
+                                  </button>
+                                )
                               )}
-                              {cancellationRequest?.request_status === 'pending' && (
-                                <span className="muted-label">Cancellation requested</span>
-                              )}
-                              {['confirmed', 'completed'].includes(item.reservation_status) && cancellationRequest?.request_status !== 'pending' && Number(item.paid_amount) < Number(item.total_amount) && (
-                                <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(item.id)} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : balancePaymentLabel(item.id)}</button>
-                              )}
-                              {item.review_rating ? (
-                                <span className="reviewed-label">★ {item.review_rating} rated</span>
-                              ) : canReview(item) ? (
-                                <button className="button button-primary button-small" onClick={() => setReviewingId(item.id)} type="button">Rate catering</button>
-                              ) : item.reservation_status === 'confirmed' && Number(item.paid_amount) >= Number(item.total_amount) ? (
-                                <span className="muted-label">Event upcoming</span>
-                              ) : !['confirmed', 'completed'].includes(item.reservation_status) ? (
-                                <span className="muted-label">Awaiting</span>
-                              ) : null}
-                            </>
+                              <button
+                                onClick={() => {
+                                  setOpenReservationMenu(null);
+                                  setReportingReservation(item);
+                                  setReportReason('');
+                                  setReportDetails('');
+                                  setReportError('');
+                                }}
+                                role="menuitem"
+                                type="button"
+                              >
+                                Report an issue
+                              </button>
+                            </div>
                           )}
                         </div>
-                        <button
-                          aria-label={`Report booking with ${item.business_name}`}
-                          className="reservation-report-button"
-                          onClick={() => { setReportingReservation(item); setReportReason(''); setReportDetails(''); setReportError(''); }}
-                          title="Report this booking"
-                          type="button"
-                        >
-                          <Flag size={16} aria-hidden="true" />
-                        </button>
                       </div>
                     </td>
                   </tr>

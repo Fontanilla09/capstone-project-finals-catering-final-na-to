@@ -36,7 +36,7 @@ export default function ViewReservations() {
   const [reviewingCancellationId, setReviewingCancellationId] = useState(null);
   const [gcashSubmissions, setGcashSubmissions] = useState([]);
   const [reviewingGcashId, setReviewingGcashId] = useState(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const [reservationFilter, setReservationFilter] = useState('active');
   const [page, setPage] = useState(1);
   const [rejectingReservation, setRejectingReservation] = useState(null);
   const [viewingReservation, setViewingReservation] = useState(null);
@@ -229,10 +229,24 @@ export default function ViewReservations() {
   }
   const completedReservations = reservations.filter((item) => item.reservation_status === 'completed');
   const pendingReservations = reservations.filter((item) => item.reservation_status === 'pending');
-  const visibleReservations = reservations.filter((item) => (
-    (item.reservation_status === 'completed') === showHistory
+  const pendingCancellationIds = new Set(cancellationRequests
+    .filter((request) => request.request_status === 'pending')
+    .map((request) => String(request.reservation_id)));
+  const cancelledReservations = reservations.filter((item) => item.reservation_status === 'cancelled');
+  const activeReservations = reservations.filter((item) => (
+    ['pending', 'confirmed'].includes(item.reservation_status)
+    && !pendingCancellationIds.has(String(item.id))
   ));
-  const pageSize = showHistory ? historyReservationsPerPage : reservationsPerPage;
+  const cancellationReservationIds = new Set([
+    ...cancellationRequests.map((request) => String(request.reservation_id)),
+    ...cancelledReservations.map((reservation) => String(reservation.id)),
+  ]);
+  const visibleReservations = reservationFilter === 'history'
+    ? completedReservations
+    : reservationFilter === 'cancellations'
+      ? cancelledReservations
+      : activeReservations;
+  const pageSize = reservationFilter === 'history' ? historyReservationsPerPage : reservationsPerPage;
   const pageCount = Math.max(1, Math.ceil(visibleReservations.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pagedReservations = visibleReservations.slice(
@@ -243,7 +257,36 @@ export default function ViewReservations() {
     <DashboardPage role="caterer" section="reservations">
       <>
         {status && <p className="form-alert success-alert">{status}</p>}
-        {cancellationRequests.length > 0 && (
+        <div className="analytics-status-title caterer-reservations-heading">
+          <h2>{reservationFilter === 'history' ? 'Reservation history' : reservationFilter === 'cancellations' ? 'Cancellations & refunds' : 'Active reservations'}</h2>
+        </div>
+        <nav className="caterer-reservation-filters" aria-label="Filter reservations">
+          <button
+            aria-pressed={reservationFilter === 'active'}
+            className={reservationFilter === 'active' ? 'is-selected' : ''}
+            onClick={() => { setReservationFilter('active'); setPage(1); }}
+            type="button"
+          >
+            Active <span>{activeReservations.length}</span>
+          </button>
+          <button
+            aria-pressed={reservationFilter === 'cancellations'}
+            className={reservationFilter === 'cancellations' ? 'is-selected' : ''}
+            onClick={() => { setReservationFilter('cancellations'); setPage(1); }}
+            type="button"
+          >
+            Cancellations &amp; refunds <span>{cancellationReservationIds.size}</span>
+          </button>
+          <button
+            aria-pressed={reservationFilter === 'history'}
+            className={reservationFilter === 'history' ? 'is-selected' : ''}
+            onClick={() => { setReservationFilter('history'); setPage(1); }}
+            type="button"
+          >
+            History <span>{completedReservations.length}</span>
+          </button>
+        </nav>
+        {reservationFilter === 'cancellations' && cancellationRequests.length > 0 && (
           <section className="cancellation-review-section" aria-labelledby="cancellation-review-title">
             <header>
               <div>
@@ -309,7 +352,7 @@ export default function ViewReservations() {
             </div>
           </section>
         )}
-        {gcashSubmissions.length > 0 && (
+        {reservationFilter === 'active' && gcashSubmissions.length > 0 && (
           <section className="gcash-review-section" aria-labelledby="gcash-review-title">
             <header>
               <div>
@@ -343,12 +386,6 @@ export default function ViewReservations() {
             </div>
           </section>
         )}
-        <div className="analytics-status-title caterer-reservations-heading">
-          <h2>{showHistory ? 'Reservation history' : 'Active reservations'}</h2>
-          <button className="button button-secondary button-small" onClick={() => { setShowHistory((show) => !show); setPage(1); }} type="button" aria-pressed={showHistory}>
-            {showHistory ? 'Back to reservations' : `History (${completedReservations.length})`}
-          </button>
-        </div>
         <section className="caterer-reservation-summary" aria-label="Reservation summary">
           <article>
             <span>All bookings</span>
@@ -366,7 +403,7 @@ export default function ViewReservations() {
             <small>Available in history</small>
           </article>
         </section>
-        {showHistory ? (
+        {reservationFilter === 'history' ? (
           pagedReservations.length ? (
             <>
               <p className="caterer-history-scroll-hint">Scroll horizontally to see all reservation details.</p>
@@ -414,8 +451,8 @@ export default function ViewReservations() {
           pagedReservations.length ? (
             <>
               <p className="caterer-active-scroll-hint">Scroll horizontally to see all reservation details.</p>
-              <div className="caterer-reservation-history-wrap caterer-active-reservations-wrap" role="region" aria-label="Active reservations" tabIndex="0">
-                <table className="caterer-reservation-history-table caterer-active-reservations-table" aria-label="Active reservations">
+              <div className="caterer-reservation-history-wrap caterer-active-reservations-wrap" role="region" aria-label={reservationFilter === 'cancellations' ? 'Cancelled reservations' : 'Active reservations'} tabIndex="0">
+                <table className="caterer-reservation-history-table caterer-active-reservations-table" aria-label={reservationFilter === 'cancellations' ? 'Cancelled reservations' : 'Active reservations'}>
                   <thead>
                     <tr>
                       <th scope="col">Package / status</th>
@@ -476,8 +513,8 @@ export default function ViewReservations() {
             </>
           ) : (
             <div className="caterer-history-empty">
-              <h3>No active reservations</h3>
-              <p>New booking requests and upcoming events will appear here.</p>
+              <h3>{reservationFilter === 'cancellations' ? 'No cancelled bookings' : 'No active reservations'}</h3>
+              <p>{reservationFilter === 'cancellations' ? 'Cancelled bookings will appear here.' : 'New booking requests and upcoming events will appear here.'}</p>
             </div>
           )
         )}

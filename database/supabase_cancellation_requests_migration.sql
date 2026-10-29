@@ -153,7 +153,7 @@ language sql
 stable
 security definer set search_path = public
 as $$
-    select
+    select distinct on (reservation.id)
         request.id,
         reservation.id,
         customer.full_name,
@@ -192,8 +192,8 @@ as $$
         from public.get_my_profile()
         where role = 'caterer'
     )
-      and request.request_status in ('pending', 'approved')
-    order by request.requested_at asc;
+      and request.request_status in ('pending', 'approved', 'rejected')
+    order by reservation.id, request.id desc;
 $$;
 
 create or replace function public.review_reservation_cancellation(
