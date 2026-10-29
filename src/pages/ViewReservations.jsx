@@ -386,23 +386,25 @@ export default function ViewReservations() {
             </div>
           </section>
         )}
-        <section className="caterer-reservation-summary" aria-label="Reservation summary">
-          <article>
-            <span>All bookings</span>
-            <strong>{reservations.length}</strong>
-            <small>Across your account</small>
-          </article>
-          <article>
-            <span>Pending</span>
-            <strong>{pendingReservations.length}</strong>
-            <small>Waiting for your review</small>
-          </article>
-          <article>
-            <span>Completed</span>
-            <strong>{completedReservations.length}</strong>
-            <small>Available in history</small>
-          </article>
-        </section>
+        {reservationFilter === 'active' && (
+          <section className="caterer-reservation-summary" aria-label="Reservation summary">
+            <article>
+              <span>All bookings</span>
+              <strong>{reservations.length}</strong>
+              <small>Across your account</small>
+            </article>
+            <article>
+              <span>Pending</span>
+              <strong>{pendingReservations.length}</strong>
+              <small>Waiting for your review</small>
+            </article>
+            <article>
+              <span>Completed</span>
+              <strong>{completedReservations.length}</strong>
+              <small>Available in history</small>
+            </article>
+          </section>
+        )}
         {reservationFilter === 'history' ? (
           pagedReservations.length ? (
             <>
