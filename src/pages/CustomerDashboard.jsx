@@ -78,6 +78,7 @@ export default function CustomerDashboard() {
   const [reviewingId, setReviewingId] = useState(null);
   const [payingBalanceId, setPayingBalanceId] = useState(null);
   const [gcashOptions, setGcashOptions] = useState([]);
+  const [cancellationRequests, setCancellationRequests] = useState({});
   const [gcashOption, setGcashOption] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [rating, setRating] = useState(5);
@@ -99,6 +100,12 @@ export default function CustomerDashboard() {
       const dashboardReservations = data?.reservations || [];
       setCustomer(data?.customer || null);
       setReservations(dashboardReservations);
+      const { data: cancellationData, error: cancellationError } = await supabase.rpc('get_my_cancellation_requests');
+      if (cancellationError) throw cancellationError;
+      setCancellationRequests(Object.fromEntries((cancellationData || []).map((request) => [
+        String(request.reservation_id),
+        request,
+      ])));
       const { data: gcashData, error: gcashError } = await supabase.rpc('get_my_gcash_payment_options');
       if (gcashError) throw gcashError;
       setGcashOptions(gcashData || []);
@@ -321,6 +328,27 @@ export default function CustomerDashboard() {
       if (error) throw error;
       setReservations((current) => current.filter((item) => String(item.id) !== String(id)));
       setStatus('Rejected booking removed from your list.');
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function requestCancellation(reservation) {
+    const reason = window.prompt('Please explain why you need to cancel this booking (at least 5 characters).');
+    if (reason === null) return;
+    if (reason.trim().length < 5) {
+      setStatus('Please enter a cancellation reason of at least 5 characters.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.rpc('request_reservation_cancellation', {
+        p_reservation_id: Number(reservation.id),
+        p_reason: reason.trim(),
+      });
+      if (error) throw error;
+      await load();
+      setStatus('Cancellation request sent. Your booking stays active until the caterer reviews it.');
     } catch (error) {
       setStatus(error.message);
     }
@@ -719,7 +747,9 @@ export default function CustomerDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {visibleReservations.length ? visibleReservations.map((item) => (
+                {visibleReservations.length ? visibleReservations.map((item) => {
+                  const cancellationRequest = cancellationRequests[String(item.id)];
+                  return (
                   <tr key={item.id}>
                     <td data-label="Package"><strong>{item.package_name}</strong></td>
                     <td data-label="Caterer">{item.business_name}</td>
@@ -738,38 +768,77 @@ export default function CustomerDashboard() {
                     <td data-label="Status">
                       <span className={statusClass(item.reservation_status)}>{item.reservation_status}</span>
                       {item.rejection_reason && <p className="reservation-rejection-reason"><strong>Reason from caterer:</strong> {item.rejection_reason}</p>}
-                      {['down_payment', 'balance'].map((paymentType) => {
-                        const option = findGcashOption(item.id, paymentType);
-                        if (!option) return null;
-                        if (option.latest_submission_status === 'pending') {
-                          return <p className="gcash-customer-pending" key={paymentType}>GCash receipt submitted · awaiting caterer confirmation</p>;
-                        }
-
-                        return (
-                          <button
-                            className="button button-secondary button-small gcash-customer-action"
-                            key={paymentType}
-                            onClick={() => openGcashPayment(option)}
-                            type="button"
-                          >
-                            {option.latest_submission_status === 'failed' ? 'Resubmit GCash receipt' : `Pay ${paymentType === 'balance' ? 'balance' : 'down payment'} with GCash`}
-                          </button>
-                        );
-                      })}
-                      {gcashOptions.filter((option) => String(option.reservation_id) === String(item.id) && option.latest_submission_status === 'failed').map((option) => (
-                        <p className="gcash-customer-rejection" key={`note-${option.payment_type}`}>
-                          Receipt not approved: {option.latest_submission_note || 'Please upload a clear receipt showing your payment.'}
+                      {cancellationRequest?.request_status === 'pending' && (
+                        <p className="cancellation-request-note">
+                          Cancellation request awaiting caterer review. Your booking is still active.
                         </p>
-                      ))}
+                      )}
+                      {cancellationRequest?.request_status === 'rejected' && (
+                        <p className="reservation-rejection-reason">
+                          <strong>Cancellation request declined:</strong> {cancellationRequest.request_review_note}
+                        </p>
+                      )}
+                      {cancellationRequest?.request_status === 'approved' && cancellationRequest.refund_status === 'pending' && (
+                        <p className="cancellation-request-note">
+                          Cancellation approved. Refund of {formatMoney(cancellationRequest.refund_amount)} is awaiting manual transfer via {cancellationRequest.payment_method === 'gcash' ? 'GCash' : cancellationRequest.payment_method === 'paypal' ? 'PayPal' : 'the payment method agreed with your caterer'}.
+                        </p>
+                      )}
+                      {cancellationRequest?.request_status === 'approved' && cancellationRequest.refund_status === 'not_required' && (
+                        <p className="cancellation-request-note">Cancellation approved. No refund was recorded as due.</p>
+                      )}
+                      {cancellationRequest?.refund_status === 'refunded' && (
+                        <p className="cancellation-request-note">
+                          Refund of {formatMoney(cancellationRequest.refund_amount)} sent. Reference: {cancellationRequest.refund_reference}
+                        </p>
+                      )}
+                      {item.reservation_status !== 'cancelled' && cancellationRequest?.request_status !== 'pending' && (
+                        <>
+                          {['down_payment', 'balance'].map((paymentType) => {
+                            const option = findGcashOption(item.id, paymentType);
+                            if (!option) return null;
+                            if (option.latest_submission_status === 'pending') {
+                              return <p className="gcash-customer-pending" key={paymentType}>GCash receipt submitted · awaiting caterer confirmation</p>;
+                            }
+
+                            return (
+                              <button
+                                className="button button-secondary button-small gcash-customer-action"
+                                key={paymentType}
+                                onClick={() => openGcashPayment(option)}
+                                type="button"
+                              >
+                                {option.latest_submission_status === 'failed' ? 'Resubmit GCash receipt' : `Pay ${paymentType === 'balance' ? 'balance' : 'down payment'} with GCash`}
+                              </button>
+                            );
+                          })}
+                          {gcashOptions.filter((option) => String(option.reservation_id) === String(item.id) && option.latest_submission_status === 'failed').map((option) => (
+                            <p className="gcash-customer-rejection" key={`note-${option.payment_type}`}>
+                              Receipt not approved: {option.latest_submission_note || 'Please upload a clear receipt showing your payment.'}
+                            </p>
+                          ))}
+                        </>
+                      )}
                     </td>
                     <td data-label="Action">
                       <div className="customer-reservation-actions">
                         <div className="customer-reservation-primary-action">
-                          {item.reservation_status === 'cancelled' ? (
+                          {item.reservation_status === 'cancelled' && !cancellationRequest ? (
                             <button className="button reservation-dismiss-button" onClick={() => removeRejectedReservation(item.id)} type="button" title="Remove cancelled booking" aria-label="Remove cancelled booking"><X size={16} aria-hidden="true" /></button>
                           ) : (
                             <>
-                              {['confirmed', 'completed'].includes(item.reservation_status) && Number(item.paid_amount) < Number(item.total_amount) && (
+                              {['pending', 'confirmed'].includes(item.reservation_status) && cancellationRequest?.request_status !== 'pending' && (
+                                <button
+                                  className="button button-secondary button-small"
+                                  onClick={() => requestCancellation(item)}
+                                  type="button"
+                                >
+                                  Request cancellation
+                                </button>
+                              )}
+                              {cancellationRequest?.request_status === 'pending' && (
+                                <span className="muted-label">Cancellation requested</span>
+                              )}
+                              {['confirmed', 'completed'].includes(item.reservation_status) && cancellationRequest?.request_status !== 'pending' && Number(item.paid_amount) < Number(item.total_amount) && (
                                 <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(item.id)} onClick={() => payBalance(item.id)} type="button">{payingBalanceId === item.id ? 'Opening PayPal...' : balancePaymentLabel(item.id)}</button>
                               )}
                               {item.review_rating ? (
@@ -796,7 +865,7 @@ export default function CustomerDashboard() {
                       </div>
                     </td>
                   </tr>
-                )) : (
+                ); }) : (
                   <tr>
                     <td colSpan="7" className="empty-cell">
                       <div className="customer-empty-state">

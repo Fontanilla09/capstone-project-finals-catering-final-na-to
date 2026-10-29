@@ -3285,10 +3285,10 @@ button:active, a:active { transform: scale(.98); }
 .gcash-payment-form .form-alert { margin: 4px 0 0; }
 .gcash-submitted-state { display: grid; gap: 12px; }
 .gcash-submitted-state h2, .gcash-submitted-state p { margin: 0; }
-.caterer-gcash-qr-card, .gcash-review-section { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border); border-radius: 16px; margin-top: 20px; padding: 20px; }
+.caterer-gcash-qr-card, .gcash-review-section, .cancellation-review-section { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border); border-radius: 16px; margin-top: 20px; padding: 20px; }
 .caterer-gcash-qr-card { align-items: center; display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; }
-.caterer-gcash-qr-card h3, .gcash-review-section h2 { margin: 0 0 6px; }
-.caterer-gcash-qr-card p, .gcash-review-section header p:last-child { color: var(--ui-muted); font-size: 13px; margin: 0 0 6px; max-width: 640px; }
+.caterer-gcash-qr-card h3, .gcash-review-section h2, .cancellation-review-section h2 { margin: 0 0 6px; }
+.caterer-gcash-qr-card p, .gcash-review-section header p:last-child, .cancellation-review-section header p:last-child { color: var(--ui-muted); font-size: 13px; margin: 0 0 6px; max-width: 640px; }
 .caterer-gcash-qr-card small { color: var(--ui-muted); font-size: 11px; }
 .caterer-gcash-qr-preview { background: #fff; border: 1px solid var(--ui-border); border-radius: 10px; max-height: 180px; max-width: 180px; object-fit: contain; padding: 6px; }
 .caterer-gcash-qr-preview-link { display: inline-flex; }
@@ -3302,9 +3302,17 @@ button:active, a:active { transform: scale(.98); }
 .gcash-review-card > a { align-items: center; color: var(--ui-green); display: inline-flex; font-size: 12px; gap: 8px; }
 .gcash-review-card > a img { border: 1px solid var(--ui-border); border-radius: 8px; height: 58px; object-fit: cover; width: 58px; }
 .gcash-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cancellation-review-list { display: grid; gap: 12px; margin-top: 16px; }
+.cancellation-review-card { align-items: center; border: 1px solid var(--ui-border); border-radius: 12px; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; padding: 14px; }
+.cancellation-review-details { display: grid; flex: 1 1 260px; gap: 5px; }
+.cancellation-review-details > span { color: var(--ui-muted); font-size: 12px; }
+.cancellation-review-details p { color: var(--ui-ink); font-size: 13px; line-height: 1.5; margin: 4px 0; }
+.cancellation-review-state { font-weight: 700; }
+.cancellation-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .gcash-customer-action { display: block; margin-top: 7px; }
 .gcash-customer-pending, .gcash-customer-rejection { color: var(--ui-muted); font-size: 11px; line-height: 1.4; margin: 6px 0 0; }
 .gcash-customer-rejection { color: #9b382c; }
+.cancellation-request-note { color: var(--ui-muted); font-size: 11px; line-height: 1.45; margin: 7px 0 0; max-width: 320px; }
 .booking-payment-method { border: 1px solid var(--ui-border); border-radius: 10px; display: grid; gap: 10px; margin: 8px 0; padding: 12px; }
 .booking-payment-method legend { color: var(--ui-ink); font-size: 13px; font-weight: 700; padding: 0 6px; }
 .booking-payment-method label { align-items: center; display: flex; font-size: 14px; gap: 9px; }

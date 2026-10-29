@@ -32,6 +32,8 @@ function formatEventDate(value) {
 
 export default function ViewReservations() {
   const [reservations, setReservations] = useState([]); const [status, setStatus] = useState('');
+  const [cancellationRequests, setCancellationRequests] = useState([]);
+  const [reviewingCancellationId, setReviewingCancellationId] = useState(null);
   const [gcashSubmissions, setGcashSubmissions] = useState([]);
   const [reviewingGcashId, setReviewingGcashId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -47,6 +49,9 @@ export default function ViewReservations() {
         item.reservation_status === 'pending' && item.payment_status === 'pending'
       ));
       setReservations(rows);
+      const { data: cancellationRows, error: cancellationError } = await supabase.rpc('get_caterer_cancellation_requests');
+      if (cancellationError) throw cancellationError;
+      setCancellationRequests(cancellationRows || []);
       const { data: gcashRows, error: gcashError } = await supabase.rpc('get_caterer_gcash_submissions');
       if (gcashError) throw gcashError;
       const submissionsWithReceipts = await Promise.all((gcashRows || []).map(async (payment) => {
@@ -106,6 +111,89 @@ export default function ViewReservations() {
       setReviewingGcashId(null);
     }
   }
+  async function reviewCancellation(request, approve) {
+    let reviewNote = null;
+    let refundAmount = 0;
+    if (approve) {
+      const defaultAmount = Number(request.paid_amount || 0).toFixed(2);
+      const amountInput = window.prompt(
+        `Enter the amount you agree to refund (maximum received: ${formatCurrency(request.paid_amount)}). The transfer is manual; do not mark it refunded yet.`,
+        defaultAmount,
+      );
+      if (amountInput === null) return;
+      refundAmount = Number(amountInput);
+      if (!Number.isFinite(refundAmount)
+        || Math.round(refundAmount * 100) / 100 !== refundAmount
+        || refundAmount < 0
+        || refundAmount > Number(request.paid_amount || 0)) {
+        setStatus('Enter a refund amount up to the amount received, with no more than two decimal places.');
+        return;
+      }
+      if (refundAmount < Number(request.paid_amount || 0)) {
+        reviewNote = window.prompt('Explain why the refund is less than the amount received (at least 5 characters).');
+        if (reviewNote === null) return;
+        if (reviewNote.trim().length < 5) {
+          setStatus('Enter a reason of at least 5 characters for a partial or zero refund.');
+          return;
+        }
+      }
+      if (!window.confirm(`Approve cancellation and record a manual refund of ${formatCurrency(refundAmount)}? This will cancel the booking. You must still send the refund via PayPal or GCash separately.`)) return;
+    } else {
+      reviewNote = window.prompt('Why are you declining this cancellation request? (At least 5 characters)');
+      if (reviewNote === null) return;
+      if (reviewNote.trim().length < 5) {
+        setStatus('Enter a reason of at least 5 characters.');
+        return;
+      }
+    }
+
+    setReviewingCancellationId(request.request_id);
+    try {
+      const { error } = await supabase.rpc('review_reservation_cancellation', {
+        p_request_id: request.request_id,
+        p_approve: approve,
+        p_review_note: reviewNote,
+        p_refund_amount: refundAmount,
+      });
+      if (error) throw error;
+      await load();
+      setStatus(approve
+        ? (refundAmount > 0
+          ? 'Cancellation approved. Send the agreed refund manually, then record its PayPal transaction ID or GCash reference.'
+          : 'Cancellation approved with no refund due.')
+        : 'Cancellation request declined.');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setReviewingCancellationId(null);
+    }
+  }
+  async function recordRefund(request) {
+    const reference = window.prompt(
+      `After sending ${formatCurrency(request.refund_amount)} via ${request.payment_method === 'gcash' ? 'GCash' : request.payment_method === 'paypal' ? 'PayPal' : 'the agreed method'}, enter the transaction/reference number.`,
+    );
+    if (reference === null) return;
+    if (reference.trim().length < 3) {
+      setStatus('Enter the refund transaction/reference number.');
+      return;
+    }
+    if (!window.confirm(`Confirm that ${formatCurrency(request.refund_amount)} has already been sent to ${request.customer_name}?`)) return;
+
+    setReviewingCancellationId(request.request_id);
+    try {
+      const { error } = await supabase.rpc('record_reservation_refund', {
+        p_request_id: request.request_id,
+        p_refund_reference: reference.trim(),
+      });
+      if (error) throw error;
+      await load();
+      setStatus('Refund recorded as sent.');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setReviewingCancellationId(null);
+    }
+  }
   async function accept(id) { try { const { error } = await supabase.rpc('accept_caterer_reservation', { reservation_id: id }); if (error) throw error; setStatus('Reservation accepted.'); await load(); } catch (error) { setStatus(error.message); } }
   async function complete(id) {
     if (!window.confirm('Mark this catering event as completed? The customer will be able to leave a review.')) return;
@@ -155,6 +243,72 @@ export default function ViewReservations() {
     <DashboardPage role="caterer" section="reservations">
       <>
         {status && <p className="form-alert success-alert">{status}</p>}
+        {cancellationRequests.length > 0 && (
+          <section className="cancellation-review-section" aria-labelledby="cancellation-review-title">
+            <header>
+              <div>
+                <p className="eyebrow eyebrow-soft">Customer requests</p>
+                <h2 id="cancellation-review-title">Cancellation &amp; refunds ({cancellationRequests.length})</h2>
+                <p>Review cancellation requests. Any refund must be sent manually through PayPal or GCash before you record it as refunded.</p>
+              </div>
+            </header>
+            <div className="cancellation-review-list">
+              {cancellationRequests.map((request) => (
+                <article className="cancellation-review-card" key={request.request_id}>
+                  <div className="cancellation-review-details">
+                    <strong>{request.package_name} · Reservation #{request.reservation_id}</strong>
+                    <span>{request.customer_name} · {formatEventDate(request.event_date)}</span>
+                    <span>Paid: {formatCurrency(request.paid_amount)} · Method: {formatPaymentMethod(request.payment_method)}</span>
+                    <p><strong>Customer reason:</strong> {request.request_reason}</p>
+                    {request.request_status === 'pending' ? (
+                      <span className="cancellation-review-state">Waiting for cancellation decision</span>
+                    ) : request.refund_status === 'refunded' ? (
+                      <>
+                        <span className="cancellation-review-state">Refund sent: {formatCurrency(request.refund_amount)}</span>
+                        <span>Reference: {request.refund_reference}</span>
+                      </>
+                    ) : request.refund_status === 'not_required' ? (
+                      <span className="cancellation-review-state">Cancellation approved · no refund due</span>
+                    ) : (
+                      <span className="cancellation-review-state">Cancellation approved · refund {formatCurrency(request.refund_amount)} is awaiting manual transfer</span>
+                    )}
+                  </div>
+                  {request.request_status === 'pending' ? (
+                    <div className="cancellation-review-actions">
+                      <button
+                        className="button button-primary button-small"
+                        disabled={reviewingCancellationId !== null}
+                        onClick={() => reviewCancellation(request, true)}
+                        type="button"
+                      >
+                        {reviewingCancellationId === request.request_id ? 'Saving…' : 'Approve & set refund'}
+                      </button>
+                      <button
+                        className="button reservation-reject-button button-small"
+                        disabled={reviewingCancellationId !== null}
+                        onClick={() => reviewCancellation(request, false)}
+                        type="button"
+                      >
+                        Decline request
+                      </button>
+                    </div>
+                  ) : request.refund_status === 'pending' ? (
+                    <div className="cancellation-review-actions">
+                      <button
+                        className="button button-primary button-small"
+                        disabled={reviewingCancellationId !== null}
+                        onClick={() => recordRefund(request)}
+                        type="button"
+                      >
+                        {reviewingCancellationId === request.request_id ? 'Saving…' : 'Record refund sent'}
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
         {gcashSubmissions.length > 0 && (
           <section className="gcash-review-section" aria-labelledby="gcash-review-title">
             <header>
