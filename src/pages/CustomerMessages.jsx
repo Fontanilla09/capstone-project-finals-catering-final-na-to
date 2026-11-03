@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Send } from "lucide-react";
 import { API_BASE } from "../lib/api";
 import { getChatModerationError } from "../lib/chatModeration";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
@@ -413,7 +414,7 @@ export default function CustomerMessages() {
                     type="submit"
                     aria-label="Send message"
                   >
-                    ↗
+                    <Send size={18} strokeWidth={2.2} aria-hidden="true" />
                   </button>
                 </form>
               </>

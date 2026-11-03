@@ -2980,6 +2980,11 @@ button:active, a:active { transform: scale(.98); }
     margin-bottom: 0;
   }
 
+  .customer-dashboard-panel .customer-action-menu {
+    display: inline-grid;
+    position: relative;
+  }
+
   .customer-dashboard-panel .customer-table td {
     border: 0;
     display: grid;
@@ -10160,10 +10165,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .dashboard-page .send-message-button {
   background: var(--brand-600);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--brand-700) 18%, transparent);
+  flex: 0 0 44px;
+  height: 44px;
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+  width: 44px;
 }
 
 .dashboard-page .send-message-button:hover {
   background: var(--brand);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--brand-700) 24%, transparent);
+  transform: translateY(-1px);
+}
+
+.dashboard-page .send-message-button:active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+.dashboard-page .send-message-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand-600) 35%, transparent);
+  outline-offset: 3px;
 }
 
 .packages-page {

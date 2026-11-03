@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowRight,
   Bell,
@@ -89,6 +90,9 @@ export default function CustomerDashboard() {
   const [gcashOptions, setGcashOptions] = useState([]);
   const [cancellationRequests, setCancellationRequests] = useState({});
   const [openReservationMenu, setOpenReservationMenu] = useState(null);
+  const [reservationMenuPosition, setReservationMenuPosition] = useState(null);
+  const reservationMenuTriggerRef = useRef(null);
+  const reservationMenuPopoverRef = useRef(null);
   const [openBalanceMenu, setOpenBalanceMenu] = useState(null);
   const [gcashOption, setGcashOption] = useState(null);
   const [receipt, setReceipt] = useState(null);
@@ -296,21 +300,57 @@ export default function CustomerDashboard() {
     function closeMenus(event) {
       if (event.type === 'keydown' && event.key === 'Escape') {
         setOpenReservationMenu(null);
+        setReservationMenuPosition(null);
         setOpenBalanceMenu(null);
         return;
       }
-      if (event.type === 'pointerdown' && !event.target.closest('.customer-action-menu, .customer-balance-menu')) {
+      if (event.type === 'pointerdown' && !event.target.closest('.customer-action-menu, .customer-balance-menu, .customer-action-popover')) {
         setOpenReservationMenu(null);
+        setReservationMenuPosition(null);
         setOpenBalanceMenu(null);
       }
     }
+    function closeMenusOnScroll() {
+      setOpenReservationMenu(null);
+      setReservationMenuPosition(null);
+      setOpenBalanceMenu(null);
+    }
     document.addEventListener('pointerdown', closeMenus);
     window.addEventListener('keydown', closeMenus);
+    window.addEventListener('scroll', closeMenusOnScroll, true);
     return () => {
       document.removeEventListener('pointerdown', closeMenus);
       window.removeEventListener('keydown', closeMenus);
+      window.removeEventListener('scroll', closeMenusOnScroll, true);
     };
   }, [openReservationMenu, openBalanceMenu]);
+
+  useLayoutEffect(() => {
+    if (openReservationMenu === null) return;
+    const trigger = reservationMenuTriggerRef.current;
+    const popover = reservationMenuPopoverRef.current;
+    if (!trigger || !popover) return;
+
+    const triggerBounds = trigger.getBoundingClientRect();
+    const popoverBounds = popover.getBoundingClientRect();
+    const horizontalPadding = 8;
+    const left = Math.max(
+      horizontalPadding,
+      Math.min(
+        triggerBounds.right - popoverBounds.width,
+        window.innerWidth - popoverBounds.width - horizontalPadding,
+      ),
+    );
+    const top =
+      triggerBounds.bottom + popoverBounds.height + 7 <=
+      window.innerHeight - horizontalPadding
+        ? triggerBounds.bottom + 7
+        : Math.max(
+            horizontalPadding,
+            triggerBounds.top - popoverBounds.height - 7,
+          );
+    setReservationMenuPosition({ left, top });
+  }, [openReservationMenu]);
 
   async function payBalance(id) {
     if (payingBalanceId !== null) return;
@@ -867,6 +907,7 @@ export default function CustomerDashboard() {
                               disabled={payingBalanceId !== null || balanceGcashPending(item.id)}
                               onClick={() => {
                                 setOpenReservationMenu(null);
+                                setReservationMenuPosition(null);
                                 setOpenBalanceMenu((current) => current === String(item.id) ? null : String(item.id));
                               }}
                               type="button"
@@ -879,7 +920,7 @@ export default function CustomerDashboard() {
                                 {findGcashOption(item.id, 'balance') && (
                                   <button
                                     disabled={balanceGcashPending(item.id)}
-                                    onClick={() => {
+                                    onClick={(event) => {
                                       setOpenBalanceMenu(null);
                                       openGcashPayment(findGcashOption(item.id, 'balance'));
                                     }}
@@ -916,60 +957,88 @@ export default function CustomerDashboard() {
                             aria-haspopup="menu"
                             aria-label={`More actions for ${item.package_name}`}
                             className="customer-action-menu-trigger"
-                            onClick={() => {
+                            onClick={(event) => {
                               setOpenBalanceMenu(null);
-                              setOpenReservationMenu((current) => current === String(item.id) ? null : String(item.id));
+                              if (openReservationMenu === String(item.id)) {
+                                setOpenReservationMenu(null);
+                                setReservationMenuPosition(null);
+                                reservationMenuTriggerRef.current = null;
+                                return;
+                              }
+                              reservationMenuTriggerRef.current = event.currentTarget;
+                              setReservationMenuPosition({ left: 8, top: 8 });
+                              setOpenReservationMenu(String(item.id));
                             }}
                             type="button"
                           >
                             <MoreHorizontal size={19} aria-hidden="true" />
                           </button>
                           {openReservationMenu === String(item.id) && (
-                            <div className="customer-action-popover" role="menu">
-                              {item.reservation_status === 'cancelled' ? (
-                                !cancellationRequest && (
-                                  <button
-                                    className="customer-action-danger"
-                                    onClick={() => {
-                                      setOpenReservationMenu(null);
-                                      removeRejectedReservation(item.id);
-                                    }}
-                                    role="menuitem"
-                                    type="button"
-                                  >
-                                    Remove booking
-                                  </button>
-                                )
-                              ) : (
-                                ['pending', 'confirmed'].includes(item.reservation_status) && (
-                                  <button
-                                    className="customer-action-danger"
-                                    disabled={cancellationRequest?.request_status === 'pending'}
-                                    onClick={() => {
-                                      setOpenReservationMenu(null);
-                                      requestCancellation(item);
-                                    }}
-                                    role="menuitem"
-                                    type="button"
-                                  >
-                                    {cancellationRequest?.request_status === 'pending' ? 'Cancellation requested' : 'Request cancel'}
-                                  </button>
-                                )
-                              )}
-                              <button
-                                onClick={() => {
-                                  setOpenReservationMenu(null);
-                                  setReportingReservation(item);
-                                  setReportReason('');
-                                  setReportDetails('');
-                                  setReportError('');
+                            createPortal(
+                              <div
+                                className="customer-action-popover"
+                                role="menu"
+                                ref={reservationMenuPopoverRef}
+                                style={{
+                                  bottom: 'auto',
+                                  boxSizing: 'border-box',
+                                  left: reservationMenuPosition?.left ?? 8,
+                                  maxWidth: 'calc(100vw - 16px)',
+                                  maxHeight: 'calc(100dvh - 16px)',
+                                  overflowY: 'auto',
+                                  position: 'fixed',
+                                  right: 'auto',
+                                  top: reservationMenuPosition?.top ?? 8,
+                                  width: 'max-content',
+                                  zIndex: 1000,
                                 }}
-                                role="menuitem"
-                                type="button"
                               >
-                                Report an issue
-                              </button>
-                            </div>
+                                {item.reservation_status === 'cancelled' ? (
+                                  !cancellationRequest && (
+                                    <button
+                                      className="customer-action-danger"
+                                      onClick={() => {
+                                        setOpenReservationMenu(null);
+                                        removeRejectedReservation(item.id);
+                                      }}
+                                      role="menuitem"
+                                      type="button"
+                                    >
+                                      Remove booking
+                                    </button>
+                                  )
+                                ) : (
+                                  ['pending', 'confirmed'].includes(item.reservation_status) && (
+                                    <button
+                                      className="customer-action-danger"
+                                      disabled={cancellationRequest?.request_status === 'pending'}
+                                      onClick={() => {
+                                        setOpenReservationMenu(null);
+                                        requestCancellation(item);
+                                      }}
+                                      role="menuitem"
+                                      type="button"
+                                    >
+                                      {cancellationRequest?.request_status === 'pending' ? 'Cancellation requested' : 'Request cancel'}
+                                    </button>
+                                  )
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setOpenReservationMenu(null);
+                                    setReportingReservation(item);
+                                    setReportReason('');
+                                    setReportDetails('');
+                                    setReportError('');
+                                  }}
+                                  role="menuitem"
+                                  type="button"
+                                >
+                                  Report an issue
+                                </button>
+                              </div>,
+                              document.body,
+                            )
                           )}
                         </div>
                       </div>
