@@ -156,6 +156,19 @@ begin
 end;
 $$;
 
+create or replace function public.set_caterer_verification(
+    caterer_id bigint,
+    approved boolean
+)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+    perform public.set_caterer_verification(caterer_id, approved, null);
+end;
+$$;
+
 create or replace function public.get_my_rejection_reason()
 returns text
 language sql
@@ -186,11 +199,13 @@ $$;
 revoke all on function public.get_admin_accounts() from public;
 revoke all on function public.set_customer_verification(bigint, boolean, text) from public;
 revoke all on function public.set_caterer_verification(bigint, boolean, text) from public;
+revoke all on function public.set_caterer_verification(bigint, boolean) from public;
 revoke all on function public.get_my_rejection_reason() from public;
 revoke all on function public.save_my_caterer_permit(varchar) from public;
 
 grant execute on function public.get_admin_accounts() to authenticated;
 grant execute on function public.set_customer_verification(bigint, boolean, text) to authenticated;
 grant execute on function public.set_caterer_verification(bigint, boolean, text) to authenticated;
+grant execute on function public.set_caterer_verification(bigint, boolean) to authenticated;
 grant execute on function public.get_my_rejection_reason() to authenticated;
 grant execute on function public.save_my_caterer_permit(varchar) to authenticated;

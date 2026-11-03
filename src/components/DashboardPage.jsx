@@ -278,7 +278,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
           id: 'admin-caterers',
           title: `${pendingAccountCount} caterer account${pendingAccountCount === 1 ? '' : 's'} to review`,
           message: 'Review pending caterer verification requests.',
-          href: '/dashboard/admin/users',
+          href: '/dashboard/admin/cater-management',
           icon: Building2,
           tone: 'account',
           count: pendingAccountCount,
@@ -812,7 +812,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}
               {key === 'earnings' && pendingPayoutCount > 0 && <span className="message-badge" aria-label={`${pendingPayoutCount} payouts awaiting request`}>{pendingPayoutCount > 99 ? '99+' : pendingPayoutCount}</span>}
               {key === 'messages' && unreadMessages > 0 && <span className="message-badge">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
-              {key === 'users' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending account approvals`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
+              {key === 'cater-management' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending caterer approvals`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
               {key === 'reports' && openReportCount > 0 && <span className="message-badge" aria-label={`${openReportCount} open or in-review reports`}>{openReportCount > 99 ? '99+' : openReportCount}</span>}
             </a>
           ))}

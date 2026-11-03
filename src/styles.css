@@ -1814,34 +1814,64 @@ button:active, a:active { transform: scale(.98); }
 .customer-dashboard-panel .table-wrap { overflow: visible; }
 .payment-receipt-link { display: inline-flex; gap: 6px; margin-top: 8px; }
 .payment-receipt-overlay { align-items: center; background: rgba(18, 29, 27, .72); display: flex; inset: 0; justify-content: center; overflow-y: auto; padding: 24px; position: fixed; z-index: 80; }
-.payment-receipt { background: #fffdf8; border: 1px solid #d5ddd3; border-radius: 12px; box-shadow: 0 24px 70px rgba(18, 29, 27, .28); max-width: 620px; padding: 28px; width: 100%; }
-.payment-receipt-header { align-items: start; display: flex; justify-content: space-between; gap: 18px; }
-.payment-receipt-header h2 { color: #213331; font-family: 'Playfair Display', serif; font-size: 30px; margin: 8px 0 0; }
-.payment-receipt-close { align-items: center; background: transparent; border: 1px solid #cbd2c9; border-radius: 8px; color: #213331; cursor: pointer; display: inline-flex; height: 36px; justify-content: center; min-height: 36px; padding: 0; width: 36px; }
-.payment-receipt-note { border-bottom: 1px solid #e4ebe0; color: #52645e; margin: 18px 0 0; padding-bottom: 18px; }
-.payment-receipt-details { display: grid; gap: 0 20px; grid-template-columns: 180px minmax(0, 1fr); margin: 0; }
-.payment-receipt-details dt, .payment-receipt-details dd { border-bottom: 1px solid #edf0ea; margin: 0; overflow-wrap: anywhere; padding: 13px 0; }
-.payment-receipt-details dt { color: #718078; font-size: 12px; }
-.payment-receipt-details dd { color: #213331; font-size: 13px; font-weight: 600; }
-.payment-receipt-details .payment-receipt-id { font-family: ui-monospace, monospace; font-size: 12px; }
-.payment-receipt-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
+.payment-receipt { background: #fff; border: 1px solid #d5ddd3; border-radius: 16px; box-shadow: 0 24px 70px rgba(18, 29, 27, .28); max-width: 480px; overflow: hidden; padding: 0; width: 100%; }
+.payment-receipt-header { align-items: center; background: #1d5b3d; color: #fff; display: flex; justify-content: space-between; min-height: 80px; padding: 18px 24px; position: relative; }
+.payment-receipt-brand { align-items: center; display: flex; gap: 9px; }
+.payment-receipt-brand strong { color: #fff; font-family: 'Playfair Display', serif; font-size: 19px; }
+.payment-receipt-mark { align-items: center; background: #fff; border-radius: 7px; color: #1d5b3d; display: inline-flex; height: 28px; justify-content: center; width: 28px; }
+.payment-receipt-heading { margin-right: 42px; text-align: right; }
+.payment-receipt-heading p { color: #dcece1; font-size: 10px; font-weight: 800; letter-spacing: .12em; margin: 0 0 4px; }
+.payment-receipt-heading span { color: #fff; font-size: 11px; }
+.payment-receipt-close { align-items: center; background: transparent; border: 1px solid rgba(255,255,255,.55); border-radius: 8px; color: #fff; cursor: pointer; display: inline-flex; height: 34px; justify-content: center; min-height: 34px; padding: 0; position: absolute; right: 12px; top: 12px; width: 34px; }
+.payment-receipt-content { padding: 24px; }
+.payment-receipt-confirmation { align-items: center; display: flex; flex-direction: column; padding: 0 0 20px; text-align: center; }
+.payment-receipt-paid { align-items: center; background: #e0f3e7; border-radius: 999px; color: #1d5b3d; display: inline-flex; font-size: 10px; font-weight: 800; gap: 5px; letter-spacing: .08em; padding: 5px 11px; }
+.payment-receipt-confirmation h2 { color: #17231d; font-family: 'Playfair Display', serif; font-size: 27px; margin: 12px 0 3px; }
+.payment-receipt-confirmation p { color: #52645e; font-size: 12px; line-height: 1.5; margin: 0; max-width: 320px; }
+.payment-receipt-amount { color: #17613f; font-family: 'Playfair Display', serif; font-size: clamp(34px, 9vw, 43px); letter-spacing: -.04em; line-height: 1.15; margin-top: 12px; }
+.payment-receipt-type { color: #718078; font-size: 11px; margin-top: 3px; }
+.payment-receipt-details { border: 1px solid #e1e9e2; border-radius: 11px; margin: 0; overflow: hidden; }
+.payment-receipt-details > div { align-items: start; background: #fff; display: grid; gap: 12px; grid-template-columns: minmax(105px, .7fr) minmax(0, 1.3fr); padding: 10px 13px; }
+.payment-receipt-details > div:nth-child(odd) { background: #f4f8f5; }
+.payment-receipt-details dt, .payment-receipt-details dd { margin: 0; overflow-wrap: anywhere; }
+.payment-receipt-details dt { color: #61736b; font-size: 11px; }
+.payment-receipt-details dd { color: #17231d; font-size: 11px; font-weight: 650; }
+.payment-receipt-details .payment-receipt-id { font-family: ui-monospace, monospace; font-size: 10px; }
+.payment-receipt-summary { background: #f4f8f5; border-radius: 11px; margin: 12px 0 0; padding: 10px 13px; }
+.payment-receipt-summary > div { align-items: center; display: flex; gap: 12px; justify-content: space-between; padding: 4px 0; }
+.payment-receipt-summary dt { color: #61736b; font-size: 11px; }
+.payment-receipt-summary dd { color: #17231d; font-size: 11px; font-weight: 650; margin: 0; }
+.payment-receipt-summary .payment-receipt-remaining { border-top: 1px dashed #cbd8ce; margin-top: 3px; padding-top: 8px; }
+.payment-receipt-summary .payment-receipt-remaining dt, .payment-receipt-summary .payment-receipt-remaining dd { color: #1d5b3d; font-size: 12px; font-weight: 800; }
+.payment-receipt-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
 
 @media print {
   @page { size: portrait; margin: 8mm; }
   body * { visibility: hidden !important; }
   .payment-receipt-overlay, .payment-receipt-overlay * { visibility: visible !important; }
   .payment-receipt-overlay { align-items: flex-start; background: #fff; display: block; inset: 0; overflow: visible; padding: 0; position: absolute; }
-  .payment-receipt { border: 0; border-radius: 0; box-shadow: none; margin: 0 auto; max-width: 72mm; padding: 4mm; width: 72mm; }
-  .payment-receipt-header { gap: 4mm; }
-  .payment-receipt-header h2 { font-size: 16pt; margin-top: 2mm; }
-  .payment-receipt-header .eyebrow { font-size: 7pt; letter-spacing: .12em; }
-  .payment-receipt-note { font-size: 8pt; margin-top: 3mm; padding-bottom: 3mm; }
-  .payment-receipt-details { gap: 0 2mm; grid-template-columns: 22mm minmax(0, 1fr); }
-  .payment-receipt-details dt,
-  .payment-receipt-details dd { border-bottom: 1px dashed #cbd2c9; padding: 2mm 0; }
+  .payment-receipt { border: 0; border-radius: 0; box-shadow: none; margin: 0 auto; max-width: 72mm; width: 72mm; }
+  .payment-receipt-header { min-height: 0; padding: 4mm; }
+  .payment-receipt-brand strong { font-size: 12pt; }
+  .payment-receipt-mark { height: 7mm; width: 7mm; }
+  .payment-receipt-heading { margin-right: 0; }
+  .payment-receipt-heading p { font-size: 7pt; }
+  .payment-receipt-heading span { font-size: 7pt; }
+  .payment-receipt-content { padding: 4mm; }
+  .payment-receipt-confirmation { padding-bottom: 3mm; }
+  .payment-receipt-paid { font-size: 7pt; padding: 1mm 3mm; }
+  .payment-receipt-confirmation h2 { font-size: 16pt; margin-top: 2mm; }
+  .payment-receipt-confirmation p { font-size: 8pt; }
+  .payment-receipt-amount { font-size: 25pt; margin-top: 2mm; }
+  .payment-receipt-type { font-size: 7pt; }
+  .payment-receipt-details > div { gap: 2mm; grid-template-columns: 22mm minmax(0, 1fr); padding: 2mm 3mm; }
   .payment-receipt-details dt { font-size: 7pt; }
-  .payment-receipt-details dd { font-size: 8pt; }
+  .payment-receipt-details dd { font-size: 7.5pt; }
   .payment-receipt-details .payment-receipt-id { font-size: 7pt; }
+  .payment-receipt-summary { margin-top: 3mm; padding: 2mm 3mm; }
+  .payment-receipt-summary > div { padding: 1mm 0; }
+  .payment-receipt-summary dt, .payment-receipt-summary dd { font-size: 7pt; }
+  .payment-receipt-summary .payment-receipt-remaining dt, .payment-receipt-summary .payment-receipt-remaining dd { font-size: 8pt; }
   .payment-receipt-close, .payment-receipt-actions { display: none !important; }
 }
 
@@ -11007,6 +11037,100 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: color-mix(in srgb, var(--danger) 16%, var(--surface));
   border-color: color-mix(in srgb, var(--danger) 34%, var(--line));
   color: var(--danger);
+}
+
+.dashboard-page-admin .cater-management {
+  gap: 18px;
+}
+
+.dashboard-page-admin .cater-management .cater-management-header h2 {
+  color: var(--ink);
+  font-family: var(--font-heading);
+  font-size: clamp(26px, 3vw, 34px);
+  letter-spacing: -.04em;
+  margin: 0 0 7px;
+}
+
+.dashboard-page-admin .cater-management .cater-management-header p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dashboard-page-admin .cater-management .cater-summary-grid article {
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: 14px;
+}
+
+.dashboard-page-admin .cater-management .cater-summary-grid article span {
+  color: var(--muted);
+}
+
+.dashboard-page-admin .cater-management .cater-summary-grid article strong {
+  color: var(--ink);
+  font-size: 25px;
+}
+
+.dashboard-page-admin .cater-management .cater-tab-bar {
+  margin: 0;
+  overflow-x: auto;
+}
+
+.dashboard-page-admin .cater-management .cater-tab {
+  white-space: nowrap;
+}
+
+.dashboard-page-admin .cater-management .cater-application-toolbar {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 12px;
+}
+
+.dashboard-page-admin .cater-management .cater-application-toolbar .cater-search {
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.dashboard-page-admin .cater-management .cater-application-toolbar .cater-search::placeholder {
+  color: var(--muted);
+}
+
+.dashboard-page-admin .cater-management .cater-applications-table {
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: 13px;
+}
+
+.dashboard-page-admin .cater-management .cater-table-header {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.dashboard-page-admin .cater-management .cater-table-row {
+  border-color: var(--line);
+}
+
+.dashboard-page-admin .cater-management .cater-table-row:hover {
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+.dashboard-page-admin .cater-management .cater-name-cell strong,
+.dashboard-page-admin .cater-management .cater-city-cell,
+.dashboard-page-admin .cater-management .cater-docs-cell,
+.dashboard-page-admin .cater-management .cater-submitted-cell {
+  color: var(--ink);
+}
+
+.dashboard-page-admin .cater-management .cater-name-cell small,
+.dashboard-page-admin .cater-management .cater-empty-state {
+  color: var(--muted);
+}
+
+.dashboard-page-admin .cater-management .cater-action {
+  border-color: var(--line);
+  border-radius: 9px;
 }
 
 :root[data-theme='dark'] .dashboard-page :is(

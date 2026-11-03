@@ -43,6 +43,7 @@ export default function AdminCaterManagement() {
   const [packages, setPackages] = useState([]);
   const [selectedTheme, setSelectedTheme] = useState('');
   const [activeTab, setActiveTab] = useState('applications');
+  const [applicationSearch, setApplicationSearch] = useState('');
   const [packageSearch, setPackageSearch] = useState('');
   const [packageSort, setPackageSort] = useState('newest');
   const [packageView, setPackageView] = useState('cards');
@@ -88,8 +89,9 @@ export default function AdminCaterManagement() {
       const pending = accounts.filter((account) =>
         account.role === 'caterer'
         && !account.caterer_verified
-        && !account.rejection_reason,
-      );
+          && !account.rejection_reason
+          && account.caterer_id,
+        );
       setPendingApprovals(pending);
       setVerifiedCatererCount(accounts.filter((account) => account.role === 'caterer' && account.caterer_verified).length);
     }
@@ -151,8 +153,13 @@ export default function AdminCaterManagement() {
   }, [permitPreview]);
 
   function requestRejection(account) {
+    const catererProfileId = account?.caterer_id ?? account?.id ?? null;
+    if (catererProfileId === null || catererProfileId === undefined || catererProfileId === '') {
+      setError('This caterer profile could not be identified for rejection.');
+      return;
+    }
     setRejectingAccount({
-      id: account.caterer_id ?? account.id,
+      id: Number(catererProfileId),
       name: account.business_name || account.name || 'Caterer',
     });
     setRejectionReason('');
@@ -160,11 +167,26 @@ export default function AdminCaterManagement() {
   }
 
   async function decideCaterer(action, catererProfileId) {
+    const resolvedProfileId = catererProfileId === null || catererProfileId === undefined || catererProfileId === '' ? null : Number(catererProfileId);
+    if (!resolvedProfileId) {
+      setError('This caterer profile could not be identified for approval or rejection.');
+      return;
+    }
     try {
+      const approved = action === 'approve_caterer';
       const { error } = await supabase.rpc('set_caterer_verification', {
-        caterer_id: catererProfileId,
-        approved: action === 'approve_caterer',
-        p_rejection_reason: null,
+        caterer_id: resolvedProfileId,
+        approved,
+        p_rejection_reason: approved ? null : '',
+      }).catch(async (callError) => {
+        if (approved || !callError?.message?.includes('set_caterer_verification')) {
+          throw callError;
+        }
+        const fallback = await supabase.rpc('set_caterer_verification', {
+          caterer_id: resolvedProfileId,
+          approved: false,
+        });
+        return fallback;
       });
       if (error) throw error;
       setError('Caterer verification updated.');
@@ -211,11 +233,26 @@ export default function AdminCaterManagement() {
       return;
     }
 
+    const resolvedProfileId = Number(rejectingAccount.id);
+    if (!Number.isFinite(resolvedProfileId) || resolvedProfileId <= 0) {
+      setError('This caterer profile could not be identified for rejection.');
+      return;
+    }
+
     try {
       const { error } = await supabase.rpc('set_caterer_verification', {
-        caterer_id: rejectingAccount.id,
+        caterer_id: resolvedProfileId,
         approved: false,
         p_rejection_reason: reason,
+      }).catch(async (callError) => {
+        if (!callError?.message?.includes('set_caterer_verification')) {
+          throw callError;
+        }
+        const fallback = await supabase.rpc('set_caterer_verification', {
+          caterer_id: resolvedProfileId,
+          approved: false,
+        });
+        return fallback;
       });
       if (error) throw error;
 
@@ -223,15 +260,15 @@ export default function AdminCaterManagement() {
       setRejectionReason('');
       try {
         await supabase.functions.invoke('send-account-rejection-email', {
-          body: { accountType: 'caterer', accountProfileId: rejectingAccount.id },
+          body: { accountType: 'caterer', accountProfileId: resolvedProfileId },
         });
       } catch (deliveryError) {
         setError(`Caterer rejected and the reason was saved, but the email could not be sent: ${deliveryError.message || 'Unexpected delivery error.'}`);
       }
       setError('Caterer rejected. The reason was saved.');
       await load();
-    } catch (reason) {
-      setError(reason.message || 'Unable to reject the caterer.');
+    } catch (reasonError) {
+      setError(reasonError.message || 'Unable to reject the caterer.');
     }
   }
 
@@ -292,7 +329,7 @@ export default function AdminCaterManagement() {
 
   const applications = pendingApprovals.map((account, index) => ({
     id: account.id ?? index,
-    profileId: account.caterer_id ?? account.id,
+    profileId: Number(account.caterer_id),
     name: account.business_name || `Applicant ${index + 1}`,
     owner: account.contact_person || account.full_name || 'Owner',
     city: account.city || 'Not specified',
@@ -305,6 +342,15 @@ export default function AdminCaterManagement() {
     category: account.event_type || 'Not specified',
     color: ['dark', 'green', 'purple', 'blue', 'red'][index % 5],
   }));
+  const visibleApplications = applications.filter((application) => {
+    const search = applicationSearch.trim().toLocaleLowerCase();
+    return !search || [
+      application.name,
+      application.owner,
+      application.city,
+      application.email,
+    ].some((value) => value?.toLocaleLowerCase().includes(search));
+  });
 
   const catererAccounts = new Map(
     verifiedCaterers.map((caterer) => [caterer.id, caterer]),
@@ -393,9 +439,10 @@ export default function AdminCaterManagement() {
 
   return (
     <DashboardPage role="admin" section="cater-management">
-      <div className="admin-workspace cater-management">
-        <div className="cater-management-header">
+      <div className="admin-workspace admin-users-workspace cater-management">
+        <div className="admin-intro admin-users-intro cater-management-header">
           <div>
+            <p className="eyebrow">Super admin tools</p>
             <h2>Cater Management</h2>
             <p>Review applications, manage verified partners, and keep package offerings organized.</p>
           </div>
@@ -406,37 +453,37 @@ export default function AdminCaterManagement() {
 
         {error && <p className="form-alert error-alert" role="alert">{error}</p>}
 
-        <div className="cater-summary-grid">
-          <div className="cater-summary-card">
+        <div className="admin-users-summary cater-summary-grid">
+          <article>
             <span>Pending applications</span>
             <strong>{loading ? '—' : String(pendingApprovals.length)}</strong>
-          </div>
-          <div className="cater-summary-card">
+          </article>
+          <article>
             <span>Verified caterers</span>
             <strong>{loading ? '—' : String(verifiedCatererCount)}</strong>
-          </div>
-          <div className="cater-summary-card">
+          </article>
+          <article>
             <span>Missing permits</span>
             <strong>{loading ? '—' : String(pendingApprovals.filter((account) => !account.business_permit).length)}</strong>
-          </div>
-          <div className="cater-summary-card">
+          </article>
+          <article>
             <span>Packages</span>
             <strong>{loading ? '—' : String(packages.length)}</strong>
-          </div>
+          </article>
         </div>
 
-        <div className="cater-tab-bar" aria-label="Cater management tabs">
-          <button className={`cater-tab ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => { setActiveTab('applications'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Applications <span>{pendingApprovals.length}</span></button>
-          <button className={`cater-tab ${activeTab === 'caterers' ? 'active' : ''}`} onClick={() => { setActiveTab('caterers'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Caterers <span>{verifiedCatererCount}</span></button>
-          <button className={`cater-tab ${activeTab === 'subscriptions' ? 'active' : ''}`} onClick={() => { setActiveTab('subscriptions'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Subscriptions <span>{subscriptions.length}</span></button>
-          <button className={`cater-tab ${activeTab === 'packages' ? 'active' : ''}`} onClick={() => { setActiveTab('packages'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Packages <span>{packages.length}</span></button>
+        <div className="admin-users-tabs cater-tab-bar" aria-label="Cater management tabs">
+          <button aria-pressed={activeTab === 'applications'} className={`cater-tab ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => { setActiveTab('applications'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Applications <span>{loading || error ? '—' : pendingApprovals.length}</span></button>
+          <button aria-pressed={activeTab === 'caterers'} className={`cater-tab ${activeTab === 'caterers' ? 'active' : ''}`} onClick={() => { setActiveTab('caterers'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Caterers <span>{loading || error ? '—' : verifiedCatererCount}</span></button>
+          <button aria-pressed={activeTab === 'subscriptions'} className={`cater-tab ${activeTab === 'subscriptions' ? 'active' : ''}`} onClick={() => { setActiveTab('subscriptions'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Subscriptions <span>{loading || error ? '—' : subscriptions.length}</span></button>
+          <button aria-pressed={activeTab === 'packages'} className={`cater-tab ${activeTab === 'packages' ? 'active' : ''}`} onClick={() => { setActiveTab('packages'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Packages <span>{loading || error ? '—' : packages.length}</span></button>
         </div>
 
         {activeTab === 'applications' && (
           <div className="cater-management-layout">
             <div className="cater-table-panel">
-              <div className="cater-table-toolbar">
-                <input aria-label="Search application" className="cater-search" placeholder="Search applicant, owner, city..." type="text" />
+              <div className="admin-users-toolbar admin-customer-toolbar cater-application-toolbar">
+                <input aria-label="Search application" className="cater-search" onChange={(event) => setApplicationSearch(event.target.value)} placeholder="Search applicants, email, or location..." type="search" value={applicationSearch} />
               </div>
               <div className="cater-applications-table">
                 <div className="cater-table-header">
@@ -447,7 +494,7 @@ export default function AdminCaterManagement() {
                   <div className="cater-column-submitted">Submitted</div>
                   <div className="cater-column-actions" />
                 </div>
-                {applications.length ? applications.map((application) => (
+                {visibleApplications.length ? visibleApplications.map((application) => (
                   <div className="cater-table-row" key={application.id}>
                     <div className="cater-select-cell"><input type="checkbox" aria-label={`Select ${application.name}`} /></div>
                     <div className="cater-name-cell">
@@ -463,7 +510,7 @@ export default function AdminCaterManagement() {
                       <button className="cater-action approve" onClick={() => decideCaterer('approve_caterer', application.profileId)} type="button">Approve</button>
                     </div>
                   </div>
-                )) : loading ? <LoadingSpinner compact /> : <p className="cater-empty-state">No caterer applications are waiting for review.</p>}
+                )) : loading ? <LoadingSpinner compact /> : <p className="cater-empty-state">{applications.length ? 'No applications match your search.' : 'No caterer applications are waiting for review.'}</p>}
               </div>
             </div>
             {selectedApplication && (

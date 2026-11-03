@@ -43,6 +43,14 @@ function formatEventDate(value) {
     : date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatPaymentDate(value) {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function daysUntilEvent(value) {
   if (!value) return null;
   const event = new Date(`${String(value).slice(0, 10)}T00:00:00`);
@@ -1074,38 +1082,56 @@ export default function CustomerDashboard() {
         )}
 
         {receipt && (
-          <div className="payment-receipt-overlay" role="dialog" aria-modal="true" aria-label="PayPal payment receipt" onClick={() => setReceipt(null)}>
+          <div className="payment-receipt-overlay" role="dialog" aria-modal="true" aria-label="Customer payment receipt" onClick={() => setReceipt(null)}>
             <article className="payment-receipt" onClick={(event) => event.stopPropagation()}>
               <header className="payment-receipt-header">
-                <div>
-                  <p className="eyebrow eyebrow-soft">CaterAI · Payment receipt</p>
-                  <h2>Payment confirmed</h2>
+                <div className="payment-receipt-brand">
+                  <span className="payment-receipt-mark"><ReceiptText size={19} aria-hidden="true" /></span>
+                  <strong>CaterAI</strong>
+                </div>
+                <div className="payment-receipt-heading">
+                  <p>PAYMENT RECEIPT</p>
+                  <span>{formatPaymentDate(receipt.payment.payment_date)}</span>
                 </div>
                 <button className="payment-receipt-close" onClick={() => setReceipt(null)} type="button" aria-label="Close receipt"><X size={18} /></button>
               </header>
-              <p className="payment-receipt-note">
-                {receipt.payment.payment_method === 'gcash'
-                  ? 'Paid directly to the caterer through GCash and confirmed by the caterer.'
-                  : 'Paid securely through PayPal.'}
-              </p>
-              <dl className="payment-receipt-details">
-                <dt>Package</dt><dd>{receipt.reservation.package_name}</dd>
-                <dt>Payment type</dt><dd>{receipt.payment.payment_type === 'balance' ? 'Balance payment' : 'Down payment'}</dd>
-                <dt>Amount paid</dt><dd>₱{Number(receipt.payment.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
-                <dt>Payment date</dt><dd>{receipt.payment.payment_date || 'Not available'}</dd>
-                {receipt.payment.payment_method === 'gcash' ? (
-                  <><dt>Payment method</dt><dd>GCash · confirmed by caterer</dd></>
-                ) : (
-                  <>
-                    <dt>Paid to PayPal account</dt><dd>{receipt.payment.payee_email || 'Recipient not stored for this payment'}</dd>
-                    <dt>PayPal transaction ID</dt><dd className="payment-receipt-id">{receipt.payment.transaction_id || 'Not available'}</dd>
-                    <dt>PayPal order ID</dt><dd className="payment-receipt-id">{receipt.payment.order_id || 'Not available'}</dd>
-                  </>
-                )}
-                <dt>Payer</dt><dd>{receipt.payment.payer_name || receipt.payment.payer_email || 'Not available'}</dd>
-              </dl>
-              <div className="payment-receipt-actions">
-                <button className="button button-primary" onClick={() => window.print()} type="button"><Printer size={16} aria-hidden="true" /> Print receipt</button>
+              <div className="payment-receipt-content">
+                <div className="payment-receipt-confirmation">
+                  <span className="payment-receipt-paid"><CheckCircle2 size={14} aria-hidden="true" /> PAID</span>
+                  <h2>Payment confirmed</h2>
+                  <p>
+                    {receipt.payment.payment_method === 'gcash'
+                      ? 'You paid the caterer through GCash, and they confirmed your uploaded receipt.'
+                      : 'Your payment was processed securely through PayPal.'}
+                  </p>
+                  <strong className="payment-receipt-amount">
+                    ₱{Number(receipt.payment.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </strong>
+                  <span className="payment-receipt-type">{receipt.payment.payment_type === 'balance' ? 'Balance payment' : 'Down payment'}</span>
+                </div>
+                <dl className="payment-receipt-details">
+                  <div><dt>Package</dt><dd>{receipt.reservation.package_name}</dd></div>
+                  <div><dt>Caterer</dt><dd>{receipt.reservation.business_name}</dd></div>
+                  <div><dt>Event date</dt><dd>{formatEventDate(receipt.reservation.event_date)}</dd></div>
+                  <div><dt>Payment date</dt><dd>{formatPaymentDate(receipt.payment.payment_date)}</dd></div>
+                  <div><dt>Payment method</dt><dd>{receipt.payment.payment_method === 'gcash' ? 'GCash · confirmed by caterer' : 'PayPal'}</dd></div>
+                  {receipt.payment.payment_method !== 'gcash' && (
+                    <>
+                      <div><dt>PayPal reference number</dt><dd className="payment-receipt-id">{receipt.payment.transaction_id || receipt.payment.order_id || 'Not available'}</dd></div>
+                      <div><dt>PayPal order ID</dt><dd className="payment-receipt-id">{receipt.payment.order_id || 'Not available'}</dd></div>
+                      <div><dt>Paid to PayPal account</dt><dd>{receipt.payment.payee_email || 'Recipient not stored for this payment'}</dd></div>
+                    </>
+                  )}
+                  <div><dt>Payer</dt><dd>{receipt.payment.payer_name || receipt.payment.payer_email || 'Not available'}</dd></div>
+                </dl>
+                <dl className="payment-receipt-summary">
+                  <div><dt>Package total</dt><dd>₱{Number(receipt.reservation.total_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd></div>
+                  <div><dt>Already paid</dt><dd>₱{Number(receipt.reservation.paid_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd></div>
+                  <div className="payment-receipt-remaining"><dt>Remaining balance</dt><dd>₱{Math.max(0, Number(receipt.reservation.total_amount || 0) - Number(receipt.reservation.paid_amount || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd></div>
+                </dl>
+                <div className="payment-receipt-actions">
+                  <button className="button button-primary" onClick={() => window.print()} type="button"><Printer size={16} aria-hidden="true" /> Print receipt</button>
+                </div>
               </div>
             </article>
           </div>
