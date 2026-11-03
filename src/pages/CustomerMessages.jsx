@@ -1,8 +1,30 @@
 import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
+import { getChatModerationError } from "../lib/chatModeration";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import DashboardPage from "../components/DashboardPage.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
+
+function MessengerAvatar({ image, name, large = false }) {
+  const [unavailableImage, setUnavailableImage] = useState("");
+
+  const className = `messenger-avatar${large ? " large" : ""}`;
+  if (image && unavailableImage !== image) {
+    return (
+      <img
+        className={`${className} messenger-avatar-photo`}
+        src={image}
+        alt=""
+        onError={() => setUnavailableImage(image)}
+      />
+    );
+  }
+  return (
+    <span className={className} aria-hidden="true">
+      {name?.charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+}
 
 function withTimeout(promise, timeoutMs) {
   let timeoutId;
@@ -30,6 +52,10 @@ export default function CustomerMessages() {
   const [role, setRole] = useState("customer");
   const [session, setSession] = useState(null);
   const [conversationTitle, setConversationTitle] = useState("");
+  const [conversationImage, setConversationImage] = useState("");
+  const [showConversationList, setShowConversationList] = useState(
+    !(selectedCustomer && selectedCaterer),
+  );
   const customer =
     selectedCustomer ||
     (session?.role === "customer" ? session?.customer_id : "");
@@ -119,12 +145,15 @@ export default function CustomerMessages() {
   useEffect(() => {
     if (!session?.authenticated || !caterer || packageId === "0") {
       setConversationTitle("");
+      setConversationImage("");
       return undefined;
     }
+    setConversationTitle("");
+    setConversationImage("");
     let active = true;
     supabase
       .from("packages")
-      .select("caterers!inner(business_name)")
+      .select("caterers!inner(business_name,profile_image)")
       .eq("id", packageId)
       .eq("caterer_id", caterer)
       .eq("caterers.is_verified", true)
@@ -133,9 +162,13 @@ export default function CustomerMessages() {
         if (!active) return;
         if (!error && data?.caterers?.business_name)
           setConversationTitle(data.caterers.business_name);
+        if (!error) setConversationImage(data?.caterers?.profile_image || "");
       })
       .catch(() => {
-        if (active) setConversationTitle("");
+        if (active) {
+          setConversationTitle("");
+          setConversationImage("");
+        }
       });
     return () => {
       active = false;
@@ -170,6 +203,12 @@ export default function CustomerMessages() {
   async function send(event) {
     event.preventDefault();
     if (!text.trim() && !attachment) return;
+    setStatus("");
+    const moderationError = getChatModerationError(text);
+    if (moderationError) {
+      setStatus(moderationError);
+      return;
+    }
     try {
       let attachmentPath = null;
       if (attachment) {
@@ -199,7 +238,9 @@ export default function CustomerMessages() {
       }
       loadMessages();
     } catch (error) {
-      setStatus("");
+      setStatus(
+        error?.message || "Message could not be sent. Please try again.",
+      );
     }
   }
   const conversationName = (item) => {
@@ -215,6 +256,8 @@ export default function CustomerMessages() {
   const activeTitle = activeConversation
     ? conversationName(activeConversation)
     : conversationTitle || "New conversation";
+  const activeImage =
+    activeConversation?.other_profile_image || conversationImage;
   const conversationHref = (item) =>
     `/dashboard/messages?customer_id=${item.customer_id || ""}&caterer_id=${item.caterer_id || ""}&package_id=${item.package_id || 0}`;
   if (!session)
@@ -227,7 +270,9 @@ export default function CustomerMessages() {
     <DashboardPage role={role} section="messages">
       <>
         {status && <p className="form-alert error-alert">{status}</p>}
-        <div className="messenger-shell">
+        <div
+          className={`messenger-shell ${showConversationList ? "mobile-conversations" : "mobile-chat"}`}
+        >
           <aside className="messenger-sidebar">
             <div className="messenger-sidebar-heading">
               <h2>Messages</h2>
@@ -246,9 +291,10 @@ export default function CustomerMessages() {
                     href={conversationHref(item)}
                     key={`${item.other_user_id}-${item.package_id}`}
                   >
-                    <span className="messenger-avatar">
-                      {conversationName(item)?.charAt(0).toUpperCase() || "?"}
-                    </span>
+                    <MessengerAvatar
+                      image={item.other_profile_image}
+                      name={conversationName(item)}
+                    />
                     <span>
                       <strong>{conversationName(item)}</strong>
                       <small>
@@ -273,9 +319,19 @@ export default function CustomerMessages() {
           </aside>
           <section className="messenger-chat">
             <header className="messenger-chat-header">
-              <span className="messenger-avatar large">
-                {activeTitle?.charAt(0).toUpperCase() || "?"}
-              </span>
+              <button
+                className="messenger-back-button"
+                type="button"
+                aria-label="Back to conversations"
+                onClick={() => setShowConversationList(true)}
+              >
+                ←
+              </button>
+              <MessengerAvatar
+                image={activeImage}
+                name={activeTitle}
+                large
+              />
               <div>
                 <h3>{activeTitle}</h3>
                 <small>
@@ -288,6 +344,11 @@ export default function CustomerMessages() {
             </header>
             {customer && caterer ? (
               <>
+                <p className="messenger-guidelines">
+                  Use this chat for package and event planning. Profanity,
+                  sexual content, and personal or romantic advances are not
+                  allowed.
+                </p>
                 <div className="messenger-messages">
                   {messages.length ? (
                     messages.map((item) => (
@@ -299,6 +360,12 @@ export default function CustomerMessages() {
                         }
                         key={item.id}
                       >
+                        {Number(item.sender_id) !== Number(session?.user_id) && (
+                          <MessengerAvatar
+                            image={activeImage}
+                            name={activeTitle}
+                          />
+                        )}
                         <div className="chat-bubble">
                           {item.message && <span>{item.message}</span>}
                           {item.attachment && (
@@ -341,8 +408,10 @@ export default function CustomerMessages() {
                   <textarea
                     value={text}
                     onChange={(event) => setText(event.target.value)}
-                    placeholder="Type a message..."
+                    placeholder="Ask about the package or your event..."
                     rows="1"
+                    maxLength={2000}
+                    aria-label="Message"
                   />
                   <button
                     className="send-message-button"
