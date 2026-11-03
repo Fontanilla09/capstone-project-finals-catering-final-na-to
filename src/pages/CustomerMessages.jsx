@@ -332,7 +332,7 @@ export default function CustomerMessages() {
                 name={activeTitle}
                 large
               />
-              <div>
+              <div className="messenger-chat-identity">
                 <h3>{activeTitle}</h3>
                 <small>
                   {packageId !== "0"
@@ -344,11 +344,6 @@ export default function CustomerMessages() {
             </header>
             {customer && caterer ? (
               <>
-                <p className="messenger-guidelines">
-                  Use this chat for package and event planning. Profanity,
-                  sexual content, and personal or romantic advances are not
-                  allowed.
-                </p>
                 <div className="messenger-messages">
                   {messages.length ? (
                     messages.map((item) => (

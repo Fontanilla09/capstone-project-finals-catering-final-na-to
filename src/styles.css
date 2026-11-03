@@ -10133,6 +10133,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   gap: 8px;
 }
 
+.chat-bubble-row > .messenger-avatar {
+  border-radius: 50%;
+  flex: 0 0 28px;
+  height: 28px;
+  min-width: 28px;
+  object-fit: cover;
+  overflow: hidden;
+  width: 28px;
+}
+
 .dashboard-page .messenger-composer textarea {
   background: var(--surface);
   border-color: var(--line);
@@ -14067,7 +14077,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     height: 100dvh;
     min-height: 100dvh;
     overflow: hidden;
-    padding: 82px 14px 12px;
+    padding: 128px 14px 12px;
   }
 
   .dashboard-page:has(.messenger-shell) .dashboard-content-panel {
@@ -14096,6 +14106,58 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     flex: 1 1 auto;
     height: auto;
     min-height: 0;
+  }
+
+  .dashboard-page:has(.messenger-shell) .messenger-chat-header {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 8px;
+    grid-template-columns: 32px 38px minmax(0, 1fr) auto;
+    min-height: 68px;
+    padding: 10px 12px;
+  }
+
+  .dashboard-page:has(.messenger-shell) .messenger-chat-header .messenger-back-button {
+    height: 36px;
+    margin: 0;
+    width: 32px;
+  }
+
+  .dashboard-page:has(.messenger-shell) .messenger-chat-header .messenger-avatar.large {
+    height: 38px;
+    width: 38px;
+  }
+
+  .dashboard-page:has(.messenger-shell) .messenger-chat-identity {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .dashboard-page:has(.messenger-shell) .messenger-chat-identity h3 {
+    color: var(--ink);
+    display: block;
+    font-size: 14px;
+    line-height: 1.3;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dashboard-page:has(.messenger-shell) .messenger-chat-identity small {
+    display: block;
+    line-height: 1.3;
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dashboard-page:has(.messenger-shell) .messenger-chat-header .online-dot {
+    justify-self: end;
+    margin-left: 0;
+    white-space: nowrap;
   }
 }
 
