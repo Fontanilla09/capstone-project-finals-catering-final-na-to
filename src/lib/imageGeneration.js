@@ -38,7 +38,7 @@ async function postImageRequest(path, body, accessToken, method = 'POST') {
   return data;
 }
 
-export async function generateImage({ image, prompt, aspectRatio = '1:1', onStatus = () => {} }) {
+export async function generateImage({ image, prompt, aspectRatio = '1:1', onStatus = () => {}, onProgress = () => {} }) {
   const normalizedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
   if (!normalizedPrompt) throw new Error('Enter a description first.');
   if (isPromptBlocked(normalizedPrompt)) throw new Error(blockedPromptMessage);
@@ -57,9 +57,13 @@ export async function generateImage({ image, prompt, aspectRatio = '1:1', onStat
 
   for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
     onStatus('NanoBanana is creating your image...');
+    onProgress(Math.min(95, Math.round(((attempt + 1) / maxPollAttempts) * 95)));
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     const result = await postImageRequest('/backend/generate_status.php', { task_token: task.task_token }, accessToken);
-    if (result.status === 'completed' && result.url) return result;
+    if (result.status === 'completed' && result.url) {
+      onProgress(100);
+      return result;
+    }
     if (result.status !== 'processing') throw new Error('NanoBanana returned an unexpected task status.');
   }
 

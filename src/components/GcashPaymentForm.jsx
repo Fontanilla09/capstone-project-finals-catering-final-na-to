@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LoaderCircle, Upload, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { requestJson } from '../lib/api';
 
 const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -14,7 +14,6 @@ export default function GcashPaymentForm({ option, onClose, onSubmitted }) {
     if (!receipt || submitting) return;
     setSubmitting(true);
     setError('');
-    let uploadedPath = '';
 
     try {
       if (!acceptedTypes.includes(receipt.type)) {
@@ -24,30 +23,13 @@ export default function GcashPaymentForm({ option, onClose, onSubmitted }) {
         throw new Error('Receipt image must not exceed 5MB.');
       }
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Sign in again before uploading your GCash receipt.');
-
-      const extension = receipt.type.split('/')[1].replace('jpeg', 'jpg');
-      uploadedPath = `${authData.user.id}/${option.reservation_id}/${crypto.randomUUID()}.${extension}`;
-      const { error: uploadError } = await supabase.storage
-        .from('gcash-payment-receipts')
-        .upload(uploadedPath, receipt, { contentType: receipt.type, upsert: false });
-      if (uploadError) throw uploadError;
-
-      const { error: submitError } = await supabase.rpc('submit_gcash_payment', {
-        p_reservation_id: option.reservation_id,
-        p_payment_type: option.payment_type,
-        p_receipt_path: uploadedPath,
-      });
-      if (submitError) throw submitError;
-
+      const form = new FormData();
+      form.append('receipt', receipt);
+      form.append('reservation_id', String(option.reservation_id));
+      form.append('payment_type', option.payment_type);
+      await requestJson('/backend/gcash_receipt_api.php', { method: 'POST', body: form });
       onSubmitted();
     } catch (reason) {
-      if (uploadedPath) {
-        const { error: cleanupError } = await supabase.storage.from('gcash-payment-receipts').remove([uploadedPath]);
-        if (cleanupError) console.error('Could not remove an unsubmitted GCash receipt:', cleanupError);
-      }
       setError(reason.message || 'Could not submit the GCash receipt.');
     } finally {
       setSubmitting(false);
@@ -64,7 +46,7 @@ export default function GcashPaymentForm({ option, onClose, onSubmitted }) {
           </div>
           <button className="payment-receipt-close" onClick={onClose} type="button" aria-label="Close GCash payment"><X size={18} /></button>
         </header>
-        <p className="payment-receipt-note">Scan this caterer’s QR code, pay the exact amount, then upload your GCash receipt. The payment stays unconfirmed until the caterer reviews it.</p>
+        <p className="payment-receipt-note">Scan this caterer’s QR code, pay the exact amount, then upload your GCash receipt. We’ll screen the image for possible AI generation, but the caterer must still verify the payment in GCash.</p>
         <img className="gcash-payment-qr" src={option.gcash_qr_code} alt={`GCash QR code for ${option.business_name}`} />
         <form className="gcash-payment-form" onSubmit={submit}>
           <label htmlFor="gcash-payment-receipt">Upload payment receipt</label>
@@ -79,7 +61,7 @@ export default function GcashPaymentForm({ option, onClose, onSubmitted }) {
           {error && <p className="form-alert error-alert" role="alert">{error}</p>}
           <div className="payment-receipt-actions">
             <button className="button button-primary" disabled={!receipt || submitting} type="submit">
-              {submitting ? <><LoaderCircle className="gcash-payment-spinner" size={16} aria-hidden="true" /> Submitting…</> : <><Upload size={16} aria-hidden="true" /> Submit receipt</>}
+              {submitting ? <><LoaderCircle className="gcash-payment-spinner" size={16} aria-hidden="true" /> Screening receipt…</> : <><Upload size={16} aria-hidden="true" /> Scan & submit receipt</>}
             </button>
           </div>
         </form>

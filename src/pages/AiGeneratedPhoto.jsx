@@ -20,6 +20,7 @@ export default function AiGeneratedPhoto() {
   });
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
@@ -82,6 +83,7 @@ export default function AiGeneratedPhoto() {
     }
 
     setLoading(true);
+    setProgress(0);
     setStatus('Creating your studio preview...');
     setResult('');
 
@@ -92,6 +94,7 @@ export default function AiGeneratedPhoto() {
           prompt: prompt.trim(),
           aspectRatio: '1:1',
           onStatus: setStatus,
+          onProgress: setProgress,
         });
       }
 
@@ -103,6 +106,7 @@ export default function AiGeneratedPhoto() {
         const cannotFetchReference = image && /image fetch|access settings|file upload|image url/i.test(error.message);
         if (!cannotFetchReference) throw error;
         usedReference = false;
+        setProgress(0);
         setStatus('Reference image is not publicly reachable. Creating the image from your prompt instead...');
         data = await requestGeneration(false);
       }
@@ -119,6 +123,7 @@ export default function AiGeneratedPhoto() {
       setStatus(error.message);
     } finally {
       setLoading(false);
+      setProgress(0);
     }
   }
 
@@ -163,7 +168,16 @@ export default function AiGeneratedPhoto() {
           <div><span className="ai-studio-kicker"><Sparkles size={14} /> CATERAI IMAGE STUDIO</span><h2>Create visuals for your next event</h2><p>Describe the scene you want. CaterAI will turn your idea into a polished catering photo.</p></div>
           <span className="ai-studio-ready"><i /> AI image generator</span>
         </header>
-        {status && <p className={`ai-studio-status ${loading ? 'is-loading' : ''}`} role="status">{status}</p>}
+        {status && <div className={`ai-studio-status ${loading ? 'is-loading' : ''}`} role="status">
+          <p>{status}</p>
+          {loading && <div className="ai-progress-wrap">
+            <div className="ai-progress-label"><span>Approximate progress · based on wait time</span><strong>{progress}%</strong></div>
+            <div className="ai-progress-track" role="progressbar" aria-label="Approximate image generation progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-valuetext={`${progress}% approximate progress, based on wait time`}>
+              <span style={{ width: `${progress}%` }} />
+            </div>
+            <small>The image provider does not report a live percentage.</small>
+          </div>}
+        </div>}
         <div className="ai-generator-grid">
           <form className="ai-control-panel" onSubmit={generate}>
             <div className="ai-panel-title"><span>01</span><div><h3>Describe your image</h3><p>A little detail helps create a more useful result.</p></div></div>
@@ -183,7 +197,7 @@ export default function AiGeneratedPhoto() {
             <div className="ai-section-heading"><div><span>02</span><div><h3>Preview</h3><p>Your latest generated image</p></div></div>{latestUrl && <button className="ai-download-button" onClick={downloadResult} type="button"><Download size={15} /> Download</button>}</div>
             <div className={`ai-result-frame ${loading ? 'is-generating' : ''}`}>
               {latestUrl ? <><img src={latestUrl} alt="Latest generated catering image" onClick={() => setSelectedImage(latestUrl)} /><button className="ai-zoom-hint" type="button" onClick={() => setSelectedImage(latestUrl)}>View full size</button></> : <div className="ai-result-empty"><div className="ai-empty-icon"><Sparkles size={22} /></div><strong>{loading ? 'Creating your image' : 'Your image will appear here'}</strong><span>{loading ? 'This can take a little while. Keep this page open.' : 'Write a prompt and generate your first visual.'}</span>{loading && <LoaderCircle className="ai-spin ai-loading-icon" size={20} />}</div>}
-              {loading && latestUrl && <div className="ai-generating-overlay"><LoaderCircle className="ai-spin" size={20} /> Creating a new image…</div>}
+              {loading && latestUrl && <div className="ai-generating-overlay"><LoaderCircle className="ai-spin" size={20} /> Creating a new image… {progress}%</div>}
             </div>
             {latestUrl && displayedImage?.prompt && <p className="ai-latest-prompt"><span>Prompt</span>{displayedImage.prompt}</p>}
           </section>

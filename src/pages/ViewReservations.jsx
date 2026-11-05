@@ -368,6 +368,21 @@ export default function ViewReservations() {
                     <strong>{payment.package_name} · Reservation #{payment.reservation_id}</strong>
                     <span>{payment.customer_name} · {payment.payment_type === 'balance' ? 'Balance' : 'Down payment'} · {formatCurrency(payment.amount)}</span>
                     <span>{formatEventDate(payment.event_date)}</span>
+                    {payment.ai_generated_probability !== null && payment.ai_generated_probability !== undefined ? (
+                      <span className={`gcash-ai-screening ${payment.requires_manual_review ? 'is-flagged' : 'is-low'}`}>
+                        Sightengine AI-image likelihood: {Math.round(Number(payment.ai_generated_probability) * 100)}%
+                        {Number(payment.ai_generated_probability) >= 0.7
+                          ? ' · High AI signal; check carefully.'
+                          : payment.requires_manual_review
+                            ? ' · Uncertain AI signal; check carefully.'
+                            : ' · Low AI signal.'}
+                        <small>Automated screening can be wrong. Verify the payment in your GCash account before confirming.</small>
+                      </span>
+                    ) : (
+                      <span className="gcash-ai-screening is-unknown">
+                        AI image screening is unavailable for this older receipt. Verify the payment in your GCash account.
+                      </span>
+                    )}
                   </div>
                   <a href={payment.receipt_url} target="_blank" rel="noreferrer">
                     <img src={payment.receipt_url} alt={`GCash receipt from ${payment.customer_name}`} />
