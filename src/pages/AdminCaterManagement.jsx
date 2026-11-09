@@ -735,10 +735,10 @@ export default function AdminCaterManagement() {
                     <strong>{subscription.business_name || 'Caterer account'}</strong>
                     <small>{subscription.email || 'No email provided'}</small>
                   </div>
-                  <span data-label="Plan" role="cell">{!subscription.subscription_id || subscription.displayStatus === 'not_subscribed' ? '—' : subscription.plan === 'yearly' ? 'Yearly' : 'Monthly'}</span>
-                  <span data-label="Amount" role="cell">{!subscription.subscription_id || subscription.displayStatus === 'not_subscribed' ? '₱0.00' : money(subscription.amount)}</span>
-                  <span data-label="Started" role="cell">{subscriptionDate(subscription.started_at)}</span>
-                  <span data-label="Expires" role="cell">{subscriptionDate(subscription.expires_at)}</span>
+                  <span data-label="Plan" role="cell">{!subscription.subscription_id || ['not_subscribed', 'expired'].includes(subscription.displayStatus) ? '—' : subscription.plan === 'yearly' ? 'Yearly' : 'Monthly'}</span>
+                  <span data-label="Amount" role="cell">{!subscription.subscription_id || subscription.displayStatus === 'not_subscribed' ? '₱0.00' : subscription.displayStatus === 'expired' ? '—' : money(subscription.amount)}</span>
+                  <span data-label="Started" role="cell">{subscription.displayStatus === 'expired' ? 'Not available' : subscriptionDate(subscription.started_at)}</span>
+                  <span data-label="Expires" role="cell">{subscription.displayStatus === 'expired' ? 'Not available' : subscriptionDate(subscription.expires_at)}</span>
                   <span data-label="Status" role="cell">
                     <span className={`cater-badge ${subscription.displayStatus === 'active' ? 'verified' : subscription.displayStatus === 'expired' || subscription.displayStatus === 'not_subscribed' ? 'suspended' : subscription.displayStatus === 'pending' ? 'pending' : 'muted'}`}>
                       {subscription.displayStatus === 'not_subscribed' ? 'Not subscribed' : subscription.displayStatus || 'Unknown'}
