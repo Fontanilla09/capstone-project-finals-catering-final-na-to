@@ -36,3 +36,64 @@ $$;
 
 revoke all on function public.get_admin_caterer_subscriptions() from public, anon;
 grant execute on function public.get_admin_caterer_subscriptions() to authenticated;
+
+create or replace function public.admin_activate_caterer_subscription(p_subscription_id bigint)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    subscription_row public.caterer_subscriptions%rowtype;
+    admin_id bigint;
+    renewal_interval interval;
+begin
+    if not public.is_admin() then
+        raise exception 'Admin access required';
+    end if;
+
+    select * into subscription_row
+    from public.caterer_subscriptions
+    where id = p_subscription_id
+    for update;
+
+    if not found then
+        raise exception 'Subscription not found';
+    end if;
+
+    select id into admin_id
+    from public.users
+    where auth_user_id = auth.uid() and role = 'admin';
+
+    renewal_interval := case subscription_row.plan
+        when 'yearly' then interval '1 year'
+        else interval '1 month'
+    end;
+
+    update public.caterer_subscriptions
+    set status = 'active',
+        started_at = coalesce(started_at, now()),
+        expires_at = greatest(coalesce(expires_at, now()), now()) + renewal_interval,
+        updated_at = now()
+    where id = p_subscription_id;
+
+    update public.caterers
+    set is_suspended = false,
+        suspension_reason = null,
+        suspended_at = null,
+        suspended_by = null,
+        updated_at = now()
+    where id = subscription_row.caterer_id;
+
+    insert into public.admin_activity_log (admin_user_id, action, details)
+    values (
+        admin_id,
+        'activate_caterer_subscription',
+        'Activated ' || coalesce((select business_name from public.caterers where id = subscription_row.caterer_id), 'caterer')
+        || ' (#' || subscription_row.caterer_id || ') with a ' || subscription_row.plan || ' subscription.'
+    );
+end;
+$$;
+
+revoke all on function public.admin_activate_caterer_subscription(bigint) from public, anon;
+grant execute on function public.admin_activate_caterer_subscription(bigint) to authenticated;

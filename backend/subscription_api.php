@@ -211,7 +211,7 @@ if ($subscriptionAccess['active']) {
 $request = json_decode(file_get_contents('php://input') ?: '', true);
 $plan = is_array($request) ? ($request['plan'] ?? '') : '';
 $plans = [
-    'monthly' => ['amount' => 100, 'name' => 'CaterAI Pro - Monthly'],
+    'monthly' => ['amount' => 49900, 'name' => 'CaterAI Pro - Monthly'],
     'yearly' => ['amount' => 479000, 'name' => 'CaterAI Pro - Yearly'],
 ];
 if (!is_string($plan) || !isset($plans[$plan])) {

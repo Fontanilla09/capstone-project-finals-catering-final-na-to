@@ -10,7 +10,7 @@ import {
 } from '../lib/catererSubscription.js';
 
 const planOptions = [
-  { id: 'monthly', label: 'Monthly', price: '₱1', detail: 'One-time payment · 1 month' },
+  { id: 'monthly', label: 'Monthly', price: '₱499', detail: 'One-time payment · 1 month' },
   { id: 'yearly', label: 'Yearly', price: '₱4,790', detail: 'One-time payment · 1 year', savings: 'Save 20%' },
 ];
 
@@ -299,7 +299,7 @@ export default function SubscriptionGate({ feature }) {
               ) : (
                 <>
                   <button className="subscription-primary-action" onClick={() => setPlanPickerOpen(true)} type="button">
-                    Subscribe from ₱1/month
+                    Subscribe from ₱499/month
                   </button>
                   <small className="subscription-checkout-note">Choose a 1-month or 1-year plan. Your data stays safe while locked.</small>
                 </>

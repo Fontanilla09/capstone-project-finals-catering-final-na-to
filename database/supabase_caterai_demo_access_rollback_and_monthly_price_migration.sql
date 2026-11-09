@@ -1,4 +1,4 @@
--- Restore paid subscription-only access and set the monthly plan to PHP 1.
+-- Restore paid subscription-only access and set the monthly plan to PHP 499.
 -- Run after supabase_paymongo_subscriptions_migration.sql.
 
 begin;
@@ -53,6 +53,6 @@ alter table public.caterer_subscriptions
 
 alter table public.caterer_subscriptions
     add constraint caterer_subscriptions_amount_check
-    check (amount in (100, 49900, 479000));
+    check (amount in (49900, 479000));
 
 commit;
