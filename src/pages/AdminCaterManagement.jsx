@@ -196,27 +196,11 @@ export default function AdminCaterManagement() {
     }
     try {
       const approved = action === 'approve_caterer';
-      let result = approved
-        ? await supabase.rpc('set_caterer_verification', {
-          caterer_id: resolvedProfileId,
-          approved: true,
-        })
-        : await supabase.rpc('set_caterer_verification', {
-          caterer_id: resolvedProfileId,
-          approved: false,
-          p_rejection_reason: '',
-        });
-      if (
-        result.error
-        && !approved
-        && result.error.message?.includes('set_caterer_verification')
-      ) {
-        result = await supabase.rpc('set_caterer_verification', {
-          caterer_id: resolvedProfileId,
-          approved: false,
-        });
-      }
-      const { error } = result;
+      const { error } = await supabase.rpc('set_caterer_verification', {
+        caterer_id: resolvedProfileId,
+        approved,
+        p_rejection_reason: approved ? null : '',
+      });
       if (error) throw error;
       setError(approved ? 'Caterer approved.' : 'Caterer rejected.');
       await load();
