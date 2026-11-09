@@ -25,12 +25,33 @@ begin
     end if;
 
     return query
-    select s.id, s.caterer_id, c.business_name, u.email, s.plan, s.amount,
-        s.status, s.created_at, s.started_at, s.expires_at
-    from public.caterer_subscriptions s
-    join public.caterers c on c.id = s.caterer_id
+    with latest_subscription as (
+        select distinct on (s.caterer_id) s.*
+        from public.caterer_subscriptions s
+        order by s.caterer_id, s.created_at desc
+    )
+    select
+        ls.id,
+        c.id,
+        c.business_name,
+        u.email,
+        coalesce(ls.plan, 'none'),
+        coalesce(ls.amount, 0),
+        case
+            when ls.id is null then 'not_subscribed'
+            when ls.status = 'pending' then 'pending'
+            when ls.status = 'failed' then 'failed'
+            when ls.status = 'active' and (ls.expires_at is null or ls.expires_at <= now()) then 'expired'
+            when ls.status = 'active' then 'active'
+            else coalesce(ls.status, 'not_subscribed')
+        end,
+        ls.created_at,
+        ls.started_at,
+        ls.expires_at
+    from public.caterers c
     join public.users u on u.id = c.user_id
-    order by s.created_at desc;
+    left join latest_subscription ls on ls.caterer_id = c.id
+    order by c.business_name asc;
 end;
 $$;
 
@@ -95,5 +116,58 @@ begin
 end;
 $$;
 
+create or replace function public.admin_deactivate_caterer_subscription(p_subscription_id bigint)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    subscription_row public.caterer_subscriptions%rowtype;
+    admin_id bigint;
+begin
+    if not public.is_admin() then
+        raise exception 'Admin access required';
+    end if;
+
+    select * into subscription_row
+    from public.caterer_subscriptions
+    where id = p_subscription_id
+    for update;
+
+    if not found then
+        raise exception 'Subscription not found';
+    end if;
+
+    select id into admin_id
+    from public.users
+    where auth_user_id = auth.uid() and role = 'admin';
+
+    update public.caterer_subscriptions
+    set status = 'expired',
+        expires_at = now(),
+        updated_at = now()
+    where id = p_subscription_id;
+
+    update public.caterers
+    set is_suspended = true,
+        suspension_reason = coalesce(suspension_reason, 'Admin deactivated subscription access'),
+        suspended_at = now(),
+        suspended_by = admin_id,
+        updated_at = now()
+    where id = subscription_row.caterer_id;
+
+    insert into public.admin_activity_log (admin_user_id, action, details)
+    values (
+        admin_id,
+        'deactivate_caterer_subscription',
+        'Deactivated ' || coalesce((select business_name from public.caterers where id = subscription_row.caterer_id), 'caterer')
+        || ' (#' || subscription_row.caterer_id || ') subscription access.'
+    );
+end;
+$$;
+
 revoke all on function public.admin_activate_caterer_subscription(bigint) from public, anon;
 grant execute on function public.admin_activate_caterer_subscription(bigint) to authenticated;
+revoke all on function public.admin_deactivate_caterer_subscription(bigint) from public, anon;
+grant execute on function public.admin_deactivate_caterer_subscription(bigint) to authenticated;

@@ -63,6 +63,7 @@ export default function AdminCaterManagement() {
   const [permitPreview, setPermitPreview] = useState(null);
   const [permitZoom, setPermitZoom] = useState(1);
   const [activatingSubscriptionId, setActivatingSubscriptionId] = useState(null);
+  const [deactivatingSubscriptionId, setDeactivatingSubscriptionId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -380,11 +381,19 @@ export default function AdminCaterManagement() {
   const visibleSubscriptions = subscriptions
     .map((subscription) => {
       const isExpired = subscription.status === 'expired'
+        || subscription.status === 'not_subscribed'
         || (subscription.status === 'active'
           && (!subscription.expires_at || Date.parse(subscription.expires_at) <= currentTime));
+      const displayStatus = subscription.status === 'not_subscribed'
+        ? 'not_subscribed'
+        : subscription.status === 'pending'
+          ? 'pending'
+          : isExpired && subscription.status !== 'pending'
+            ? 'expired'
+            : subscription.status;
       return {
         ...subscription,
-        displayStatus: isExpired ? 'expired' : subscription.status,
+        displayStatus,
       };
     })
     .filter((subscription) => {
@@ -452,6 +461,23 @@ export default function AdminCaterManagement() {
       setError(activationError.message || 'This subscription could not be activated.');
     } finally {
       setActivatingSubscriptionId(null);
+    }
+  }
+
+  async function deactivateSubscriptionAccess(subscriptionId) {
+    if (!subscriptionId) return;
+    setDeactivatingSubscriptionId(subscriptionId);
+    setError('');
+    try {
+      const { error: deactivationError } = await supabase.rpc('admin_deactivate_caterer_subscription', {
+        p_subscription_id: Number(subscriptionId),
+      });
+      if (deactivationError) throw deactivationError;
+      await load();
+    } catch (deactivationError) {
+      setError(deactivationError.message || 'This subscription could not be deactivated.');
+    } finally {
+      setDeactivatingSubscriptionId(null);
     }
   }
 
@@ -661,6 +687,7 @@ export default function AdminCaterManagement() {
                 <option value="active">Active</option>
                 <option value="expired">Expired</option>
                 <option value="pending">Pending</option>
+                <option value="not_subscribed">Not subscribed</option>
                 <option value="failed">Failed</option>
               </select>
             </div>
@@ -675,33 +702,44 @@ export default function AdminCaterManagement() {
                 <span role="columnheader">Action</span>
               </div>
               {visibleSubscriptions.length ? visibleSubscriptions.map((subscription) => (
-                <div className="subscription-table-row" key={subscription.subscription_id} role="row">
+                <div className="subscription-table-row" key={subscription.subscription_id ?? `${subscription.caterer_id}-nostatus`} role="row">
                   <div className="cater-name-cell" role="cell">
                     <strong>{subscription.business_name || 'Caterer account'}</strong>
                     <small>{subscription.email || 'No email provided'}</small>
                   </div>
-                  <span data-label="Plan" role="cell">{subscription.plan === 'yearly' ? 'Yearly' : 'Monthly'}</span>
-                  <span data-label="Amount" role="cell">{money(subscription.amount)}</span>
+                  <span data-label="Plan" role="cell">{!subscription.subscription_id || subscription.displayStatus === 'not_subscribed' ? '—' : subscription.plan === 'yearly' ? 'Yearly' : 'Monthly'}</span>
+                  <span data-label="Amount" role="cell">{!subscription.subscription_id || subscription.displayStatus === 'not_subscribed' ? '₱0.00' : money(subscription.amount)}</span>
                   <span data-label="Started" role="cell">{subscriptionDate(subscription.started_at)}</span>
                   <span data-label="Expires" role="cell">{subscriptionDate(subscription.expires_at)}</span>
                   <span data-label="Status" role="cell">
-                    <span className={`cater-badge ${subscription.displayStatus === 'active' ? 'verified' : subscription.displayStatus === 'expired' ? 'suspended' : subscription.displayStatus === 'pending' ? 'pending' : 'muted'}`}>
-                      {subscription.displayStatus || 'Unknown'}
+                    <span className={`cater-badge ${subscription.displayStatus === 'active' ? 'verified' : subscription.displayStatus === 'expired' || subscription.displayStatus === 'not_subscribed' ? 'suspended' : subscription.displayStatus === 'pending' ? 'pending' : 'muted'}`}>
+                      {subscription.displayStatus === 'not_subscribed' ? 'Not subscribed' : subscription.displayStatus || 'Unknown'}
                     </span>
                   </span>
                   <span data-label="Action" role="cell">
-                    <button
-                      className="admin-action-button"
-                      disabled={activatingSubscriptionId === subscription.subscription_id || subscription.displayStatus === 'active'}
-                      onClick={() => activateSubscriptionAccess(subscription.subscription_id)}
-                      type="button"
-                    >
-                      {activatingSubscriptionId === subscription.subscription_id
-                        ? 'Activating...'
-                        : subscription.displayStatus === 'active'
-                          ? 'Access active'
-                          : 'Activate access'}
-                    </button>
+                    {subscription.displayStatus === 'active' ? (
+                      <button
+                        className="admin-action-button"
+                        disabled={deactivatingSubscriptionId === subscription.subscription_id}
+                        onClick={() => deactivateSubscriptionAccess(subscription.subscription_id)}
+                        type="button"
+                      >
+                        {deactivatingSubscriptionId === subscription.subscription_id ? 'Deactivating...' : 'Deactivate access'}
+                      </button>
+                    ) : (
+                      <button
+                        className="admin-action-button"
+                        disabled={activatingSubscriptionId === subscription.subscription_id || !subscription.subscription_id}
+                        onClick={() => activateSubscriptionAccess(subscription.subscription_id)}
+                        type="button"
+                      >
+                        {activatingSubscriptionId === subscription.subscription_id
+                          ? 'Activating...'
+                          : subscription.subscription_id
+                            ? 'Activate access'
+                            : 'No subscription'}
+                      </button>
+                    )}
                   </span>
                 </div>
               )) : loading ? <LoadingSpinner compact /> : (
