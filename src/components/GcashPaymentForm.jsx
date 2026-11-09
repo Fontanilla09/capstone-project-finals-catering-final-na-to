@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LoaderCircle, Upload, X } from 'lucide-react';
-import { requestJson } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -27,7 +27,17 @@ export default function GcashPaymentForm({ option, onClose, onSubmitted }) {
       form.append('receipt', receipt);
       form.append('reservation_id', String(option.reservation_id));
       form.append('payment_type', option.payment_type);
-      await requestJson('/backend/gcash_receipt_api.php', { method: 'POST', body: form });
+      if (!supabase) throw new Error('Payment service is not configured.');
+
+      const { error: submissionError } = await supabase.functions.invoke('gcash-receipt', { body: form });
+      if (submissionError) {
+        const context = submissionError.context;
+        if (context instanceof Response) {
+          const result = await context.clone().json().catch(() => null);
+          if (result && typeof result.error === 'string') throw new Error(result.error);
+        }
+        throw submissionError;
+      }
       onSubmitted();
     } catch (reason) {
       setError(reason.message || 'Could not submit the GCash receipt.');

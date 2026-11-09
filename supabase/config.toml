@@ -1,0 +1,4 @@
+project_id = "nylgknhcpyahsijjxwqx"
+
+[functions.gcash-receipt]
+verify_jwt = true
