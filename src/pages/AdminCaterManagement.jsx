@@ -144,9 +144,26 @@ export default function AdminCaterManagement() {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
-    return () => clearInterval(timer);
-  }, []);
+    const nextExpiry = subscriptions
+      .filter((subscription) => subscription.status === 'active' && subscription.expires_at)
+      .map((subscription) => Date.parse(subscription.expires_at))
+      .filter((expiresAt) => Number.isFinite(expiresAt) && expiresAt > Date.now())
+      .sort((first, second) => first - second)[0];
+    const timer = nextExpiry
+      ? window.setTimeout(
+        () => setCurrentTime(Date.now()),
+        Math.min(nextExpiry - Date.now() + 50, 2147483647),
+      )
+      : null;
+    const updateTime = () => setCurrentTime(Date.now());
+    window.addEventListener('focus', updateTime);
+    document.addEventListener('visibilitychange', updateTime);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener('focus', updateTime);
+      document.removeEventListener('visibilitychange', updateTime);
+    };
+  }, [subscriptions]);
 
   useEffect(() => {
     if (!permitPreview) return undefined;

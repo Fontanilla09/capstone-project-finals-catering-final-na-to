@@ -93,8 +93,8 @@ begin
 
     update public.caterer_subscriptions
     set status = 'active',
-        started_at = coalesce(started_at, now()),
-        expires_at = greatest(coalesce(expires_at, now()), now()) + renewal_interval,
+        started_at = now(),
+        expires_at = now() + renewal_interval,
         updated_at = now()
     where id = p_subscription_id;
 
@@ -239,8 +239,8 @@ begin
         set plan = effective_plan,
             amount = effective_amount,
             status = 'active',
-            started_at = coalesce(started_at, now()),
-            expires_at = greatest(coalesce(expires_at, now()), now()) + renewal_interval,
+            started_at = now(),
+            expires_at = now() + renewal_interval,
             updated_at = now()
         where id = existing_subscription.id;
     end if;
