@@ -1,6 +1,16 @@
 -- Allow admins to monitor caterer subscription history.
 -- Run after supabase_admin_migration.sql and supabase_paymongo_subscriptions_migration.sql.
 
+-- Undo the account suspension previously applied as a side effect of subscription deactivation.
+update public.caterers
+set is_suspended = false,
+    suspension_reason = null,
+    suspended_at = null,
+    suspended_by = null,
+    updated_at = now()
+where is_suspended = true
+  and suspension_reason = 'Admin deactivated subscription access';
+
 create or replace function public.get_admin_caterer_subscriptions()
 returns table (
     subscription_id bigint,
@@ -98,14 +108,6 @@ begin
         updated_at = now()
     where id = p_subscription_id;
 
-    update public.caterers
-    set is_suspended = false,
-        suspension_reason = null,
-        suspended_at = null,
-        suspended_by = null,
-        updated_at = now()
-    where id = subscription_row.caterer_id;
-
     insert into public.admin_activity_log (admin_user_id, action, details)
     values (
         admin_id,
@@ -148,14 +150,6 @@ begin
         expires_at = now(),
         updated_at = now()
     where id = p_subscription_id;
-
-    update public.caterers
-    set is_suspended = true,
-        suspension_reason = coalesce(suspension_reason, 'Admin deactivated subscription access'),
-        suspended_at = now(),
-        suspended_by = admin_id,
-        updated_at = now()
-    where id = subscription_row.caterer_id;
 
     insert into public.admin_activity_log (admin_user_id, action, details)
     values (
@@ -245,14 +239,6 @@ begin
         where id = existing_subscription.id;
     end if;
 
-    update public.caterers
-    set is_suspended = false,
-        suspension_reason = null,
-        suspended_at = null,
-        suspended_by = null,
-        updated_at = now()
-    where id = p_caterer_id;
-
     select id into admin_id
     from public.users
     where auth_user_id = auth.uid() and role = 'admin';
@@ -273,3 +259,143 @@ revoke all on function public.admin_deactivate_caterer_subscription(bigint) from
 grant execute on function public.admin_deactivate_caterer_subscription(bigint) to authenticated;
 revoke all on function public.admin_activate_caterer_subscription_for_caterer(bigint, text, integer) from public, anon;
 grant execute on function public.admin_activate_caterer_subscription_for_caterer(bigint, text, integer) to authenticated;
+
+-- Keep package and image management locked whenever the subscription is inactive
+-- or expired, even if an older migration recreated the policies without this check.
+create or replace function public.caterer_has_active_subscription_for_auth_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select exists (
+        select 1
+        from public.caterer_subscriptions s
+        join public.caterers c on c.id = s.caterer_id
+        join public.users u on u.id = c.user_id
+        where u.auth_user_id = auth.uid()
+          and c.is_suspended = false
+          and s.status = 'active'
+          and s.expires_at > now()
+    );
+$$;
+
+revoke all on function public.caterer_has_active_subscription_for_auth_user() from public, anon;
+grant execute on function public.caterer_has_active_subscription_for_auth_user() to authenticated;
+
+drop policy if exists packages_owner_insert on public.packages;
+create policy packages_owner_insert on public.packages
+for insert to authenticated
+with check (
+    caterer_id = (select caterer_id from public.get_my_profile())
+    and public.caterer_has_active_subscription_for_auth_user()
+    and not exists (
+        select 1 from public.caterers c
+        where c.id = packages.caterer_id and c.is_suspended
+    )
+);
+
+drop policy if exists packages_owner_update on public.packages;
+create policy packages_owner_update on public.packages
+for update to authenticated
+using (
+    caterer_id = (select caterer_id from public.get_my_profile())
+    and public.caterer_has_active_subscription_for_auth_user()
+    and not exists (
+        select 1 from public.caterers c
+        where c.id = packages.caterer_id and c.is_suspended
+    )
+)
+with check (
+    caterer_id = (select caterer_id from public.get_my_profile())
+    and public.caterer_has_active_subscription_for_auth_user()
+    and not exists (
+        select 1 from public.caterers c
+        where c.id = packages.caterer_id and c.is_suspended
+    )
+);
+
+drop policy if exists packages_owner_delete on public.packages;
+create policy packages_owner_delete on public.packages
+for delete to authenticated
+using (
+    caterer_id = (select caterer_id from public.get_my_profile())
+    and public.caterer_has_active_subscription_for_auth_user()
+    and not exists (
+        select 1 from public.caterers c
+        where c.id = packages.caterer_id and c.is_suspended
+    )
+);
+
+drop policy if exists package_images_owner_insert on public.package_images;
+create policy package_images_owner_insert on public.package_images
+for insert to authenticated
+with check (exists (
+    select 1
+    from public.packages p
+    join public.caterers c on c.id = p.caterer_id
+    where p.id = package_images.package_id
+      and p.caterer_id = (select caterer_id from public.get_my_profile())
+      and public.caterer_has_active_subscription_for_auth_user()
+      and c.is_suspended = false
+));
+
+drop policy if exists package_images_owner_delete on public.package_images;
+create policy package_images_owner_delete on public.package_images
+for delete to authenticated
+using (exists (
+    select 1
+    from public.packages p
+    join public.caterers c on c.id = p.caterer_id
+    where p.id = package_images.package_id
+      and p.caterer_id = (select caterer_id from public.get_my_profile())
+      and public.caterer_has_active_subscription_for_auth_user()
+      and c.is_suspended = false
+));
+
+drop policy if exists package_images_storage_insert on storage.objects;
+create policy package_images_storage_insert on storage.objects
+for insert to authenticated
+with check (
+    bucket_id = 'package-images'
+    and (storage.foldername(name))[1] = (select caterer_id from public.get_my_profile())::text
+    and public.caterer_has_active_subscription_for_auth_user()
+    and exists (
+        select 1 from public.caterers c
+        where c.id = (select caterer_id from public.get_my_profile())
+          and c.is_suspended = false
+    )
+);
+
+drop policy if exists package_images_storage_delete on storage.objects;
+create policy package_images_storage_delete on storage.objects
+for delete to authenticated
+using (
+    bucket_id = 'package-images'
+    and (storage.foldername(name))[1] = (select caterer_id from public.get_my_profile())::text
+    and public.caterer_has_active_subscription_for_auth_user()
+    and exists (
+        select 1 from public.caterers c
+        where c.id = (select caterer_id from public.get_my_profile())
+          and c.is_suspended = false
+    )
+);
+
+drop policy if exists ai_generated_images_select_own on public.ai_generated_images;
+create policy ai_generated_images_select_own on public.ai_generated_images
+for select to authenticated
+using (
+    user_id = auth.uid()
+    and public.caterer_has_active_subscription_for_auth_user()
+);
+
+drop policy if exists ai_generated_images_delete_own on public.ai_generated_images;
+create policy ai_generated_images_delete_own on public.ai_generated_images
+for delete to authenticated
+using (
+    user_id = auth.uid()
+    and public.caterer_has_active_subscription_for_auth_user()
+);
+
+notify pgrst, 'reload schema';

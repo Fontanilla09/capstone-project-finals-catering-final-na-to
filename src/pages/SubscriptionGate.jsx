@@ -142,6 +142,22 @@ export default function SubscriptionGate({ feature }) {
   }, [checkoutResult, refreshSubscription]);
 
   useEffect(() => {
+    if (hasActiveSubscription !== true) return undefined;
+
+    const refresh = () => {
+      if (document.visibilityState === 'visible') refreshSubscription({ background: true });
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [hasActiveSubscription, refreshSubscription]);
+
+  useEffect(() => {
     if (checkoutResult !== 'success' || hasActiveSubscription) return undefined;
 
     const timeout = window.setTimeout(() => {
