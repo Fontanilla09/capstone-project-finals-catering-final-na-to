@@ -137,7 +137,7 @@ if (!$reservationResponse['ok']) {
 if (!$reservation) {
     gcash_receipt_respond(404, ['success' => false, 'error' => 'Booking not found.']);
 }
-if (($reservation['booking_payment_method'] ?? '') !== 'gcash') {
+if ($paymentType === 'down_payment' && ($reservation['booking_payment_method'] ?? '') !== 'gcash') {
     gcash_receipt_respond(422, ['success' => false, 'error' => 'This booking is not set up for GCash payment.']);
 }
 $paymentAvailable = $paymentType === 'down_payment'

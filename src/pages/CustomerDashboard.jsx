@@ -867,7 +867,7 @@ export default function CustomerDashboard() {
                         <>
                           {['down_payment'].map((paymentType) => {
                             const option = findGcashOption(item.id, paymentType);
-                            if (!option) return null;
+                            if (!option || item.booking_payment_method !== 'gcash') return null;
                             if (option.latest_submission_status === 'pending') {
                               return <p className="gcash-customer-pending" key={paymentType}>GCash receipt submitted · awaiting caterer confirmation</p>;
                             }

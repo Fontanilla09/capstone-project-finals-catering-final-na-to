@@ -174,7 +174,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'Booking not found.' }, 404);
   }
   const reservation = reservationData[0] as JsonRecord;
-  if (reservation.booking_payment_method !== 'gcash') {
+  if (paymentType === 'down_payment' && reservation.booking_payment_method !== 'gcash') {
     return jsonResponse({ error: 'This booking is not set up for GCash payment.' }, 422);
   }
   const paymentAvailable = paymentType === 'down_payment'
