@@ -196,22 +196,29 @@ export default function AdminCaterManagement() {
     }
     try {
       const approved = action === 'approve_caterer';
-      const { error } = await supabase.rpc('set_caterer_verification', {
-        caterer_id: resolvedProfileId,
-        approved,
-        p_rejection_reason: approved ? null : '',
-      }).catch(async (callError) => {
-        if (approved || !callError?.message?.includes('set_caterer_verification')) {
-          throw callError;
-        }
-        const fallback = await supabase.rpc('set_caterer_verification', {
+      let result = approved
+        ? await supabase.rpc('set_caterer_verification', {
+          caterer_id: resolvedProfileId,
+          approved: true,
+        })
+        : await supabase.rpc('set_caterer_verification', {
+          caterer_id: resolvedProfileId,
+          approved: false,
+          p_rejection_reason: '',
+        });
+      if (
+        result.error
+        && !approved
+        && result.error.message?.includes('set_caterer_verification')
+      ) {
+        result = await supabase.rpc('set_caterer_verification', {
           caterer_id: resolvedProfileId,
           approved: false,
         });
-        return fallback;
-      });
+      }
+      const { error } = result;
       if (error) throw error;
-      setError('Caterer verification updated.');
+      setError(approved ? 'Caterer approved.' : 'Caterer rejected.');
       await load();
     } catch (reason) {
       setError(reason.message || 'Unable to update caterer approval.');
