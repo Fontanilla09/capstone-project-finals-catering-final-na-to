@@ -4,7 +4,10 @@ import { supabase } from '../lib/supabase';
 import { API_BASE } from '../lib/api';
 import DashboardPage from '../components/DashboardPage.jsx';
 
-const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (value) => {
+  const amount = Number(value || 0) / 100;
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 const monthLabel = (value) => String(value || '').replace(/\s+\d{2,4}$/, '');
 
 function smoothLinePath(points) {

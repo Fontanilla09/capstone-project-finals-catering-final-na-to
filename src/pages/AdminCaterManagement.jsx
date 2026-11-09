@@ -7,7 +7,10 @@ import { EVENT_TYPES } from '../lib/eventTypes';
 import DashboardPage from '../components/DashboardPage.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
-const money = (value) => `₱${Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
+const money = (value) => {
+  const amount = Number(value || 0) / 100;
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 const subscriptionDate = (value) => {
   if (!value) return 'Not available';
   const date = new Date(value);
@@ -447,14 +450,22 @@ export default function AdminCaterManagement() {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [restrictionTarget, savingRestriction]);
 
-  async function activateSubscriptionAccess(subscriptionId) {
-    if (!subscriptionId) return;
-    setActivatingSubscriptionId(subscriptionId);
+  async function activateSubscriptionAccess(subscriptionId, catererId) {
+    if (!subscriptionId && !catererId) return;
+    setActivatingSubscriptionId(subscriptionId || catererId);
     setError('');
     try {
-      const { error: activationError } = await supabase.rpc('admin_activate_caterer_subscription', {
-        p_subscription_id: Number(subscriptionId),
-      });
+      let rpcName = 'admin_activate_caterer_subscription';
+      let params = { p_subscription_id: Number(subscriptionId) };
+      if (!subscriptionId) {
+        rpcName = 'admin_activate_caterer_subscription_for_caterer';
+        params = {
+          p_caterer_id: Number(catererId),
+          p_plan: 'monthly',
+          p_amount: 49900,
+        };
+      }
+      const { error: activationError } = await supabase.rpc(rpcName, params);
       if (activationError) throw activationError;
       await load();
     } catch (activationError) {
@@ -729,15 +740,13 @@ export default function AdminCaterManagement() {
                     ) : (
                       <button
                         className="admin-action-button"
-                        disabled={activatingSubscriptionId === subscription.subscription_id || !subscription.subscription_id}
-                        onClick={() => activateSubscriptionAccess(subscription.subscription_id)}
+                        disabled={activatingSubscriptionId === (subscription.subscription_id || subscription.caterer_id)}
+                        onClick={() => activateSubscriptionAccess(subscription.subscription_id, subscription.caterer_id)}
                         type="button"
                       >
-                        {activatingSubscriptionId === subscription.subscription_id
+                        {activatingSubscriptionId === (subscription.subscription_id || subscription.caterer_id)
                           ? 'Activating...'
-                          : subscription.subscription_id
-                            ? 'Activate access'
-                            : 'No subscription'}
+                          : 'Activate access'}
                       </button>
                     )}
                   </span>
