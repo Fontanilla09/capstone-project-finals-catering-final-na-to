@@ -3899,7 +3899,7 @@ textarea:focus-visible {
 
 .dashboard-page-caterer .caterer-earnings-summary {
   gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .dashboard-page-caterer .caterer-earnings-payouts {

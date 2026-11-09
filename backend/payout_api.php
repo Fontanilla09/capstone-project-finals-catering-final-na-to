@@ -58,6 +58,19 @@ if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
 }
 
 if ($action === 'request') {
+    $reservation_response = supabase_request('GET', 'reservations', [
+        'select' => 'id,reservation_status',
+        'id' => 'eq.' . $payout['reservation_id'],
+        'caterer_id' => 'eq.' . $user['caterer_id'],
+        'limit' => '1',
+    ]);
+    $reservation = supabase_row($reservation_response);
+    if (!$reservation || !in_array($reservation['reservation_status'] ?? '', ['confirmed', 'completed'], true)) {
+        http_response_code(409);
+        echo json_encode(['error' => 'Payout is available only after you accept the booking. Cancelled bookings cannot be paid out.']);
+        exit;
+    }
+
     $retry_after_funds_added = ($payout['payout_status'] ?? '') === 'failed'
         && empty($payout['payout_batch_id'])
         && stripos((string) ($payout['payout_error'] ?? ''), 'insufficient funds') !== false;

@@ -42,7 +42,14 @@ export default function CatererEarnings() {
   }, []);
 
   const payouts = data?.payouts || [];
-  const activePayouts = payouts.filter((payout) => ['pending', 'processing'].includes(payout.payout_status));
+  const activePayouts = payouts.filter((payout) => (
+    ['pending', 'processing'].includes(payout.payout_status)
+    && ['confirmed', 'completed'].includes(payout.reservation_status)
+  ));
+  const pendingPayoutTotal = activePayouts.reduce(
+    (total, payout) => total + (Number(payout.caterer_amount) || 0),
+    0,
+  );
 
   useEffect(() => {
     const processingPayouts = activePayouts.filter((payout) => payout.payout_status === 'processing');
@@ -103,6 +110,7 @@ export default function CatererEarnings() {
 
   function canRetryPayout(payout) {
     return payout.payout_status === 'failed'
+      && ['confirmed', 'completed'].includes(payout.reservation_status)
       && !payout.payout_batch_id
       && /insufficient funds/i.test(payout.payout_error || '');
   }
@@ -129,8 +137,7 @@ export default function CatererEarnings() {
         <header className="caterer-earnings-heading"><h2>Earnings</h2></header>
         <div className="stats-grid caterer-earnings-summary">
           <article className="stat-card"><h3>Total earnings</h3><strong>{money(data.summary?.total)}</strong></article>
-          <article className="stat-card"><h3>Paid out</h3><strong>{money(data.summary?.paid)}</strong></article>
-          <article className="stat-card"><h3>Pending payout</h3><strong>{money(data.summary?.pending)}</strong></article>
+          <article className="stat-card"><h3>Pending payout</h3><strong>{money(pendingPayoutTotal)}</strong></article>
         </div>
         <section className="caterer-earnings-payouts">
           <div className="analytics-status-title">

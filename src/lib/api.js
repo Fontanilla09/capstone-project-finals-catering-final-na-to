@@ -25,7 +25,8 @@ export async function requestJson(path, options = {}) {
     if (response.ok) {
       throw new Error('The server returned an empty response.');
     }
-    throw new Error(`Server error (${response.status}). Please try again.`);
+    const requestId = response.headers.get('x-vercel-id');
+    throw new Error(`Server error (${response.status}${requestId ? `, request ${requestId}` : ''}). Please try again.`);
   }
 
   let data;

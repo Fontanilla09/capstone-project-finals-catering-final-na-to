@@ -16,6 +16,7 @@ as $$
             po.reservation_id,
             p.package_name,
             r.event_date,
+            r.reservation_status,
             coalesce(payment.payment_method, 'paypal') as payment_method,
             po.gross_amount,
             po.platform_fee,
@@ -37,6 +38,7 @@ as $$
             pay.reservation_id,
             package.package_name,
             reservation.event_date,
+            reservation.reservation_status,
             'gcash'::varchar as payment_method,
             pay.amount as gross_amount,
             0::numeric as platform_fee,
@@ -63,10 +65,19 @@ as $$
             'total', coalesce((
                 select sum(caterer_amount)
                 from caterer_earnings
-                where payout_status in ('pending', 'processing', 'paid')
+                where payout_status = 'paid'
+                   or (
+                       payout_status in ('pending', 'processing')
+                       and reservation_status in ('confirmed', 'completed')
+                   )
             ), 0),
             'paid', coalesce((select sum(caterer_amount) from caterer_earnings where payout_status = 'paid'), 0),
-            'pending', coalesce((select sum(caterer_amount) from caterer_earnings where payout_status in ('pending', 'processing')), 0)
+            'pending', coalesce((
+                select sum(caterer_amount)
+                from caterer_earnings
+                where payout_status in ('pending', 'processing')
+                  and reservation_status in ('confirmed', 'completed')
+            ), 0)
         ),
         'payouts', coalesce((
             select jsonb_agg(to_jsonb(row) - 'created_at' order by row.created_at desc)
