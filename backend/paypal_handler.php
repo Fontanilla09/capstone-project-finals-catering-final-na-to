@@ -125,7 +125,7 @@ function create_paypal_order(int $reservation_id, float $amount, string $descrip
             'brand_name' => 'CaterAI',
             'user_action' => 'PAY_NOW',
             'return_url' => $app_url . '/backend/paypal_return.php?reservation_id=' . $reservation_id . '&payment_type=' . rawurlencode($payment_type) . '&signature=' . $callback_signature . '&ngrok-skip-browser-warning=1',
-            'cancel_url' => $app_url . '/backend/paypal_cancel.php?reservation_id=' . $reservation_id . '&payment_type=' . rawurlencode($payment_type) . '&signature=' . $callback_signature . '&ngrok-skip-browser-warning=1',
+            'cancel_url' => $app_url . '/backend/paypal_return.php?cancelled=1&reservation_id=' . $reservation_id . '&payment_type=' . rawurlencode($payment_type) . '&signature=' . $callback_signature . '&ngrok-skip-browser-warning=1',
         ],
     ], $token['token']);
 

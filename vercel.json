@@ -8,6 +8,7 @@
     }
   },
   "routes": [
+    { "src": "^/backend/paypal_cancel\\.php$", "dest": "/api/backend/index.php?endpoint=paypal_return.php&cancelled=1" },
     { "src": "^/backend/([^/]+)$", "dest": "/api/backend/index.php?endpoint=$1" },
     { "handle": "filesystem" },
     { "src": "^/(.*)$", "dest": "/index.html" }

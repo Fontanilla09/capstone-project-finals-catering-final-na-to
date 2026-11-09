@@ -4,15 +4,29 @@ require_once __DIR__ . '/paypal_handler.php';
 
 $frontend_url = rtrim(app_env_value('FRONTEND_URL', 'http://localhost:5173'), '/');
 $reservation_id = (int) ($_GET['reservation_id'] ?? 0);
-$order_id = trim((string) ($_GET['token'] ?? ''));
 $payment_type = $_GET['payment_type'] ?? 'down_payment';
 $signature = (string) ($_GET['signature'] ?? '');
+$expected_signature = hash_hmac('sha256', $reservation_id . '|' . $payment_type, $paypal_client_secret);
+
+if (($_GET['cancelled'] ?? '') === '1') {
+    if ($reservation_id > 0 && hash_equals($expected_signature, $signature) && $payment_type === 'down_payment') {
+        supabase_request('DELETE', 'reservations', [
+            'id' => 'eq.' . $reservation_id,
+            'payment_status' => 'eq.pending',
+            'reservation_status' => 'eq.pending',
+        ], null, 'return=minimal');
+    }
+
+    header('Location: ' . $frontend_url . '/dashboard/customer?payment=cancelled');
+    exit;
+}
+
+$order_id = trim((string) ($_GET['token'] ?? ''));
 
 if ($reservation_id <= 0 || $order_id === '' || !in_array($payment_type, ['down_payment', 'balance'], true)) {
     header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
     exit;
 }
-$expected_signature = hash_hmac('sha256', $reservation_id . '|' . $payment_type, $paypal_client_secret);
 if (!hash_equals($expected_signature, $signature)) {
     header('Location: ' . $frontend_url . '/dashboard/customer?payment=failed');
     exit;

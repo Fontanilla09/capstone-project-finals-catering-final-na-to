@@ -10,7 +10,6 @@ $endpoints = [
     'image_history.php' => 'image_history.php',
     'paymongo_webhook.php' => 'paymongo_webhook.php',
     'payout_api.php' => 'payout_api.php',
-    'paypal_cancel.php' => 'paypal_cancel.php',
     'paypal_return.php' => 'paypal_return.php',
     'subscription_api.php' => 'subscription_api.php',
 ];
