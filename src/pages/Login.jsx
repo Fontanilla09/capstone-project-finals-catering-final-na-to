@@ -143,7 +143,6 @@ export default function Login() {
         {resendAvailable && <button className="auth-note" disabled={resending || !email.trim()} onClick={resendConfirmation} type="button">{resending ? 'Sending confirmation...' : 'Didn’t receive the email? Resend confirmation'}</button>}
         <button className="button button-primary auth-submit" disabled={loading} type="submit">
           {loading ? 'Signing in...' : 'Sign in'}
-          <ArrowRight size={17} aria-hidden="true" />
         </button>
         <p className="auth-note login-register-note">New to CaterAI? <a href="/register">Create an account <ArrowRight size={14} aria-hidden="true" /></a></p>
         <p className="login-secure-note"><LockKeyhole size={13} aria-hidden="true" /> Your account details are kept private.</p>

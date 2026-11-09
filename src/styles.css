@@ -7598,7 +7598,6 @@ textarea:focus-visible {
 }
 .login-page .auth-submit:hover:not(:disabled) { background: #315647; box-shadow: 0 10px 20px rgba(32,59,50,.17); transform: translateY(-1px); }
 .login-page .auth-submit:disabled { cursor: wait; opacity: .7; }
-.login-page .auth-submit svg { color: #eac1a2; }
 .login-page .login-register-note { color: #718077; font-size: 11px; margin: 22px 0 0; }
 .login-page .login-register-note a { align-items: center; color: #4e6b57; display: inline-flex; gap: 4px; font-weight: 700; }
 .login-page .login-register-note a:hover { color: var(--login-accent); }
