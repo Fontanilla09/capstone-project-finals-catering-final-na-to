@@ -61,6 +61,7 @@ begin
     from public.caterers c
     join public.users u on u.id = c.user_id
     left join latest_subscription ls on ls.caterer_id = c.id
+    where c.is_verified = true
     order by c.business_name asc;
 end;
 $$;
