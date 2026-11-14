@@ -26,7 +26,6 @@ export default function AdminCustomers() {
   const [rejectingCustomer, setRejectingCustomer] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('applications');
   const [sortOrder, setSortOrder] = useState('newest');
   const [page, setPage] = useState(1);
   const [error, setError] = useState('');
@@ -54,14 +53,10 @@ export default function AdminCustomers() {
 
   useEffect(() => { load(); }, []);
 
-  const pendingCustomers = customers.filter((customer) => !customer.is_verified && !customer.rejection_reason);
-  const verifiedCustomers = customers.filter((customer) => customer.is_verified);
-  const activeCustomers = customers.filter((customer) => customer.is_verified || !customer.rejection_reason);
-  const totalSpent = verifiedCustomers.reduce((sum, customer) => sum + (Number(customer.total_spent) || 0), 0);
+  const activeCustomers = customers.filter((customer) => !customer.rejection_reason);
+  const rejectedCustomers = customers.filter((customer) => customer.rejection_reason);
+  const totalSpent = activeCustomers.reduce((sum, customer) => sum + (Number(customer.total_spent) || 0), 0);
   const visibleCustomers = useMemo(() => customers
-    .filter((customer) => activeTab === 'applications'
-      ? !customer.is_verified && !customer.rejection_reason
-      : customer.is_verified)
     .filter((customer) => {
       const query = search.trim().toLocaleLowerCase();
       return !query || [
@@ -76,7 +71,7 @@ export default function AdminCustomers() {
       if (sortOrder === 'name') return (first.full_name || '').localeCompare(second.full_name || '');
       if (sortOrder === 'spent') return Number(second.total_spent) - Number(first.total_spent);
       return new Date(second.created_at || 0) - new Date(first.created_at || 0);
-    }), [activeTab, customers, search, sortOrder]);
+    }), [customers, search, sortOrder]);
 
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(visibleCustomers.length / pageSize));
@@ -84,31 +79,10 @@ export default function AdminCustomers() {
   const firstVisible = visibleCustomers.length ? (page - 1) * pageSize + 1 : 0;
   const lastVisible = Math.min(page * pageSize, visibleCustomers.length);
 
-  useEffect(() => { setPage(1); }, [activeTab, search, sortOrder]);
+  useEffect(() => { setPage(1); }, [search, sortOrder]);
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
-
-  async function confirmAccount(customer) {
-    setSavingCustomerId(customer.customer_id);
-    setError('');
-    setNotice('');
-    try {
-      const { error: approvalError } = await supabase.rpc('set_customer_verification', {
-        customer_id: customer.customer_id,
-        approved: true,
-      });
-      if (approvalError) throw approvalError;
-      const refreshed = await load({ keepNotice: true });
-      setNotice(refreshed
-        ? `${customer.full_name || 'Customer'}'s account has been confirmed.`
-        : 'Account confirmed, but the customer list could not be refreshed.');
-    } catch (approvalError) {
-      setError(approvalError.message || 'Unable to confirm this customer account.');
-    } finally {
-      setSavingCustomerId(null);
-    }
-  }
 
   function openRejectionForm(customer) {
     setRejectingCustomer(customer);
@@ -141,10 +115,10 @@ export default function AdminCustomers() {
       setRejectionReason('');
       const refreshed = await load({ keepNotice: true });
       setNotice(refreshed
-        ? `${rejectedName}'s application was rejected.`
-        : 'Application rejected, but the customer list could not be refreshed.');
+        ? `${rejectedName}'s account was rejected.`
+        : 'Account rejected, but the customer list could not be refreshed.');
     } catch (rejectionError) {
-      setError(rejectionError.message || 'Unable to reject this customer application.');
+      setError(rejectionError.message || 'Unable to reject this customer account.');
     } finally {
       setSavingCustomerId(null);
     }
@@ -157,7 +131,7 @@ export default function AdminCustomers() {
           <div>
             <p className="eyebrow">Super admin tools</p>
             <h2>Customer Management</h2>
-            <p>Review customer details, confirm accounts, and track verified payment totals.</p>
+            <p>Manage customer accounts and track booking and payment activity.</p>
           </div>
           <button className="admin-refresh" disabled={loading} onClick={() => load()} type="button">
             {loading ? <span className="loading-spinner loading-spinner-inline" role="status" aria-label="Refreshing" /> : 'Refresh data'}
@@ -168,37 +142,18 @@ export default function AdminCustomers() {
         {notice && <p className="form-alert success-alert" role="status">{notice}</p>}
 
         <div className="admin-users-summary">
-          <article><span>Total customers</span><strong>{loading || error ? '—' : activeCustomers.length}</strong></article>
-          <article><span>Pending confirmation</span><strong>{loading || error ? '—' : pendingCustomers.length}</strong></article>
-          <article><span>Confirmed accounts</span><strong>{loading || error ? '—' : verifiedCustomers.length}</strong></article>
+          <article><span>Total customers</span><strong>{loading || error ? '—' : customers.length}</strong></article>
+          <article><span>Active accounts</span><strong>{loading || error ? '—' : activeCustomers.length}</strong></article>
+          <article><span>Rejected accounts</span><strong>{loading || error ? '—' : rejectedCustomers.length}</strong></article>
           <article><span>Total spent</span><strong>{loading || error ? '—' : formatCurrency(totalSpent)}</strong></article>
         </div>
 
-        <div className="cater-tab-bar" aria-label="Customer management tabs">
-          <button
-            aria-pressed={activeTab === 'applications'}
-            className={`cater-tab ${activeTab === 'applications' ? 'active' : ''}`}
-            onClick={() => setActiveTab('applications')}
-            type="button"
-          >
-            Applications <span>{loading || error ? '—' : pendingCustomers.length}</span>
-          </button>
-          <button
-            aria-pressed={activeTab === 'customers'}
-            className={`cater-tab ${activeTab === 'customers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('customers')}
-            type="button"
-          >
-            Customers <span>{loading || error ? '—' : verifiedCustomers.length}</span>
-          </button>
-        </div>
-
-        <section className="admin-users-directory" aria-label={activeTab === 'applications' ? 'Customer applications awaiting confirmation' : 'Confirmed customers'}>
+        <section className="admin-users-directory" aria-label="Customer directory">
           <div className="admin-users-toolbar admin-customer-toolbar">
             <input
-              aria-label={activeTab === 'applications' ? 'Search customer applications' : 'Search customers'}
+              aria-label="Search customers"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder={activeTab === 'applications' ? 'Search applicants, email, phone, or location...' : 'Search customers, email, phone, or location...'}
+              placeholder="Search customers, email, phone, or location..."
               type="search"
               value={search}
             />
@@ -213,13 +168,13 @@ export default function AdminCustomers() {
             <table className="admin-users-table">
               <thead>
                 <tr>
-                  <th>{activeTab === 'applications' ? 'Applicant' : 'Customer'}</th><th>Contact</th><th>Location</th><th>Status</th><th>{activeTab === 'applications' ? 'Applied' : 'Joined'}</th><th>Bookings</th><th>Total spent</th>{activeTab === 'applications' && <th>Action</th>}
+                  <th>Customer</th><th>Contact</th><th>Location</th><th>Status</th><th>Joined</th><th>Bookings</th><th>Total spent</th><th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {pageCustomers.map((customer, index) => (
                   <tr key={customer.customer_id}>
-                    <td data-label={activeTab === 'applications' ? 'Applicant' : 'Customer'}>
+                    <td data-label="Customer">
                       <div className="admin-users-identity">
                         <span className={`admin-users-avatar tone-${index % 6}`}>{customer.full_name?.trim()?.charAt(0)?.toLocaleUpperCase() || '?'}</span>
                         <span><strong>{customer.full_name || 'Unnamed customer'}</strong><small>{customer.email || 'No email provided'}</small></span>
@@ -228,46 +183,36 @@ export default function AdminCustomers() {
                     <td data-label="Contact">{customer.phone || '—'}</td>
                     <td data-label="Location">{[customer.city, customer.address].filter(Boolean).join(', ') || '—'}</td>
                     <td data-label="Status">
-                      <span className={`admin-users-status state-${customer.is_verified ? 'active' : 'unverified'}`}>
-                        {customer.is_verified ? 'Confirmed' : 'Pending'}
+                      <span className={`admin-users-status state-${customer.rejection_reason ? 'rejected' : 'active'}`}>
+                        {customer.rejection_reason ? 'Rejected' : 'Active'}
                       </span>
                     </td>
-                    <td data-label={activeTab === 'applications' ? 'Applied' : 'Joined'}>{formatDate(customer.created_at)}</td>
+                    <td data-label="Joined">{formatDate(customer.created_at)}</td>
                     <td data-label="Bookings">{customer.total_bookings ?? 0}</td>
                     <td data-label="Total spent">{formatCurrency(customer.total_spent)}</td>
-                    {activeTab === 'applications' && (
-                      <td data-label="Action">
+                    <td data-label="Action">
+                      {!customer.rejection_reason && (
                         <div className="admin-users-actions">
-                          <button
-                            className="admin-users-approve"
-                            disabled={loading || savingCustomerId !== null}
-                            onClick={() => confirmAccount(customer)}
-                            type="button"
-                          >
-                            {savingCustomerId === customer.customer_id ? 'Confirming...' : 'Confirm account'}
-                          </button>
                           <button
                             className="admin-users-reject"
                             disabled={loading || savingCustomerId !== null}
                             onClick={() => openRejectionForm(customer)}
                             type="button"
                           >
-                            Reject
+                            Reject account
                           </button>
                         </div>
-                      </td>
-                    )}
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {!pageCustomers.length && (
-                  <tr><td className="admin-users-empty" colSpan={activeTab === 'applications' ? 8 : 7}>
+                  <tr><td className="admin-users-empty" colSpan="8">
                     {loading
                       ? <LoadingSpinner compact />
                       : error
                         ? 'Customer data is unavailable.'
-                        : activeTab === 'applications'
-                          ? <><UsersRound size={18} aria-hidden="true" /> No customer applications are waiting for confirmation.</>
-                          : <><UsersRound size={18} aria-hidden="true" /> No customers match your search.</>}
+                        : <><UsersRound size={18} aria-hidden="true" /> No customers match your search.</>}
                   </td></tr>
                 )}
               </tbody>
@@ -289,7 +234,7 @@ export default function AdminCustomers() {
             className="account-reject-overlay"
             role="dialog"
             aria-modal="true"
-            aria-label={`Reject ${rejectingCustomer.full_name || 'customer'} application`}
+            aria-label={`Reject ${rejectingCustomer.full_name || 'customer'} account`}
             onClick={() => { if (savingCustomerId === null) setRejectingCustomer(null); }}
           >
             <form
@@ -299,7 +244,7 @@ export default function AdminCustomers() {
             >
               <header>
                 <div>
-                  <p className="eyebrow">Reject application</p>
+                  <p className="eyebrow">Reject customer account</p>
                   <h3>{rejectingCustomer.full_name || 'Customer'}</h3>
                   <p>This reason will be saved and shown to the customer when they try to sign in.</p>
                 </div>
@@ -312,7 +257,7 @@ export default function AdminCustomers() {
                 maxLength={500}
                 minLength={5}
                 required
-                placeholder="Explain why this account application was rejected."
+                placeholder="Explain why this customer account is being rejected."
               />
               <div className="account-reject-footer">
                 <span>{rejectionReason.trim().length}/500</span>

@@ -167,7 +167,6 @@ export default function DashboardPage({
   const [unreadReviews, setUnreadReviews] = useState(0);
   const [pendingPayoutCount, setPendingPayoutCount] = useState(0);
   const [pendingAccountCount, setPendingAccountCount] = useState(0);
-  const [pendingCustomerCount, setPendingCustomerCount] = useState(0);
   const [openReportCount, setOpenReportCount] = useState(0);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(
     () => getCachedCatererSubscription()?.active ?? null,
@@ -274,15 +273,6 @@ export default function DashboardPage({
           tone: 'report',
           count: openReportCount,
         }] : []),
-        ...(pendingCustomerCount > 0 ? [{
-          id: 'admin-customers',
-          title: `${pendingCustomerCount} customer account${pendingCustomerCount === 1 ? '' : 's'} to review`,
-          message: 'Review pending customer confirmations.',
-          href: '/dashboard/admin/customers',
-          icon: UsersRound,
-          tone: 'account',
-          count: pendingCustomerCount,
-        }] : []),
         ...(pendingAccountCount > 0 ? [{
           id: 'admin-caterers',
           title: `${pendingAccountCount} caterer account${pendingAccountCount === 1 ? '' : 's'} to review`,
@@ -372,7 +362,7 @@ export default function DashboardPage({
         if (authError || !authData.user) throw new Error('Not authenticated');
         const { data: profiles, error: profileError } = await withTimeout(supabase.rpc('get_my_profile'), 12000);
         const profile = profiles?.[0];
-        if (profileError || !profile || profile.role !== role || (role !== 'admin' && !profile.is_verified)) throw new Error('Invalid profile');
+        if (profileError || !profile || profile.role !== role || (role === 'caterer' && !profile.is_verified)) throw new Error('Invalid profile');
         if (!active) return;
         const verifiedProfile = {
           displayName: profile.display_name || (role === 'admin' ? 'Admin' : role === 'caterer' ? 'Caterer' : 'Customer'),
@@ -613,9 +603,8 @@ export default function DashboardPage({
     if (!authChecked || role !== 'admin') return undefined;
     let active = true;
     const loadAdminCounts = async () => {
-      const [accountsResult, customersResult, reportsResult] = await Promise.all([
+      const [accountsResult, reportsResult] = await Promise.all([
         supabase.rpc('get_admin_accounts'),
-        supabase.rpc('get_admin_customers'),
         supabase.from('customer_reports').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_review']),
       ]);
       if (!active) return;
@@ -626,12 +615,6 @@ export default function DashboardPage({
         )).length;
         setPendingAccountCount(pendingCaterers);
       }
-      if (!customersResult.error) {
-        const pendingCustomers = (customersResult.data || []).filter((customer) => (
-          !customer.is_verified && !customer.rejection_reason
-        )).length;
-        setPendingCustomerCount(pendingCustomers);
-      }
       if (!reportsResult.error) setOpenReportCount(reportsResult.count || 0);
     };
     loadAdminCounts();
@@ -639,7 +622,6 @@ export default function DashboardPage({
     const channel = supabase
       .channel('admin-navigation-counts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, loadAdminCounts)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, loadAdminCounts)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'caterers' }, loadAdminCounts)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_reports' }, loadAdminCounts)
       .subscribe();
@@ -880,7 +862,6 @@ export default function DashboardPage({
               })()}
               <span className="dashboard-nav-label">{label}</span>
               {role === 'caterer' && hasActiveSubscription === false && ['services', 'ai-photos'].includes(key) && <LockKeyhole className="dashboard-nav-lock" size={13} aria-label="Subscription required" />}
-              {key === 'customer-management' && pendingCustomerCount > 0 && <span className="message-badge" aria-label={`${pendingCustomerCount} pending customer confirmations`}>{pendingCustomerCount > 99 ? '99+' : pendingCustomerCount}</span>}
               {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}
               {key === 'earnings' && pendingPayoutCount > 0 && <span className="message-badge" aria-label={`${pendingPayoutCount} payouts awaiting request`}>{pendingPayoutCount > 99 ? '99+' : pendingPayoutCount}</span>}

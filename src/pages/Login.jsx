@@ -34,19 +34,23 @@ export default function Login() {
         if (profileError) throw new Error(profileError.message);
         throw new Error('Could not find a profile for this account.');
       }
-      if (profile.role !== 'admin' && !profile.is_verified) {
-        if (profile.role === 'caterer') {
-          const { data: suspensionReason, error: suspensionError } = await supabase.rpc('get_my_caterer_suspension_reason');
-          if (suspensionError) throw new Error(suspensionError.message);
-          if (suspensionReason) {
-            await supabase.auth.signOut();
-            throw new Error(`Your caterer account has been restricted by the admin. Reason: ${suspensionReason}`);
-          }
-        }
+      if (profile.role !== 'admin') {
         const { data: rejectionReason, error: rejectionError } = await supabase.rpc('get_my_rejection_reason');
-        await supabase.auth.signOut();
         if (rejectionError) throw new Error(rejectionError.message);
-        if (rejectionReason) throw new Error(`Your account was rejected by the admin. Reason: ${rejectionReason}`);
+        if (rejectionReason) {
+          await supabase.auth.signOut();
+          throw new Error(`Your account was rejected by the admin. Reason: ${rejectionReason}`);
+        }
+      }
+
+      if (profile.role === 'caterer' && !profile.is_verified) {
+        const { data: suspensionReason, error: suspensionError } = await supabase.rpc('get_my_caterer_suspension_reason');
+        if (suspensionError) throw new Error(suspensionError.message);
+        if (suspensionReason) {
+          await supabase.auth.signOut();
+          throw new Error(`Your caterer account has been restricted by the admin. Reason: ${suspensionReason}`);
+        }
+        await supabase.auth.signOut();
         throw new Error('Your account is waiting for admin verification.');
       }
 

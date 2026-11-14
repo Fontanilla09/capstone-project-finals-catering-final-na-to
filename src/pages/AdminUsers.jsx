@@ -7,7 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
 function accountName(user) { return user.role === 'customer' ? user.full_name : user.role === 'caterer' ? user.business_name : 'Super admin'; }
 function verificationLabel(user) {
-  if (user.role === 'admin' || (user.customer_verified ?? user.caterer_verified)) return 'Active';
+  if (user.role === 'admin' || (user.role === 'customer' && !user.rejection_reason) || user.caterer_verified) return 'Active';
   if (user.rejection_reason) return 'Rejected';
   return 'Unverified';
 }

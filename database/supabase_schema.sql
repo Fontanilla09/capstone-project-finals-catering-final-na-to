@@ -21,7 +21,7 @@ create table if not exists public.customers (
     profile_picture varchar(255),
     address text,
     city varchar(50),
-    is_verified boolean not null default false,
+    is_verified boolean not null default true,
     rejection_reason text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
