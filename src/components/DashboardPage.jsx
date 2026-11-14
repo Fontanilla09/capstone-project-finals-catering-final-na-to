@@ -519,9 +519,7 @@ export default function DashboardPage({
     const loadUnreadReservations = async () => {
       const { data, error } = await supabase.rpc('get_caterer_reservations');
       if (error) return;
-      const reservations = (data || []).filter((item) => !(
-        item.reservation_status === 'pending' && item.payment_status === 'pending'
-      ));
+      const reservations = data || [];
       const maxId = reservations.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), 0);
       const lastSeenId = localStorage.getItem(lastSeenKey);
       if (lastSeenId === null) {

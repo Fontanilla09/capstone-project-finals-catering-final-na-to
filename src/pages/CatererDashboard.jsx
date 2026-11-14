@@ -131,9 +131,7 @@ export default function CatererDashboard() {
         if (earningsError) throw earningsError;
         if (reviewsError) throw reviewsError;
 
-        const reservations = (data || []).filter((item) => !(
-          item.reservation_status === 'pending' && item.payment_status === 'pending'
-        ));
+        const reservations = data || [];
         const earningsSummary = earningsData?.summary || {};
         const payoutRows = earningsData?.payouts || [];
         const reviewRows = reviewsData || [];

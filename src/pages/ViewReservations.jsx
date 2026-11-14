@@ -45,9 +45,7 @@ export default function ViewReservations() {
     try {
       const { data, error } = await supabase.rpc('get_caterer_reservations');
       if (error) throw error;
-      const rows = (data || []).filter((item) => !(
-        item.reservation_status === 'pending' && item.payment_status === 'pending'
-      ));
+      const rows = data || [];
       setReservations(rows);
       const { data: cancellationRows, error: cancellationError } = await supabase.rpc('get_caterer_cancellation_requests');
       if (cancellationError) throw cancellationError;
