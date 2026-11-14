@@ -23,7 +23,7 @@ export default function Login() {
       if (error) {
         const message = error.message.toLowerCase();
         if (message.includes('email not confirmed')) throw new Error('Please confirm your email before signing in.');
-        if (message.includes('invalid login credentials')) throw new Error('Invalid email or password. Check the exact email and the new Supabase password.');
+        if (message.includes('invalid login credentials')) throw new Error('Invalid email or password.');
         throw new Error(error.message);
       }
 
