@@ -2,11 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRight,
-  Bell,
-  CalendarClock,
   CalendarDays,
   CheckCircle2,
-  CircleDollarSign,
   Clock3,
   CreditCard,
   MoreHorizontal,
@@ -82,7 +79,6 @@ export default function CustomerDashboard() {
   const [conversationsError, setConversationsError] = useState('');
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [statusAlerts, setStatusAlerts] = useState([]);
-  const [notificationsOpen, setNotificationsOpen] = useState(notificationRoute);
   const [showBookingHistory, setShowBookingHistory] = useState(false);
   const [status, setStatus] = useState('');
   const [reviewingId, setReviewingId] = useState(null);
@@ -198,7 +194,6 @@ export default function CustomerDashboard() {
         try { localStorage.setItem(storageKey, JSON.stringify(currentSnapshot)); } catch { /* Storage may be unavailable. */ }
 
         if (notificationRoute) {
-          setNotificationsOpen(true);
           localStorage.setItem(unreadKey, '0');
         }
       }
@@ -602,8 +597,16 @@ export default function CustomerDashboard() {
   return (
     <DashboardPage
       role="customer"
-      section={notificationRoute ? 'notifications' : 'overview'}
+      section="overview"
       balanceReminders={reminders.filter((notice) => notice.type === 'balance')}
+      customerNotices={dashboardNotices.map((notice) => notice.type === 'balance' ? {
+        ...notice,
+        actionLabel: payingBalanceId === notice.reservationId ? 'Opening PayPal...' : balancePaymentLabel(notice.reservationId),
+        actionDisabled: payingBalanceId !== null || balanceGcashPending(notice.reservationId),
+      } : notice)}
+      initialNotificationsOpen={notificationRoute}
+      onDismissCustomerNotice={dismissStatusAlert}
+      onPayCustomerNotice={payBalance}
     >
       <div className="customer-dashboard-panel">
         {status && <p className="form-alert success-alert">{status}</p>}
@@ -778,22 +781,6 @@ export default function CustomerDashboard() {
             <div className="customer-messages-empty"><MessageCircle size={20} aria-hidden="true" /><p>No conversations yet. Message a caterer to get started.</p><a href="/dashboard/messages">Go to messages</a></div>
           )}
         </section>
-
-        {notificationsOpen && (
-          <section id="customer-notifications-panel" className="customer-notifications" aria-labelledby="customer-notifications-title">
-            <header><Bell size={18} aria-hidden="true" /><h3 id="customer-notifications-title">Notifications &amp; reminders</h3></header>
-            <ul aria-live="polite">
-              {dashboardNotices.length ? dashboardNotices.map((notice) => (
-                <li key={notice.id}>
-                  {notice.type === 'event' ? <CalendarClock size={18} aria-hidden="true" /> : notice.type === 'balance' || notice.type === 'payment' ? <CircleDollarSign size={18} aria-hidden="true" /> : <Bell size={18} aria-hidden="true" />}
-                  <div><strong>{notice.title}</strong><p>{notice.message}</p></div>
-                  {notice.type === 'balance' && <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(notice.reservationId)} onClick={() => payBalance(notice.reservationId)} type="button">{payingBalanceId === notice.reservationId ? 'Opening PayPal...' : balancePaymentLabel(notice.reservationId)}</button>}
-                  {['booking', 'payment'].includes(notice.type) && <button className="notification-dismiss" onClick={() => dismissStatusAlert(notice.id)} type="button" aria-label="Dismiss notification"><X size={16} /></button>}
-                </li>
-              )) : <li className="customer-notifications-empty">You're all caught up. New booking and payment updates will appear here.</li>}
-            </ul>
-          </section>
-        )}
 
         <div className="table-card" id="customer-reservations">
           <div className="section-header">

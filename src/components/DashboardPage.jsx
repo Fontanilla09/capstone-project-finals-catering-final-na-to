@@ -144,7 +144,16 @@ function withTimeout(promise, timeoutMs) {
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
 }
 
-export default function DashboardPage({ role, section = 'overview', children, balanceReminders = [] }) {
+export default function DashboardPage({
+  role,
+  section = 'overview',
+  children,
+  balanceReminders = [],
+  customerNotices = [],
+  initialNotificationsOpen = false,
+  onDismissCustomerNotice,
+  onPayCustomerNotice,
+}) {
   const [initialProfile] = useState(() => getCachedDashboardProfile(role));
   const [displayName, setDisplayName] = useState(initialProfile?.displayName || '');
   const [displayEmail, setDisplayEmail] = useState(initialProfile?.displayEmail || '');
@@ -169,7 +178,7 @@ export default function DashboardPage({ role, section = 'overview', children, ba
   const [currentCustomerId, setCurrentCustomerId] = useState(initialProfile?.customerId || null);
   const [currentCatererId, setCurrentCatererId] = useState(initialProfile?.catererId || null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen);
   const sections = dashboardSections[role];
   const current = sections.find(([key]) => key === section) || sections[0];
   const totalUnread = unreadMessages + unreadNotifications + unreadReservations + unreadReviews;
@@ -725,7 +734,71 @@ export default function DashboardPage({ role, section = 'overview', children, ba
                   </div>
                   <span className="dashboard-notifications-tab">All</span>
                 </header>
-                {notificationItems.length ? (
+                {role === 'customer' ? (customerNotices.length || notificationItems.some((item) => item.id === 'customer-messages')) ? (
+                  <div className="dashboard-notifications-list" aria-live="polite">
+                    {customerNotices.map((item) => {
+                      const Icon = item.type === 'balance' || item.type === 'payment'
+                        ? CircleDollarSign
+                        : item.type === 'event'
+                          ? CalendarDays
+                          : Bell;
+                      return (
+                        <div className={`dashboard-notification-item tone-${item.type === 'balance' ? 'payout' : 'booking'}`} key={item.id}>
+                          <span className="dashboard-notification-avatar" aria-hidden="true"><Icon size={18} /></span>
+                          <span className="dashboard-notification-copy">
+                            <strong>{item.title}</strong>
+                            <span>{item.message}</span>
+                            <a href="#customer-reservations" onClick={() => setNotificationsOpen(false)}>View booking</a>
+                          </span>
+                          {item.type === 'balance' ? (
+                            <button
+                              className="button button-primary button-small"
+                              disabled={item.actionDisabled}
+                              onClick={() => onPayCustomerNotice?.(item.reservationId)}
+                              type="button"
+                            >
+                              {item.actionLabel}
+                            </button>
+                          ) : ['booking', 'payment'].includes(item.type) ? (
+                            <button
+                              className="notification-dismiss"
+                              onClick={() => onDismissCustomerNotice?.(item.id)}
+                              type="button"
+                              aria-label="Dismiss notification"
+                            >
+                              <X size={16} aria-hidden="true" />
+                            </button>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                    {notificationItems.filter((item) => item.id === 'customer-messages').map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <a
+                          className={`dashboard-notification-item tone-${item.tone}`}
+                          href={item.href}
+                          key={item.id}
+                          onClick={() => setNotificationsOpen(false)}
+                        >
+                          <span className="dashboard-notification-avatar" aria-hidden="true"><Icon size={18} /></span>
+                          <span className="dashboard-notification-copy">
+                            <strong>{item.title}</strong>
+                            <span>{item.message}</span>
+                            <small>Open messages</small>
+                          </span>
+                          <span className="dashboard-notification-count" aria-label={`${item.count} notifications`}>{item.count > 99 ? '99+' : item.count}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="dashboard-notifications-empty">
+                    <span className="dashboard-notifications-empty-icon"><Bell size={20} aria-hidden="true" /></span>
+                    <strong>No new notifications</strong>
+                    <p>We’ll let you know when there’s something to check.</p>
+                  </div>
+                ) : notificationItems.length ? (
                   <div className="dashboard-notifications-list">
                     {notificationItems.map((item) => {
                       const Icon = item.icon;
