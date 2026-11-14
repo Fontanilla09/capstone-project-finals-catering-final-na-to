@@ -540,7 +540,7 @@ export default function CustomerDashboard() {
     return [...balanceActions, ...reviewActions, ...approvalActions];
   }, [reservations]);
   const visibleReservations = useMemo(
-    () => reservations.filter((item) => (item.reservation_status === 'completed') === showBookingHistory),
+    () => reservations.filter((item) => ['cancelled', 'completed'].includes(item.reservation_status) === showBookingHistory),
     [reservations, showBookingHistory],
   );
 
@@ -802,7 +802,7 @@ export default function CustomerDashboard() {
               <h3>{showBookingHistory ? 'Booking history' : 'Your reservations'}</h3>
             </div>
             <button className="button button-secondary button-small" onClick={() => setShowBookingHistory((show) => !show)} type="button" aria-pressed={showBookingHistory}>
-              {showBookingHistory ? 'Back to reservations' : `History (${reservations.filter((item) => item.reservation_status === 'completed').length})`}
+              {showBookingHistory ? 'Back to reservations' : `History (${reservations.filter((item) => ['cancelled', 'completed'].includes(item.reservation_status)).length})`}
             </button>
           </div>
 
@@ -1048,7 +1048,7 @@ export default function CustomerDashboard() {
                   <tr>
                     <td colSpan="7" className="empty-cell">
                       <div className="customer-empty-state">
-                        <p>{showBookingHistory ? 'No completed bookings yet.' : 'No active booking requests.'}</p>
+                        <p>{showBookingHistory ? 'No cancelled or completed bookings yet.' : 'No active booking requests.'}</p>
                         {!showBookingHistory && <a className="button button-primary" href="/packages">Explore caterers <ArrowRight size={16} aria-hidden="true" /></a>}
                       </div>
                     </td>
