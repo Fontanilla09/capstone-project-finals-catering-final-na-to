@@ -170,7 +170,7 @@ export default function DashboardPage({
   const [authRetryKey, setAuthRetryKey] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [unreadReservations, setUnreadReservations] = useState(0);
+  const [pendingReservationsCount, setPendingReservationsCount] = useState(0);
   const [unreadReviews, setUnreadReviews] = useState(0);
   const [pendingPayoutCount, setPendingPayoutCount] = useState(0);
   const [pendingAccountCount, setPendingAccountCount] = useState(0);
@@ -188,7 +188,7 @@ export default function DashboardPage({
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen);
   const sections = dashboardSections[role];
   const current = sections.find(([key]) => key === section) || sections[0];
-  const totalUnread = unreadMessages + unreadNotifications + unreadReservations + unreadReviews;
+  const totalUnread = unreadMessages + unreadNotifications + pendingReservationsCount + unreadReviews;
   const profileImageSrc = profileImage
     ? (profileImage.startsWith('http') ? profileImage : `${API_BASE}${profileImage}`)
     : '';
@@ -232,16 +232,16 @@ export default function DashboardPage({
     ]
     : role === 'caterer'
       ? [
-        ...(unreadReservations > 0 ? [{
+        ...(pendingReservationsCount > 0 ? [{
           id: 'caterer-bookings',
-          title: `${unreadReservations} new booking request${unreadReservations === 1 ? '' : 's'}`,
+          title: `${pendingReservationsCount} booking request${pendingReservationsCount === 1 ? '' : 's'} to review`,
           message: reservationNotice?.packageName
             ? `${reservationNotice.customerName || 'A customer'} booked ${reservationNotice.packageName}.`
-            : 'Review your new reservation requests.',
+            : 'Review your pending reservation requests.',
           href: '/dashboard/caterer/reservations',
           icon: CalendarDays,
           tone: 'booking',
-          count: unreadReservations,
+          count: pendingReservationsCount,
         }] : []),
         ...(unreadReviews > 0 ? [{
           id: 'caterer-reviews',
@@ -554,17 +554,17 @@ export default function DashboardPage({
       const { data, error } = await supabase.rpc('get_caterer_reservations');
       if (error) return;
       const reservations = (data || []).filter((item) => item.payment_status !== 'pending');
+      const pending = reservations.filter((item) => item.reservation_status === 'pending');
+      setPendingReservationsCount(pending.length);
       const maxId = reservations.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), 0);
       const lastSeenId = localStorage.getItem(lastSeenKey);
       if (lastSeenId === null) {
         localStorage.setItem(lastSeenKey, String(maxId));
         localStorage.setItem(lastNotifiedKey, String(maxId));
-        setUnreadReservations(0);
         setReservationNotice(null);
         return;
       }
-      const unread = reservations.filter((item) => item.reservation_status === 'pending' && Number(item.id) > Number(lastSeenId));
-      setUnreadReservations(unread.length);
+      const unread = pending.filter((item) => Number(item.id) > Number(lastSeenId));
       if (!unread.length) {
         setReservationNotice(null);
         return;
@@ -898,7 +898,7 @@ export default function DashboardPage({
               })()}
               <span className="dashboard-nav-label">{label}</span>
               {role === 'caterer' && hasActiveSubscription === false && ['services', 'ai-photos'].includes(key) && <LockKeyhole className="dashboard-nav-lock" size={13} aria-label="Subscription required" />}
-              {key === 'reservations' && unreadReservations > 0 && <span className="message-badge">{unreadReservations > 99 ? '99+' : unreadReservations}</span>}
+              {key === 'reservations' && pendingReservationsCount > 0 && <span className="message-badge" aria-label={`${pendingReservationsCount} pending reservations`}>{pendingReservationsCount > 99 ? '99+' : pendingReservationsCount}</span>}
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}
               {key === 'earnings' && pendingPayoutCount > 0 && <span className="message-badge" aria-label={`${pendingPayoutCount} payouts awaiting request`}>{pendingPayoutCount > 99 ? '99+' : pendingPayoutCount}</span>}
               {key === 'messages' && unreadMessages > 0 && <span className="message-badge">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
