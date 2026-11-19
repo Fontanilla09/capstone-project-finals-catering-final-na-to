@@ -9384,6 +9384,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .admin-activity-action.action-reject_caterer,
 .admin-activity-action.action-suspend_caterer { background: color-mix(in srgb, var(--danger) 13%, var(--surface)); color: var(--danger); }
 .admin-activity-table td[data-label="Target profile / details"] { white-space: normal; }
+.admin-activity-pagination {
+  align-items: center;
+  color: var(--ink-2);
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+  padding: 14px 2px 2px;
+}
+.admin-activity-pagination-controls { align-items: center; display: flex; gap: 12px; }
+.admin-activity-pagination-controls button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  min-height: 36px;
+  padding: 0 12px;
+}
+.admin-activity-pagination-controls button:disabled { cursor: not-allowed; opacity: .5; }
 
 .admin-users-actions { align-items: center; display: flex; gap: 5px; }
 .admin-users-actions button {

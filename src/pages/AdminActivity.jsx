@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
+const pageSize = 10;
+
 const actionLabels = {
   approve_customer: 'Customer account confirmed',
   reject_customer: 'Customer account rejected',
@@ -33,6 +35,7 @@ function formatDateTime(value) {
 export default function AdminActivity() {
   const [activities, setActivities] = useState([]);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
 
@@ -83,6 +86,14 @@ export default function AdminActivity() {
       activity.admin_email,
     ].some((value) => value?.toLocaleLowerCase().includes(query)));
   }, [activities, search]);
+  const totalPages = Math.max(1, Math.ceil(visibleActivities.length / pageSize));
+  const pageActivities = visibleActivities.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const firstVisibleActivity = visibleActivities.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const lastVisibleActivity = Math.min(currentPage * pageSize, visibleActivities.length);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   return (
     <DashboardPage role="admin" section="activity">
@@ -107,7 +118,10 @@ export default function AdminActivity() {
           <div className="admin-users-toolbar admin-activity-toolbar">
             <input
               aria-label="Search activity"
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search action, profile, or administrator..."
               type="search"
               value={search}
@@ -120,7 +134,7 @@ export default function AdminActivity() {
                 <tr><th>Action</th><th>Target profile / details</th><th>Administrator</th><th>Date and time</th></tr>
               </thead>
               <tbody>
-                {visibleActivities.map((activity) => (
+                {pageActivities.map((activity) => (
                   <tr key={activity.id}>
                     <td data-label="Action">
                       <span className={`admin-activity-action action-${activity.action}`}>
@@ -142,6 +156,28 @@ export default function AdminActivity() {
               </tbody>
             </table>
           </div>
+          {!loading && totalPages > 1 && (
+            <nav className="admin-activity-pagination" aria-label="Activity log pagination">
+              <span>Showing {firstVisibleActivity}–{lastVisibleActivity} of {visibleActivities.length}</span>
+              <div className="admin-activity-pagination-controls">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  type="button"
+                >
+                  Previous
+                </button>
+                <span aria-live="polite">Page {currentPage} of {totalPages}</span>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  type="button"
+                >
+                  Next
+                </button>
+              </div>
+            </nav>
+          )}
         </section>
       </div>
     </DashboardPage>
