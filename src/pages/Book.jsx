@@ -146,7 +146,16 @@ export default function Book() {
   const [paymentMethod, setPaymentMethod] = useState('paypal');
   const [gcashOption, setGcashOption] = useState(null);
   const [theme, setTheme] = useState(getInitialTheme);
-  const today = new Date().toISOString().split('T')[0]; const maxBookingDate = `${new Date().getFullYear() + 2}-12-31`;
+  const minimumEventDate = (() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + 1);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
+  const maxBookingDate = `${new Date().getFullYear() + 2}-12-31`;
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
@@ -200,6 +209,10 @@ export default function Book() {
   }, [catererId, eventDate, item]);
   async function submit(event) {
     event.preventDefault(); if (!packageId || !catererId) { setStatus('This booking link is invalid. Please choose a package first.'); return; }
+    if (!eventDate || eventDate < minimumEventDate) {
+      setStatus('Same-day and past bookings are not allowed. Please choose a future date.');
+      return;
+    }
     if (!eventStartTime || !eventEndTime || eventEndTime <= eventStartTime) {
       setStatus('End time must be later than start time.');
       return;
@@ -233,6 +246,9 @@ export default function Book() {
     catch (error) {
       setStatus(error.message);
       if (error.message?.includes('already has a booking on the selected date')) {
+        setDateAvailability({ date: eventDate, status: 'unavailable' });
+      }
+      if (error.message?.includes('Same-day and past bookings')) {
         setDateAvailability({ date: eventDate, status: 'unavailable' });
       }
       setLoading(false);
@@ -282,7 +298,7 @@ export default function Book() {
                       <input
                         name="event_date"
                         type="date"
-                        min={today}
+                        min={minimumEventDate}
                         max={maxBookingDate}
                         value={eventDate}
                         onChange={(event) => {
@@ -292,6 +308,7 @@ export default function Book() {
                         }}
                         required
                       />
+                      <small className="booking-date-message">Same-day bookings are not allowed. Please choose a future date.</small>
                       {dateAvailability.date === eventDate && dateAvailability.status === 'checking' && <small className="booking-date-message" role="status">Checking availability…</small>}
                       {dateAvailability.date === eventDate && dateAvailability.status === 'available' && <small className="booking-date-message booking-date-success" role="status">Available</small>}
                       {dateAvailability.date === eventDate && dateAvailability.status === 'unavailable' && <small className="booking-date-message form-alert error-alert" role="alert">Not available</small>}

@@ -1,6 +1,7 @@
 <?php
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
+date_default_timezone_set('Asia/Manila');
 header('Content-Type: application/json');
 if (preg_match('/^https?:\/\/localhost:\d+$/', $_SERVER['HTTP_ORIGIN'] ?? '')) header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
 header('Access-Control-Allow-Credentials: true');
@@ -44,6 +45,17 @@ if (
 ) {
     http_response_code(422);
     echo json_encode(['error' => 'End time must be later than start time.']);
+    exit;
+}
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $event_date)) {
+    http_response_code(422);
+    echo json_encode(['error' => 'Please choose a valid event date.']);
+    exit;
+}
+$minimum_event_date = (new DateTimeImmutable('tomorrow'))->format('Y-m-d');
+if ($event_date < $minimum_event_date) {
+    http_response_code(422);
+    echo json_encode(['error' => 'Same-day and past bookings are not allowed. Please choose a future date.']);
     exit;
 }
 
@@ -131,14 +143,17 @@ if (!$reservation) {
     $reservation_error_code = is_array($reservation_response['data'] ?? null)
         ? (string) ($reservation_response['data']['code'] ?? '')
         : '';
+    $is_same_day_booking = $reservation_error === 'Same-day and past bookings are not allowed. Please choose a future date.';
     $is_date_unavailable = $reservation_error === 'Caterer already has a booking on this date.'
         || ($reservation_error_code === '23505'
             && strpos($reservation_error, 'reservations_one_active_caterer_booking_per_date') !== false);
-    http_response_code($is_date_unavailable ? 409 : 500);
+    http_response_code($is_same_day_booking ? 422 : ($is_date_unavailable ? 409 : 500));
     echo json_encode([
-        'error' => $is_date_unavailable
-            ? 'This caterer already has a booking on the selected date. Please choose another date.'
-            : 'Unable to create the booking in Supabase.',
+        'error' => $is_same_day_booking
+            ? 'Same-day and past bookings are not allowed. Please choose a future date.'
+            : ($is_date_unavailable
+                ? 'This caterer already has a booking on the selected date. Please choose another date.'
+                : 'Unable to create the booking in Supabase.'),
     ]);
     exit;
 }

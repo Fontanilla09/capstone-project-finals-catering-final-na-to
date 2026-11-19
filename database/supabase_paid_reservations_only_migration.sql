@@ -85,6 +85,14 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
+    if new.reservation_status in ('pending', 'confirmed') then
+        if new.event_date <= (now() at time zone 'Asia/Manila')::date then
+            raise exception using
+                errcode = 'P0001',
+                message = 'Same-day and past bookings are not allowed. Please choose a future date.';
+        end if;
+    end if;
+
     if new.reservation_status in ('pending', 'confirmed')
        and new.payment_status <> 'pending' then
         perform pg_advisory_xact_lock(new.caterer_id);
@@ -133,6 +141,7 @@ security definer set search_path = public
 as $$
     select p_caterer_id is not null
        and p_event_date is not null
+       and p_event_date > (now() at time zone 'Asia/Manila')::date
        and not exists (
            select 1
            from public.reservations r
