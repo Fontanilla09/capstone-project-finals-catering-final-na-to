@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { API_BASE, requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { getManilaToday } from '../lib/businessPermitDate.js';
 import {
   cacheCatererSubscription,
   clearCachedCatererSubscription,
@@ -176,6 +177,7 @@ export default function DashboardPage({
   const [currentUserId, setCurrentUserId] = useState(initialProfile?.userId || null);
   const [currentCustomerId, setCurrentCustomerId] = useState(initialProfile?.customerId || null);
   const [currentCatererId, setCurrentCatererId] = useState(initialProfile?.catererId || null);
+  const [businessPermitCurrent, setBusinessPermitCurrent] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen);
   const sections = dashboardSections[role];
@@ -362,7 +364,32 @@ export default function DashboardPage({
         if (authError || !authData.user) throw new Error('Not authenticated');
         const { data: profiles, error: profileError } = await withTimeout(supabase.rpc('get_my_profile'), 12000);
         const profile = profiles?.[0];
-        if (profileError || !profile || profile.role !== role || (role === 'caterer' && !profile.is_verified)) throw new Error('Invalid profile');
+        if (
+          profileError
+          || !profile
+          || profile.role !== role
+          || (role === 'caterer' && !profile.is_verified && section !== 'profile')
+        ) throw new Error('Invalid profile');
+        let permitIsCurrent = false;
+        if (role === 'caterer') {
+          const { data: permit, error: permitError } = await withTimeout(
+            supabase
+              .from('caterers')
+            .select('business_permit, business_permit_expiry, business_permit_verified, is_suspended, is_verified')
+            .eq('user_id', profile.user_id)
+              .maybeSingle(),
+            12000,
+          );
+          if (permitError) throw permitError;
+          if (!permit || permit.is_suspended) throw new Error('Invalid caterer profile');
+          permitIsCurrent = Boolean(
+            permit?.business_permit
+            && permit.is_verified
+            && permit.business_permit_verified
+            && permit.business_permit_expiry
+            && permit.business_permit_expiry >= getManilaToday(),
+          );
+        }
         if (!active) return;
         const verifiedProfile = {
           displayName: profile.display_name || (role === 'admin' ? 'Admin' : role === 'caterer' ? 'Caterer' : 'Customer'),
@@ -378,6 +405,7 @@ export default function DashboardPage({
         setCurrentUserId(verifiedProfile.userId);
         setCurrentCustomerId(verifiedProfile.customerId);
         setCurrentCatererId(verifiedProfile.catererId);
+        setBusinessPermitCurrent(permitIsCurrent);
         setAuthCheckError('');
         setAuthChecked(true);
       } catch (error) {
@@ -878,6 +906,12 @@ export default function DashboardPage({
           <div className="dashboard-panel-header">
             <span className="dashboard-panel-kicker">{current[1]}</span>
           </div>
+          {role === 'caterer' && !businessPermitCurrent && section !== 'profile' && (
+            <div className="form-alert error-alert" role="status">
+              <span>Your public packages are hidden because the business permit is missing, expired, or awaiting admin verification.</span>
+              {' '}<a href="/dashboard/caterer/profile">Open Business Profile to upload or update it.</a>
+            </div>
+          )}
           {role === 'caterer' && reservationNotice && (
             <div className="caterer-booking-notice" role="status">
               <CalendarPlus size={19} aria-hidden="true" />

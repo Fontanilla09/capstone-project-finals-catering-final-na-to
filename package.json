@@ -13,8 +13,10 @@
     "@vitejs/plugin-react": "latest",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.48.0",
+    "pdfjs-dist": "^6.5.438",
     "react": "latest",
     "react-dom": "latest",
+    "tesseract.js": "^7.0.0",
     "vite": "latest"
   },
   "devDependencies": {

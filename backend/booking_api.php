@@ -67,7 +67,7 @@ $package_response = supabase_request('GET', 'packages', [
 ]);
 $package = supabase_row($package_response);
 $caterer_response = supabase_request('GET', 'caterers', [
-    'select' => 'business_name,paypal_email,gcash_qr_code,is_verified',
+    'select' => 'business_name,paypal_email,gcash_qr_code,is_verified,business_permit,business_permit_expiry,business_permit_verified',
     'id' => 'eq.' . $caterer_id,
     'is_verified' => 'eq.true',
     'limit' => '1',
@@ -76,6 +76,18 @@ $caterer = supabase_row($caterer_response);
 if (!$package || !$caterer) {
     http_response_code(404);
     echo json_encode(['error' => 'Package not found or unavailable.']);
+    exit;
+}
+$permit_expiry = $caterer['business_permit_expiry'] ?? '';
+$today = (new DateTimeImmutable('today', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+if (
+    empty($caterer['business_permit'])
+    || ($caterer['business_permit_verified'] ?? false) !== true
+    || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $permit_expiry)
+    || $permit_expiry < $today
+) {
+    http_response_code(409);
+    echo json_encode(['error' => 'This caterer cannot accept new bookings until an admin verifies a current business permit.']);
     exit;
 }
 
@@ -144,16 +156,19 @@ if (!$reservation) {
         ? (string) ($reservation_response['data']['code'] ?? '')
         : '';
     $is_same_day_booking = $reservation_error === 'Same-day and past bookings are not allowed. Please choose a future date.';
+    $is_caterer_unavailable = strpos($reservation_error, 'Caterer is unavailable because its business permit or listing is not current.') !== false;
     $is_date_unavailable = $reservation_error === 'Caterer already has a booking on this date.'
         || ($reservation_error_code === '23505'
             && strpos($reservation_error, 'reservations_one_active_caterer_booking_per_date') !== false);
-    http_response_code($is_same_day_booking ? 422 : ($is_date_unavailable ? 409 : 500));
+    http_response_code($is_same_day_booking ? 422 : ($is_caterer_unavailable || $is_date_unavailable ? 409 : 500));
     echo json_encode([
         'error' => $is_same_day_booking
             ? 'Same-day and past bookings are not allowed. Please choose a future date.'
-            : ($is_date_unavailable
+            : ($is_caterer_unavailable
+                ? 'This caterer cannot accept new bookings until its business permit and listing are current.'
+                : ($is_date_unavailable
                 ? 'This caterer already has a booking on the selected date. Please choose another date.'
-                : 'Unable to create the booking in Supabase.'),
+                : 'Unable to create the booking in Supabase.')),
     ]);
     exit;
 }
