@@ -519,7 +519,7 @@ export default function DashboardPage({
     const loadUnreadReservations = async () => {
       const { data, error } = await supabase.rpc('get_caterer_reservations');
       if (error) return;
-      const reservations = data || [];
+      const reservations = (data || []).filter((item) => item.payment_status !== 'pending');
       const maxId = reservations.reduce((maximum, item) => Math.max(maximum, Number(item.id) || 0), 0);
       const lastSeenId = localStorage.getItem(lastSeenKey);
       if (lastSeenId === null) {
@@ -585,7 +585,10 @@ export default function DashboardPage({
       const { data, error } = await supabase.rpc('get_caterer_earnings');
       if (!active || error) return;
       const payouts = data?.payouts || [];
-      setPendingPayoutCount(payouts.filter((payout) => payout.payout_status === 'pending').length);
+      setPendingPayoutCount(payouts.filter((payout) => (
+        payout.payout_status === 'pending'
+        && ['confirmed', 'completed'].includes(payout.reservation_status)
+      )).length);
     };
     loadPendingPayouts();
     const timer = setInterval(loadPendingPayouts, 15000);
