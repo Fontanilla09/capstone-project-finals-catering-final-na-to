@@ -183,7 +183,7 @@ export default function DashboardPage({
   const [currentUserId, setCurrentUserId] = useState(initialProfile?.userId || null);
   const [currentCustomerId, setCurrentCustomerId] = useState(initialProfile?.customerId || null);
   const [currentCatererId, setCurrentCatererId] = useState(initialProfile?.catererId || null);
-  const [businessPermitCurrent, setBusinessPermitCurrent] = useState(false);
+  const [businessPermitCurrent, setBusinessPermitCurrent] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen);
   const sections = dashboardSections[role];
@@ -913,7 +913,7 @@ export default function DashboardPage({
           <div className="dashboard-panel-header">
             <span className="dashboard-panel-kicker">{current[1]}</span>
           </div>
-          {role === 'caterer' && !businessPermitCurrent && section !== 'profile' && (
+          {role === 'caterer' && businessPermitCurrent === false && section !== 'profile' && (
             <div className="form-alert error-alert" role="status">
               <span>Your public packages are hidden because the business permit is missing, expired, or awaiting admin verification.</span>
               {' '}<a href="/dashboard/caterer/profile">Open Business Profile to upload or update it.</a>
