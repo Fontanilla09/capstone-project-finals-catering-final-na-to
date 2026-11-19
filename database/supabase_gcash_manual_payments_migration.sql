@@ -1,5 +1,6 @@
 -- Caterer-managed GCash QR payments with receipt review.
 -- Run after supabase_auth_migration.sql and supabase_schema.sql.
+-- Run before supabase_gcash_receipt_ai_screening_migration.sql; rerun that migration afterward if already applied.
 
 alter table public.caterers
     add column if not exists gcash_qr_code text;
@@ -385,7 +386,8 @@ begin
 end;
 $$;
 
-create or replace function public.get_caterer_gcash_submissions()
+drop function if exists public.get_caterer_gcash_submissions();
+create function public.get_caterer_gcash_submissions()
 returns table (
     payment_id bigint,
     reservation_id bigint,

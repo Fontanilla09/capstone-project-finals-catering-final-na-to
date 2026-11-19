@@ -71,6 +71,23 @@ function timeAgo(value) {
   return days === 1 ? 'Yesterday' : `${days}d ago`;
 }
 
+function getPopoverPosition(trigger, popover) {
+  const triggerBounds = trigger.getBoundingClientRect();
+  const popoverBounds = popover.getBoundingClientRect();
+  const horizontalPadding = 8;
+  const left = Math.max(
+    horizontalPadding,
+    Math.min(
+      triggerBounds.right - popoverBounds.width,
+      window.innerWidth - popoverBounds.width - horizontalPadding,
+    ),
+  );
+  const top = triggerBounds.bottom + popoverBounds.height + 7 <= window.innerHeight - horizontalPadding
+    ? triggerBounds.bottom + 7
+    : Math.max(horizontalPadding, triggerBounds.top - popoverBounds.height - 7);
+  return { left, top };
+}
+
 export default function CustomerDashboard() {
   const notificationRoute = new URLSearchParams(window.location.search).get('notifications') === '1';
   const [customer, setCustomer] = useState(null);
@@ -90,6 +107,9 @@ export default function CustomerDashboard() {
   const reservationMenuTriggerRef = useRef(null);
   const reservationMenuPopoverRef = useRef(null);
   const [openBalanceMenu, setOpenBalanceMenu] = useState(null);
+  const [balanceMenuPosition, setBalanceMenuPosition] = useState(null);
+  const balanceMenuTriggerRef = useRef(null);
+  const balanceMenuPopoverRef = useRef(null);
   const [gcashOption, setGcashOption] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [rating, setRating] = useState(5);
@@ -109,8 +129,25 @@ export default function CustomerDashboard() {
       if (error) throw error;
 
       const dashboardReservations = data?.reservations || [];
+      let reservationsWithPaymentAccounts = dashboardReservations;
+      const catererIds = [...new Set(dashboardReservations.map((reservation) => reservation.caterer_id).filter(Boolean))];
+      if (catererIds.length) {
+        const { data: caterers, error: caterersError } = await supabase
+          .from('caterers')
+          .select('id, paypal_email')
+          .in('id', catererIds);
+        if (caterersError) {
+          console.error('Failed to load caterer PayPal availability:', caterersError);
+        } else {
+          const paypalEmails = new Map((caterers || []).map((caterer) => [String(caterer.id), caterer.paypal_email]));
+          reservationsWithPaymentAccounts = dashboardReservations.map((reservation) => ({
+            ...reservation,
+            paypal_email: paypalEmails.get(String(reservation.caterer_id)) || '',
+          }));
+        }
+      }
       setCustomer(data?.customer || null);
-      setReservations(dashboardReservations);
+      setReservations(reservationsWithPaymentAccounts);
       const { data: cancellationData, error: cancellationError } = await supabase.rpc('get_my_cancellation_requests');
       if (cancellationError) throw cancellationError;
       setCancellationRequests(Object.fromEntries((cancellationData || []).map((request) => [
@@ -297,18 +334,24 @@ export default function CustomerDashboard() {
         setOpenReservationMenu(null);
         setReservationMenuPosition(null);
         setOpenBalanceMenu(null);
+        setBalanceMenuPosition(null);
+        balanceMenuTriggerRef.current = null;
         return;
       }
       if (event.type === 'pointerdown' && !event.target.closest('.customer-action-menu, .customer-balance-menu, .customer-action-popover')) {
         setOpenReservationMenu(null);
         setReservationMenuPosition(null);
         setOpenBalanceMenu(null);
+        setBalanceMenuPosition(null);
+        balanceMenuTriggerRef.current = null;
       }
     }
     function closeMenusOnScroll() {
       setOpenReservationMenu(null);
       setReservationMenuPosition(null);
       setOpenBalanceMenu(null);
+      setBalanceMenuPosition(null);
+      balanceMenuTriggerRef.current = null;
     }
     document.addEventListener('pointerdown', closeMenus);
     window.addEventListener('keydown', closeMenus);
@@ -325,27 +368,16 @@ export default function CustomerDashboard() {
     const trigger = reservationMenuTriggerRef.current;
     const popover = reservationMenuPopoverRef.current;
     if (!trigger || !popover) return;
-
-    const triggerBounds = trigger.getBoundingClientRect();
-    const popoverBounds = popover.getBoundingClientRect();
-    const horizontalPadding = 8;
-    const left = Math.max(
-      horizontalPadding,
-      Math.min(
-        triggerBounds.right - popoverBounds.width,
-        window.innerWidth - popoverBounds.width - horizontalPadding,
-      ),
-    );
-    const top =
-      triggerBounds.bottom + popoverBounds.height + 7 <=
-      window.innerHeight - horizontalPadding
-        ? triggerBounds.bottom + 7
-        : Math.max(
-            horizontalPadding,
-            triggerBounds.top - popoverBounds.height - 7,
-          );
-    setReservationMenuPosition({ left, top });
+    setReservationMenuPosition(getPopoverPosition(trigger, popover));
   }, [openReservationMenu]);
+
+  useLayoutEffect(() => {
+    if (openBalanceMenu === null) return;
+    const trigger = balanceMenuTriggerRef.current;
+    const popover = balanceMenuPopoverRef.current;
+    if (!trigger || !popover) return;
+    setBalanceMenuPosition(getPopoverPosition(trigger, popover));
+  }, [openBalanceMenu]);
 
   async function payBalance(id) {
     if (payingBalanceId !== null) return;
@@ -369,10 +401,32 @@ export default function CustomerDashboard() {
       && option.payment_type === paymentType);
   }
 
+  function reservationHasPaypal(reservationId) {
+    return Boolean(reservations.find((reservation) => String(reservation.id) === String(reservationId))?.paypal_email?.trim());
+  }
+
+  function canPayBalance(reservationId) {
+    return reservationHasPaypal(reservationId) || Boolean(findGcashOption(reservationId, 'balance'));
+  }
+
+  async function payOrGcashBalance(reservationId) {
+    if (reservationHasPaypal(reservationId)) {
+      await payBalance(reservationId);
+      return;
+    }
+    const option = findGcashOption(reservationId, 'balance');
+    if (option) {
+      await openGcashPayment(option);
+      return;
+    }
+    setStatus('No payment method is available for this balance. Please contact the caterer.');
+  }
+
   function balancePaymentLabel(reservationId) {
     const option = findGcashOption(reservationId, 'balance');
     if (option?.latest_submission_status === 'pending') return 'GCash receipt awaiting confirmation';
-    return 'Pay balance with PayPal';
+    if (reservationHasPaypal(reservationId)) return 'Pay balance with PayPal';
+    return option ? 'Pay balance with GCash' : 'Balance payment unavailable';
   }
 
   function balanceGcashPending(reservationId) {
@@ -534,9 +588,13 @@ export default function CustomerDashboard() {
     }));
     return [...balanceActions, ...reviewActions, ...approvalActions];
   }, [reservations]);
+  const paidReservations = useMemo(
+    () => reservations.filter((item) => Number(item.paid_amount || 0) > 0),
+    [reservations],
+  );
   const visibleReservations = useMemo(
-    () => reservations.filter((item) => ['cancelled', 'completed'].includes(item.reservation_status) === showBookingHistory),
-    [reservations, showBookingHistory],
+    () => paidReservations.filter((item) => ['cancelled', 'completed'].includes(item.reservation_status) === showBookingHistory),
+    [paidReservations, showBookingHistory],
   );
 
   const reminders = useMemo(() => reservations.flatMap((item) => {
@@ -601,12 +659,14 @@ export default function CustomerDashboard() {
       balanceReminders={reminders.filter((notice) => notice.type === 'balance')}
       customerNotices={dashboardNotices.map((notice) => notice.type === 'balance' ? {
         ...notice,
-        actionLabel: payingBalanceId === notice.reservationId ? 'Opening PayPal...' : balancePaymentLabel(notice.reservationId),
-        actionDisabled: payingBalanceId !== null || balanceGcashPending(notice.reservationId),
+        actionLabel: payingBalanceId === notice.reservationId
+          ? reservationHasPaypal(notice.reservationId) ? 'Opening PayPal...' : 'Opening GCash...'
+          : balancePaymentLabel(notice.reservationId),
+        actionDisabled: payingBalanceId !== null || balanceGcashPending(notice.reservationId) || !canPayBalance(notice.reservationId),
       } : notice)}
       initialNotificationsOpen={notificationRoute}
       onDismissCustomerNotice={dismissStatusAlert}
-      onPayCustomerNotice={payBalance}
+      onPayCustomerNotice={payOrGcashBalance}
     >
       <div className="customer-dashboard-panel">
         {status && <p className="form-alert success-alert">{status}</p>}
@@ -680,8 +740,8 @@ export default function CustomerDashboard() {
                 </div>
                 <div className="customer-next-event-actions">
                   {['confirmed', 'completed'].includes(nextEvent.reservation_status) && nextEventPaid < nextEventTotal && (
-                    <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(nextEvent.id)} onClick={() => payBalance(nextEvent.id)} type="button">
-                      <CreditCard size={15} aria-hidden="true" /> {payingBalanceId === nextEvent.id ? 'Opening PayPal...' : `${balancePaymentLabel(nextEvent.id)} · ${formatMoney(nextEventTotal - nextEventPaid)}`}
+                    <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(nextEvent.id) || !canPayBalance(nextEvent.id)} onClick={() => payOrGcashBalance(nextEvent.id)} type="button">
+                      <CreditCard size={15} aria-hidden="true" /> {payingBalanceId === nextEvent.id ? reservationHasPaypal(nextEvent.id) ? 'Opening PayPal...' : 'Opening GCash...' : `${balancePaymentLabel(nextEvent.id)} · ${formatMoney(nextEventTotal - nextEventPaid)}`}
                     </button>
                   )}
                   {messageCatererHref ? (
@@ -722,8 +782,8 @@ export default function CustomerDashboard() {
                         <span>{action.detail}</span>
                       </div>
                       {action.type === 'balance' ? (
-                        <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(action.reservation.id)} onClick={() => payBalance(action.reservation.id)} type="button">
-                          {payingBalanceId === action.reservation.id ? 'Opening PayPal...' : balancePaymentLabel(action.reservation.id)}
+                        <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(action.reservation.id) || !canPayBalance(action.reservation.id)} onClick={() => payOrGcashBalance(action.reservation.id)} type="button">
+                          {payingBalanceId === action.reservation.id ? reservationHasPaypal(action.reservation.id) ? 'Opening PayPal...' : 'Opening GCash...' : balancePaymentLabel(action.reservation.id)}
                         </button>
                       ) : action.type === 'review' ? (
                         <button className="button button-secondary button-small" onClick={() => setReviewingId(action.reservation.id)} type="button">Rate</button>
@@ -789,7 +849,7 @@ export default function CustomerDashboard() {
               <h3>{showBookingHistory ? 'Booking history' : 'Your reservations'}</h3>
             </div>
             <button className="button button-secondary button-small" onClick={() => setShowBookingHistory((show) => !show)} type="button" aria-pressed={showBookingHistory}>
-              {showBookingHistory ? 'Back to reservations' : `History (${reservations.filter((item) => ['cancelled', 'completed'].includes(item.reservation_status)).length})`}
+              {showBookingHistory ? 'Back to reservations' : `History (${paidReservations.filter((item) => ['cancelled', 'completed'].includes(item.reservation_status)).length})`}
             </button>
           </div>
 
@@ -892,43 +952,77 @@ export default function CustomerDashboard() {
                               aria-haspopup="menu"
                               className="button button-primary button-small customer-balance-trigger"
                               disabled={payingBalanceId !== null || balanceGcashPending(item.id)}
-                              onClick={() => {
+                              onClick={(event) => {
                                 setOpenReservationMenu(null);
                                 setReservationMenuPosition(null);
-                                setOpenBalanceMenu((current) => current === String(item.id) ? null : String(item.id));
+                                if (openBalanceMenu === String(item.id)) {
+                                  setOpenBalanceMenu(null);
+                                  setBalanceMenuPosition(null);
+                                  balanceMenuTriggerRef.current = null;
+                                  return;
+                                }
+                                balanceMenuTriggerRef.current = event.currentTarget;
+                                setBalanceMenuPosition({ left: 8, top: 8 });
+                                setOpenBalanceMenu(String(item.id));
                               }}
                               type="button"
                             >
-                              {payingBalanceId === item.id ? 'Opening PayPal…' : 'Pay balance'}
+                              {payingBalanceId === item.id ? reservationHasPaypal(item.id) ? 'Opening PayPal…' : 'Opening GCash…' : 'Pay balance'}
                               <ChevronDown size={14} aria-hidden="true" />
                             </button>
                             {openBalanceMenu === String(item.id) && (
-                              <div className="customer-action-popover customer-balance-popover" role="menu">
-                                {findGcashOption(item.id, 'balance') && (
+                              createPortal(
+                                <div
+                                  className="customer-action-popover customer-balance-popover"
+                                  role="menu"
+                                  ref={balanceMenuPopoverRef}
+                                  style={{
+                                    bottom: 'auto',
+                                    boxSizing: 'border-box',
+                                    left: balanceMenuPosition?.left ?? 8,
+                                    maxWidth: 'calc(100vw - 16px)',
+                                    maxHeight: 'calc(100dvh - 16px)',
+                                    overflowY: 'auto',
+                                    position: 'fixed',
+                                    right: 'auto',
+                                    top: balanceMenuPosition?.top ?? 8,
+                                    width: 'max-content',
+                                    zIndex: 1000,
+                                  }}
+                                >
                                   <button
-                                    disabled={balanceGcashPending(item.id)}
-                                    onClick={(event) => {
+                                    disabled={!findGcashOption(item.id, 'balance') || balanceGcashPending(item.id)}
+                                    onClick={() => {
                                       setOpenBalanceMenu(null);
+                                      setBalanceMenuPosition(null);
+                                      balanceMenuTriggerRef.current = null;
                                       openGcashPayment(findGcashOption(item.id, 'balance'));
                                     }}
                                     role="menuitem"
                                     type="button"
                                   >
-                                    {balanceGcashPending(item.id) ? 'GCash receipt pending' : 'Pay with GCash'}
+                                    {!findGcashOption(item.id, 'balance')
+                                      ? 'GCash unavailable for this booking'
+                                      : balanceGcashPending(item.id) ? 'GCash receipt pending' : 'Pay with GCash'}
                                   </button>
-                                )}
-                                <button
-                                  disabled={payingBalanceId !== null || balanceGcashPending(item.id)}
-                                  onClick={() => {
-                                    setOpenBalanceMenu(null);
-                                    payBalance(item.id);
-                                  }}
-                                  role="menuitem"
-                                  type="button"
-                                >
-                                  Pay with PayPal
-                                </button>
-                              </div>
+                                  {reservationHasPaypal(item.id) && (
+                                    <button
+                                      disabled={payingBalanceId !== null || balanceGcashPending(item.id)}
+                                      onClick={() => {
+                                        setOpenBalanceMenu(null);
+                                        setBalanceMenuPosition(null);
+                                        balanceMenuTriggerRef.current = null;
+                                        payBalance(item.id);
+                                      }}
+                                      role="menuitem"
+                                      type="button"
+                                    >
+                                      Pay with PayPal
+                                    </button>
+                                  )}
+                                </div>,
+                                document.body,
+                              )
                             )}
                           </div>
                         )}
@@ -946,6 +1040,8 @@ export default function CustomerDashboard() {
                             className="customer-action-menu-trigger"
                             onClick={(event) => {
                               setOpenBalanceMenu(null);
+                              setBalanceMenuPosition(null);
+                              balanceMenuTriggerRef.current = null;
                               if (openReservationMenu === String(item.id)) {
                                 setOpenReservationMenu(null);
                                 setReservationMenuPosition(null);
@@ -1035,7 +1131,7 @@ export default function CustomerDashboard() {
                   <tr>
                     <td colSpan="7" className="empty-cell">
                       <div className="customer-empty-state">
-                        <p>{showBookingHistory ? 'No cancelled or completed bookings yet.' : 'No active booking requests.'}</p>
+                        <p>{showBookingHistory ? 'No paid cancelled or completed bookings yet.' : 'No paid reservations to display yet.'}</p>
                         {!showBookingHistory && <a className="button button-primary" href="/packages">Explore caterers <ArrowRight size={16} aria-hidden="true" /></a>}
                       </div>
                     </td>

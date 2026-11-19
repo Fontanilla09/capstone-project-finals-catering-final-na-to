@@ -143,7 +143,7 @@ export default function Book() {
   const [eventStartTime, setEventStartTime] = useState('');
   const [eventEndTime, setEventEndTime] = useState('');
   const [dateAvailability, setDateAvailability] = useState({ date: '', status: 'idle' });
-  const [paymentMethod, setPaymentMethod] = useState('paypal');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [gcashOption, setGcashOption] = useState(null);
   const [theme, setTheme] = useState(getInitialTheme);
   const minimumEventDate = (() => {
@@ -172,20 +172,31 @@ export default function Book() {
         if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
         const { data, error } = await supabase
           .from('packages')
-          .select('id, package_name, price, caterer_id, caterers!inner(business_name, is_verified, gcash_qr_code)')
+          .select('id, package_name, price, caterer_id, caterers!inner(business_name, is_verified, gcash_qr_code, paypal_email)')
           .eq('id', packageId)
           .eq('caterer_id', catererId)
           .eq('caterers.is_verified', true)
           .maybeSingle();
         if (error) throw error;
         if (!data) throw new Error('Package not found or not available.');
-        setItem({ ...data, business_name: data.caterers?.business_name, gcash_qr_code: data.caterers?.gcash_qr_code });
+        setItem({
+          ...data,
+          business_name: data.caterers?.business_name,
+          gcash_qr_code: data.caterers?.gcash_qr_code,
+          paypal_email: data.caterers?.paypal_email,
+        });
       } catch (error) {
         setStatus(error.message);
       }
     }
     loadPackage();
   }, [packageId, catererId]);
+  useEffect(() => {
+    if (!item) return;
+    if (paymentMethod === 'paypal' && item.paypal_email) return;
+    if (paymentMethod === 'gcash' && item.gcash_qr_code) return;
+    setPaymentMethod(item.paypal_email ? 'paypal' : item.gcash_qr_code ? 'gcash' : '');
+  }, [item, paymentMethod]);
   useEffect(() => {
     if (!eventDate || !item) {
       setDateAvailability({ date: '', status: 'idle' });
@@ -221,6 +232,14 @@ export default function Book() {
       setStatus(dateAvailability.status === 'unavailable'
         ? 'This caterer already has a booking on the selected date. Please choose another date.'
         : 'Please wait for the selected date availability check to finish.');
+      return;
+    }
+    if (
+      (paymentMethod === 'paypal' && !item?.paypal_email)
+      || (paymentMethod === 'gcash' && !item?.gcash_qr_code)
+      || !paymentMethod
+    ) {
+      setStatus('This caterer has not set up an available payment method yet. Please contact the caterer.');
       return;
     }
     setLoading(true); setStatus('');
@@ -349,12 +368,14 @@ export default function Book() {
                   <h2><span>3</span>Payment method</h2>
                   <fieldset className="booking-payment-method">
                     <legend className="visually-hidden">Choose a payment method</legend>
-                    <label className={paymentMethod === 'paypal' ? 'booking-payment-option is-selected' : 'booking-payment-option'}>
-                      <input type="radio" name="payment_method" value="paypal" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} />
-                      <span className="booking-payment-icon"><CreditCard size={19} aria-hidden="true" /></span>
-                      <span className="booking-payment-copy"><strong>PayPal</strong><small>Pay your down payment online. You’ll be redirected to PayPal.</small></span>
-                      <span className="booking-payment-check">{paymentMethod === 'paypal' && <Check size={13} aria-hidden="true" />}</span>
-                    </label>
+                    {item?.paypal_email && (
+                      <label className={paymentMethod === 'paypal' ? 'booking-payment-option is-selected' : 'booking-payment-option'}>
+                        <input type="radio" name="payment_method" value="paypal" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} />
+                        <span className="booking-payment-icon"><CreditCard size={19} aria-hidden="true" /></span>
+                        <span className="booking-payment-copy"><strong>PayPal</strong><small>Pay your down payment online. You’ll be redirected to PayPal.</small></span>
+                        <span className="booking-payment-check">{paymentMethod === 'paypal' && <Check size={13} aria-hidden="true" />}</span>
+                      </label>
+                    )}
                     <label className={`${paymentMethod === 'gcash' ? 'booking-payment-option is-selected' : 'booking-payment-option'}${!item?.gcash_qr_code ? ' booking-payment-disabled' : ''}`}>
                       <input type="radio" name="payment_method" value="gcash" checked={paymentMethod === 'gcash'} disabled={!item?.gcash_qr_code} onChange={() => setPaymentMethod('gcash')} />
                       <span className="booking-payment-icon"><QrCode size={19} aria-hidden="true" /></span>
@@ -379,11 +400,13 @@ export default function Book() {
             <p className="payment-note">
               {paymentMethod === 'gcash'
                 ? <><LockKeyhole size={15} aria-hidden="true" /><span>Scan the caterer’s GCash QR and upload your receipt. The payment will be reviewed by the caterer.</span></>
-                : <><LockKeyhole size={15} aria-hidden="true" /><span>You’ll be redirected to PayPal to securely complete your online payment.</span></>}
+                : paymentMethod === 'paypal'
+                  ? <><LockKeyhole size={15} aria-hidden="true" /><span>You’ll be redirected to PayPal to securely complete your online payment.</span></>
+                  : <><LockKeyhole size={15} aria-hidden="true" /><span>The caterer has not set up a payment method yet. Please contact the caterer.</span></>}
             </p>
             <label className="booking-terms"><input form="booking-form" name="agree_terms" type="checkbox" required /> <span>I agree to the booking terms and 30% down payment.</span></label>
-            <button className="booking-submit" form="booking-form" disabled={loading || !item || !eventDate || dateAvailability.date !== eventDate || dateAvailability.status !== 'available' || Boolean(gcashOption)} type="submit">
-              {loading ? 'Preparing payment…' : dateAvailability.status === 'checking' ? 'Checking availability…' : paymentMethod === 'gcash' ? 'Continue to GCash' : 'Continue to PayPal'} <span aria-hidden="true">↗</span>
+            <button className="booking-submit" form="booking-form" disabled={loading || !item || !paymentMethod || !eventDate || dateAvailability.date !== eventDate || dateAvailability.status !== 'available' || Boolean(gcashOption)} type="submit">
+              {loading ? 'Preparing payment…' : dateAvailability.status === 'checking' ? 'Checking availability…' : paymentMethod === 'gcash' ? 'Continue to GCash' : paymentMethod === 'paypal' ? 'Continue to PayPal' : 'Payment unavailable'} <span aria-hidden="true">↗</span>
             </button>
           </aside>
         </div>

@@ -1,7 +1,8 @@
 -- Business permit OCR expiry tracking and access control.
 -- Run after supabase_account_rejection_migration.sql,
 -- supabase_admin_subscription_monitoring_migration.sql, and
--- supabase_subscription_package_visibility_migration.sql.
+-- supabase_subscription_package_visibility_migration.sql, and
+-- supabase_user_activity_migration.sql.
 
 alter table public.caterers
     add column if not exists business_permit_expiry date,
@@ -323,6 +324,7 @@ returns table (
     email varchar,
     role varchar,
     created_at timestamptz,
+    last_active_at timestamptz,
     full_name varchar,
     business_name varchar,
     phone varchar,
@@ -351,7 +353,7 @@ begin
     end if;
 
     return query
-    select u.id, u.email, u.role, u.created_at,
+    select u.id, u.email, u.role, u.created_at, u.last_active_at,
         c.full_name, ca.business_name,
         coalesce(c.phone, ca.phone), coalesce(c.address, ca.address), coalesce(c.city, ca.city),
         ca.paypal_email,

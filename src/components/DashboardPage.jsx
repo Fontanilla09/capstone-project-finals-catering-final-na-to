@@ -457,7 +457,7 @@ export default function DashboardPage({
   }, [authRetryKey, role]);
 
   useEffect(() => {
-    if (!authChecked || !currentUserId || !['customer', 'caterer'].includes(role)) return undefined;
+    if (!authChecked || !currentUserId || !['customer', 'caterer', 'admin'].includes(role)) return undefined;
 
     let active = true;
     let requestPending = false;

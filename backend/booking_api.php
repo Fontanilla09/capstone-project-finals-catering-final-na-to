@@ -78,6 +78,11 @@ if (!$package || !$caterer) {
     echo json_encode(['error' => 'Package not found or unavailable.']);
     exit;
 }
+if ($payment_method === 'paypal' && !filter_var(trim((string) ($caterer['paypal_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
+    http_response_code(422);
+    echo json_encode(['error' => 'PayPal is unavailable because this caterer has not added a valid PayPal account.']);
+    exit;
+}
 $permit_expiry = $caterer['business_permit_expiry'] ?? '';
 $today = (new DateTimeImmutable('today', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
 if (
@@ -177,7 +182,7 @@ if ($payment_method === 'gcash') {
     if (empty($caterer['gcash_qr_code'])) {
         supabase_request('DELETE', 'reservations', ['id' => 'eq.' . $reservation['id']]);
         http_response_code(422);
-        echo json_encode(['error' => 'This caterer has not added a GCash QR code yet. Choose PayPal or contact the caterer.']);
+        echo json_encode(['error' => 'This caterer has not added a GCash QR code yet. Please contact the caterer.']);
         exit;
     }
     echo json_encode([

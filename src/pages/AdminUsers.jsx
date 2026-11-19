@@ -238,7 +238,7 @@ export default function AdminUsers() {
                   <td data-label="Status"><span className={`admin-users-status state-${state.toLocaleLowerCase()}`}>{state}</span></td>
                   <td data-label="Activity">{user.role === 'admin' ? '—' : `${user.activity.count} booking${user.activity.count === 1 ? '' : 's'}`}</td>
                   <td data-label="Joined">{formatDate(user.created_at)}</td>
-                  <td data-label="Last active">{user.role === 'admin' ? '—' : relativeDate(user.last_active_at)}</td>
+                  <td data-label="Last active">{relativeDate(user.last_active_at)}</td>
                   <td data-label="Reports">{user.reports ? <span className="admin-users-report-count">⚑ {user.reports}</span> : '—'}</td>
                   <td data-label="Actions">
                     <div className="admin-users-actions">

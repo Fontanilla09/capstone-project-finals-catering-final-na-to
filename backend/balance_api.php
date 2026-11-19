@@ -41,6 +41,11 @@ if (!$reservation || !$package || !$caterer || (float) $reservation['balance_amo
     echo json_encode(['error' => 'Balance payment is not available.']);
     exit;
 }
+if (!filter_var(trim((string) ($caterer['paypal_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
+    http_response_code(422);
+    echo json_encode(['error' => 'PayPal balance payment is unavailable because this caterer has not added a valid PayPal account.']);
+    exit;
+}
 
 $completed_balance = supabase_request('GET', 'payments', [
     'select' => 'id',

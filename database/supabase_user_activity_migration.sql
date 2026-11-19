@@ -1,5 +1,6 @@
--- Record customer and caterer activity for the User Management directory.
--- Run after supabase_account_rejection_migration.sql.
+-- Record customer, caterer, and admin activity for the User Management directory.
+-- Run after supabase_account_rejection_migration.sql and before
+-- supabase_business_permit_expiry_migration.sql.
 
 alter table public.users
     add column if not exists last_active_at timestamptz;
@@ -25,15 +26,15 @@ begin
         select 1
         from public.users
         where auth_user_id = auth.uid()
-          and role in ('customer', 'caterer')
+          and role in ('customer', 'caterer', 'admin')
     ) then
-        raise exception 'Customer or caterer account required';
+        raise exception 'Account access required';
     end if;
 
     update public.users
     set last_active_at = now()
     where auth_user_id = auth.uid()
-      and role in ('customer', 'caterer')
+      and role in ('customer', 'caterer', 'admin')
       and (last_active_at is null or last_active_at <= now() - interval '1 minute');
 end;
 $$;
