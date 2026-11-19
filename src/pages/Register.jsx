@@ -80,7 +80,7 @@ export default function Register() {
         options: { emailRedirectTo: confirmationRedirectUrl },
       });
       if (error) throw new Error(error.message);
-      setResendStatus('A new verification email is on its way. Check your inbox and spam folder.');
+      setResendStatus('Supabase accepted the resend request, but this does not confirm delivery. Check your email provider logs and settings, then check your inbox and spam folder.');
     } catch (error) {
       setResendStatus(error.message);
     } finally {
@@ -390,73 +390,38 @@ export default function Register() {
               <small>Enter 10 to 15 digits, numbers only.</small>
             </div>
 
-            {accountType === 'caterer' ? (
-              <>
-                <div className="register-field">
-                  <label htmlFor="register-password">Password</label>
-                  <div className="register-input-wrap">
-                    <LockKeyhole size={18} aria-hidden="true" />
-                    <input
-                      autoComplete="new-password"
-                      id="register-password"
-                      minLength={6}
-                      name="password"
-                      onChange={update}
-                      placeholder="At least 6 characters"
-                      required
-                      type={showPassword ? 'text' : 'password'}
-                      value={form.password}
-                    />
-                    <button
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      aria-pressed={showPassword}
-                      className="register-password-toggle"
-                      onClick={() => setShowPassword((visible) => !visible)}
-                      type="button"
-                    >
-                      {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                    </button>
-                  </div>
-                  {accountType === 'caterer' && (
-                    <div className="register-password-strength" aria-live="polite">
-                      <span className="register-strength-bars" aria-hidden="true">
-                        {[1, 2, 3, 4].map((level) => <i className={level <= passwordStrength ? `level-${passwordStrength}` : ''} key={level} />)}
-                      </span>
-                      <span>{passwordStrength ? ['','Weak','Fair','Good','Strong'][passwordStrength] : 'Use at least 6 characters'}</span>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="register-field">
-                  <label htmlFor="register-password">Password</label>
-                  <div className="register-input-wrap">
-                    <LockKeyhole size={18} aria-hidden="true" />
-                    <input
-                      autoComplete="new-password"
-                      id="register-password"
-                      minLength={6}
-                      name="password"
-                      onChange={update}
-                      placeholder="At least 6 characters"
-                      required
-                      type={showPassword ? 'text' : 'password'}
-                      value={form.password}
-                    />
-                    <button
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      aria-pressed={showPassword}
-                      className="register-password-toggle"
-                      onClick={() => setShowPassword((visible) => !visible)}
-                      type="button"
-                    >
-                      {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="register-field">
+              <label htmlFor="register-password">Password</label>
+              <div className="register-input-wrap">
+                <LockKeyhole size={18} aria-hidden="true" />
+                <input
+                  autoComplete="new-password"
+                  id="register-password"
+                  minLength={6}
+                  name="password"
+                  onChange={update}
+                  placeholder="At least 6 characters"
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                />
+                <button
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  className="register-password-toggle"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  type="button"
+                >
+                  {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                </button>
+              </div>
+              <div className="register-password-strength" aria-live="polite">
+                <span className="register-strength-bars" aria-hidden="true">
+                  {[1, 2, 3, 4].map((level) => <i className={level <= passwordStrength ? `level-${passwordStrength}` : ''} key={level} />)}
+                </span>
+                <span>{passwordStrength ? ['','Weak','Fair','Good','Strong'][passwordStrength] : 'Use at least 6 characters'}</span>
+              </div>
+            </div>
             {accountType === 'customer' && (
               <button className="register-submit" disabled={submitting} type="submit">
                 {submitting ? 'Creating account...' : 'Create customer account'}

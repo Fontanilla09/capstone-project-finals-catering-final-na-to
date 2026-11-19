@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { requestJson } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
@@ -10,14 +9,12 @@ export default function CustomerSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [status, setStatus] = useState({ error: '', success: '' });
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [signingOutEverywhere, setSigningOutEverywhere] = useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -144,28 +141,6 @@ export default function CustomerSettings() {
     }
   }
 
-  async function deleteAccount(event) {
-    event.preventDefault();
-    setStatus({ error: '', success: '' });
-    if (deleteConfirmation !== 'DELETE') {
-      setStatus({ error: 'Type DELETE exactly to confirm account deletion.', success: '' });
-      return;
-    }
-
-    setDeletingAccount(true);
-    try {
-      await requestJson('/backend/delete_account_api.php', {
-        method: 'POST',
-        body: JSON.stringify({ confirmation: deleteConfirmation }),
-      });
-      await supabase.auth.signOut({ scope: 'local' });
-      window.location.replace('/login?account=deleted');
-    } catch (error) {
-      setStatus({ error: error.message, success: '' });
-      setDeletingAccount(false);
-    }
-  }
-
   return (
     <DashboardPage role="customer" section="settings">
       <div className="customer-settings-page">
@@ -226,22 +201,13 @@ export default function CustomerSettings() {
             <section className="customer-settings-card">
               <div className="customer-settings-card-heading">
                 <h3>Account security</h3>
-                <p>Sign out of every device or permanently delete your account.</p>
+                <p>Sign out of your account on every device.</p>
               </div>
               <div className="customer-settings-actions">
                 <button className="button button-secondary" disabled={signingOutEverywhere} onClick={signOutAllDevices} type="button">
                   {signingOutEverywhere ? 'Signing out...' : 'Sign out all devices'}
                 </button>
               </div>
-              <form className="customer-settings-delete" onSubmit={deleteAccount}>
-                <strong>Delete account permanently</strong>
-                <p>This permanently removes your account and associated customer data. This action cannot be undone.</p>
-                <label htmlFor="settings-delete-confirmation">Type DELETE to confirm</label>
-                <input id="settings-delete-confirmation" autoComplete="off" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} />
-                <button className="button customer-settings-delete-button" disabled={deletingAccount} type="submit">
-                  {deletingAccount ? 'Deleting account...' : 'Delete my account'}
-                </button>
-              </form>
             </section>
           </>
         )}

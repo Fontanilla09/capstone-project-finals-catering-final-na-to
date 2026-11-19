@@ -80,7 +80,7 @@ export default function Login() {
         options: { emailRedirectTo: `${window.location.origin}/login?confirmed=1` },
       });
       if (error) throw new Error(error.message);
-      setStatus('If this email has an unconfirmed account, a new confirmation link has been sent.');
+      setStatus('Supabase accepted the resend request, but this does not confirm delivery. Check your email provider logs and settings, then check your inbox and spam folder.');
       setStatusIsSuccess(true);
       setResendAvailable(false);
     } catch (error) {
