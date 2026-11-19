@@ -114,19 +114,16 @@ export default function CatererDashboard() {
 
         const [
           { count: packageCount },
-          { data: catererData, error: catererError },
           { data, error: reservationsError },
           { data: earningsData, error: earningsError },
           { data: reviewsData, error: reviewsError },
         ] = await Promise.all([
           supabase.from('packages').select('id', { count: 'exact', head: true }).eq('caterer_id', profile.caterer_id),
-          supabase.from('caterers').select('rating').eq('id', profile.caterer_id).maybeSingle(),
           supabase.rpc('get_caterer_reservations'),
           supabase.rpc('get_caterer_earnings'),
           supabase.rpc('get_caterer_reviews'),
         ]);
 
-        if (catererError) throw catererError;
         if (reservationsError) throw reservationsError;
         if (earningsError) throw earningsError;
         if (reviewsError) throw reviewsError;
@@ -137,7 +134,7 @@ export default function CatererDashboard() {
         const reviewRows = reviewsData || [];
         const reviewAverage = reviewRows.length
           ? reviewRows.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / reviewRows.length
-          : Number(catererData?.rating || 0);
+          : 0;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const pending = reservations.filter((item) => item.reservation_status === 'pending').length;

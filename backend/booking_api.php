@@ -68,15 +68,29 @@ if (!$package || !$caterer) {
 }
 
 $duplicate = supabase_request('GET', 'reservations', [
-    'select' => 'id',
+    'select' => 'id,payment_status,booking_payment_method',
     'customer_id' => 'eq.' . $user['customer_id'],
     'package_id' => 'eq.' . $package_id,
     'event_date' => 'eq.' . $event_date,
     'event_time' => 'eq.' . $event_time,
     'reservation_status' => 'not.eq.cancelled',
-    'limit' => '1',
 ]);
-if (supabase_row($duplicate)) {
+if (!$duplicate['ok']) {
+    http_response_code(502);
+    echo json_encode(['error' => 'Unable to verify your existing bookings. Please try again.']);
+    exit;
+}
+$duplicate_rows = is_array($duplicate['data'] ?? null) ? $duplicate['data'] : [];
+$has_existing_request = false;
+foreach ($duplicate_rows as $existing_booking) {
+    $is_unpaid_paypal_attempt = ($existing_booking['booking_payment_method'] ?? '') === 'paypal'
+        && ($existing_booking['payment_status'] ?? '') === 'pending';
+    if (!$is_unpaid_paypal_attempt) {
+        $has_existing_request = true;
+        break;
+    }
+}
+if ($has_existing_request) {
     http_response_code(409);
     echo json_encode(['error' => 'You already have a booking request for this package, date, and time.']);
     exit;
