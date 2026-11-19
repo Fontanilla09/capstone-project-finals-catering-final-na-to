@@ -545,25 +545,29 @@ export default function CustomerDashboard() {
     }
   }
 
+  const paidReservations = useMemo(
+    () => reservations.filter((item) => Number(item.paid_amount || 0) > 0),
+    [reservations],
+  );
   const summary = useMemo(() => ({
-    total: reservations.length,
-    pending: reservations.filter((item) => item.reservation_status === 'pending').length,
-  }), [reservations]);
-  const upcomingReservations = useMemo(() => reservations
+    total: paidReservations.length,
+    pending: paidReservations.filter((item) => item.reservation_status === 'pending').length,
+  }), [paidReservations]);
+  const upcomingReservations = useMemo(() => paidReservations
     .filter((item) => !['cancelled', 'completed'].includes(item.reservation_status))
     .filter((item) => {
       const days = daysUntilEvent(item.event_date);
       return days !== null && days >= 0;
     })
-    .sort((first, second) => String(first.event_date || '9999-12-31').localeCompare(String(second.event_date || '9999-12-31'))), [reservations]);
+    .sort((first, second) => String(first.event_date || '9999-12-31').localeCompare(String(second.event_date || '9999-12-31'))), [paidReservations]);
   const nextEvent = upcomingReservations[0] || null;
-  const totalPaid = reservations.reduce((sum, item) => sum + Math.max(0, Number(item.paid_amount || 0)), 0);
-  const totalBalance = reservations.reduce((sum, item) => {
+  const totalPaid = paidReservations.reduce((sum, item) => sum + Math.max(0, Number(item.paid_amount || 0)), 0);
+  const totalBalance = paidReservations.reduce((sum, item) => {
     if (!['confirmed', 'completed'].includes(item.reservation_status)) return sum;
     return sum + Math.max(0, Number(item.total_amount || 0) - Number(item.paid_amount || 0));
   }, 0);
   const actionItems = useMemo(() => {
-    const balanceActions = reservations
+    const balanceActions = paidReservations
       .filter((item) => ['confirmed', 'completed'].includes(item.reservation_status))
       .filter((item) => Number(item.total_amount || 0) > Number(item.paid_amount || 0))
       .map((item) => ({
@@ -572,14 +576,14 @@ export default function CustomerDashboard() {
         reservation: item,
         detail: `Pay before the event · ${formatEventDate(item.event_date)}`,
       }));
-    const reviewActions = reservations.filter(canReview).filter((item) => !item.review_rating).map((item) => ({
+    const reviewActions = paidReservations.filter(canReview).filter((item) => !item.review_rating).map((item) => ({
       id: `review-${item.id}`,
       type: 'review',
       reservation: item,
       title: `Rate your ${item.package_name} event`,
       detail: 'Help others choose the right caterer',
     }));
-    const approvalActions = reservations.filter((item) => item.reservation_status === 'pending').map((item) => ({
+    const approvalActions = paidReservations.filter((item) => item.reservation_status === 'pending').map((item) => ({
       id: `approval-${item.id}`,
       type: 'approval',
       reservation: item,
@@ -587,17 +591,13 @@ export default function CustomerDashboard() {
       detail: `Requested for ${formatEventDate(item.event_date)}`,
     }));
     return [...balanceActions, ...reviewActions, ...approvalActions];
-  }, [reservations]);
-  const paidReservations = useMemo(
-    () => reservations.filter((item) => Number(item.paid_amount || 0) > 0),
-    [reservations],
-  );
+  }, [paidReservations]);
   const visibleReservations = useMemo(
     () => paidReservations.filter((item) => ['cancelled', 'completed'].includes(item.reservation_status) === showBookingHistory),
     [paidReservations, showBookingHistory],
   );
 
-  const reminders = useMemo(() => reservations.flatMap((item) => {
+  const reminders = useMemo(() => paidReservations.flatMap((item) => {
     const notices = [];
     const paidAmount = Number(item.paid_amount || 0);
     const totalAmount = Number(item.total_amount || 0);
@@ -627,7 +627,7 @@ export default function CustomerDashboard() {
       }
     }
     return notices;
-  }), [reservations]);
+  }), [paidReservations]);
   const dashboardNotices = [...statusAlerts, ...reminders];
   const nextEventDays = nextEvent ? daysUntilEvent(nextEvent.event_date) : null;
   const nextEventPaid = nextEvent ? Number(nextEvent.paid_amount || 0) : 0;
@@ -782,9 +782,33 @@ export default function CustomerDashboard() {
                         <span>{action.detail}</span>
                       </div>
                       {action.type === 'balance' ? (
-                        <button className="button button-primary button-small" disabled={payingBalanceId !== null || balanceGcashPending(action.reservation.id) || !canPayBalance(action.reservation.id)} onClick={() => payOrGcashBalance(action.reservation.id)} type="button">
-                          {payingBalanceId === action.reservation.id ? reservationHasPaypal(action.reservation.id) ? 'Opening PayPal...' : 'Opening GCash...' : balancePaymentLabel(action.reservation.id)}
-                        </button>
+                        <div className="customer-action-payment-options">
+                          {reservationHasPaypal(action.reservation.id) && (
+                            <button
+                              className="button button-primary button-small"
+                              disabled={payingBalanceId !== null || balanceGcashPending(action.reservation.id)}
+                              onClick={() => payBalance(action.reservation.id)}
+                              type="button"
+                            >
+                              {payingBalanceId === action.reservation.id ? 'Opening PayPal...' : 'Pay with PayPal'}
+                            </button>
+                          )}
+                          {findGcashOption(action.reservation.id, 'balance') && (
+                            <button
+                              className="button button-primary button-small"
+                              disabled={payingBalanceId !== null || balanceGcashPending(action.reservation.id)}
+                              onClick={() => openGcashPayment(findGcashOption(action.reservation.id, 'balance'))}
+                              type="button"
+                            >
+                              {payingBalanceId === action.reservation.id ? 'Opening GCash...' : balanceGcashPending(action.reservation.id) ? 'GCash receipt pending' : 'Pay with GCash'}
+                            </button>
+                          )}
+                          {!canPayBalance(action.reservation.id) && (
+                            <button className="button button-secondary button-small" disabled type="button">
+                              Payment unavailable
+                            </button>
+                          )}
+                        </div>
                       ) : action.type === 'review' ? (
                         <button className="button button-secondary button-small" onClick={() => setReviewingId(action.reservation.id)} type="button">Rate</button>
                       ) : (

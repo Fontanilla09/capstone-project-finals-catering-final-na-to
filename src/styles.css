@@ -1686,6 +1686,7 @@ button:active, a:active { transform: scale(.98); }
 .customer-action-copy strong b { font-weight: 750; }
 .customer-action-copy > span { color: var(--muted); font-size: 10px; line-height: 1.35; }
 .customer-action-list .button { flex: 0 0 auto; min-height: 32px; padding: 6px 11px; }
+.customer-action-payment-options { align-items: center; display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 .customer-action-list li.customer-action-more { justify-content: flex-end; padding-bottom: 2px; }
 .customer-action-more a { align-items: center; color: var(--brand-600); display: inline-flex; font-size: 10px; font-weight: 700; gap: 4px; text-decoration: none; }
 .customer-actions-empty,
