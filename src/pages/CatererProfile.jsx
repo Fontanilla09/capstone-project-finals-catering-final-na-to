@@ -75,7 +75,7 @@ export default function CatererProfile() {
         address: String(form.get('address') || '').trim(),
         city: String(form.get('city') || '').trim(),
         description: String(form.get('description') || '').trim(),
-        paypal_email: String(form.get('paypal_email') || '').trim(),
+        paypal_email: String(form.get('paypal_email') || '').trim() || null,
       };
 
       if (!payload.business_name || !payload.phone || !payload.address || !payload.city) {
@@ -337,9 +337,9 @@ export default function CatererProfile() {
               <span className="caterer-profile-input-wrap"><MapPin size={16} aria-hidden="true" /><input name="city" placeholder="e.g. Dasmariñas" defaultValue={profile.city || ''} required /></span>
             </label>
             <label className="caterer-profile-paypal">
-              <span>PayPal email</span>
-              <span className="caterer-profile-input-wrap"><Mail size={16} aria-hidden="true" /><input name="paypal_email" type="email" placeholder="you@example.com" defaultValue={profile.paypal_email || ''} required /></span>
-              <small>Requested payouts for your bookings are sent to this PayPal account.</small>
+              <span>PayPal email (optional)</span>
+              <span className="caterer-profile-input-wrap"><Mail size={16} aria-hidden="true" /><input name="paypal_email" type="email" placeholder="you@example.com" defaultValue={profile.paypal_email || ''} /></span>
+              <small>Add a valid PayPal email before requesting a payout. You can save the rest of your profile without it.</small>
             </label>
           </div>
           <input type="hidden" name="description" value={profile.description || ''} readOnly />

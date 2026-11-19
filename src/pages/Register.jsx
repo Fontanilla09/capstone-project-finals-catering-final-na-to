@@ -510,12 +510,12 @@ export default function Register() {
 
                 <section className="register-step-panel" data-register-step="3" hidden={catererStep !== 3}>
                 <div className="register-field">
-                  <label htmlFor="register-paypal">PayPal email</label>
+                  <label htmlFor="register-paypal">PayPal email (optional)</label>
                   <div className="register-input-wrap">
                     <Mail size={18} aria-hidden="true" />
-                    <input autoComplete="email" id="register-paypal" name="paypal_email" onChange={update} placeholder="PayPal account email" required type="email" value={form.paypal_email} />
+                    <input autoComplete="email" id="register-paypal" name="paypal_email" onChange={update} placeholder="PayPal account email" type="email" value={form.paypal_email} />
                   </div>
-                  <small>This is where we send your payouts.</small>
+                  <small>You can add this later. A valid PayPal email is needed before requesting a payout.</small>
                 </div>
                 <div className="register-field">
                   <div className="register-upload-heading">
