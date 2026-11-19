@@ -92,3 +92,10 @@ export function getManilaToday() {
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return `${values.year}-${values.month}-${values.day}`;
 }
+
+export function isBusinessPermitReviewPending(permit) {
+  if (permit?.business_permit_verified) return false;
+  const submittedAt = Date.parse(permit?.business_permit_submitted_at || '');
+  const reviewedAt = Date.parse(permit?.business_permit_reviewed_at || '');
+  return Number.isFinite(submittedAt) && (!Number.isFinite(reviewedAt) || submittedAt > reviewedAt);
+}

@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { API_BASE, requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { getManilaToday } from '../lib/businessPermitDate.js';
+import { getManilaToday, isBusinessPermitReviewPending } from '../lib/businessPermitDate.js';
 import {
   cacheCatererSubscription,
   clearCachedCatererSubscription,
@@ -130,6 +130,12 @@ function getInitials(name) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || '')
     .join('') || 'C';
+}
+
+function hasPendingPermitReview(account) {
+  return account.role === 'caterer'
+    && account.caterer_verified
+    && isBusinessPermitReviewPending(account);
 }
 
 function withTimeout(promise, timeoutMs) {
@@ -277,8 +283,8 @@ export default function DashboardPage({
         }] : []),
         ...(pendingAccountCount > 0 ? [{
           id: 'admin-caterers',
-          title: `${pendingAccountCount} caterer account${pendingAccountCount === 1 ? '' : 's'} to review`,
-          message: 'Review pending caterer verification requests.',
+          title: `${pendingAccountCount} caterer review${pendingAccountCount === 1 ? '' : 's'} pending`,
+          message: 'Review caterer applications and updated business permits.',
           href: '/dashboard/admin/cater-management',
           icon: Building2,
           tone: 'account',
@@ -642,7 +648,8 @@ export default function DashboardPage({
         const pendingCaterers = accounts.filter((user) => (
           user.role === 'caterer' && !user.caterer_verified && !user.rejection_reason
         )).length;
-        setPendingAccountCount(pendingCaterers);
+        const pendingPermitReviews = accounts.filter(hasPendingPermitReview).length;
+        setPendingAccountCount(pendingCaterers + pendingPermitReviews);
       }
       if (!reportsResult.error) setOpenReportCount(reportsResult.count || 0);
     };
@@ -895,7 +902,7 @@ export default function DashboardPage({
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}
               {key === 'earnings' && pendingPayoutCount > 0 && <span className="message-badge" aria-label={`${pendingPayoutCount} payouts awaiting request`}>{pendingPayoutCount > 99 ? '99+' : pendingPayoutCount}</span>}
               {key === 'messages' && unreadMessages > 0 && <span className="message-badge">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
-              {key === 'cater-management' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending caterer approvals`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
+              {key === 'cater-management' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending caterer or permit reviews`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
               {key === 'reports' && openReportCount > 0 && <span className="message-badge" aria-label={`${openReportCount} open or in-review reports`}>{openReportCount > 99 ? '99+' : openReportCount}</span>}
             </a>
           ))}

@@ -6555,6 +6555,25 @@ textarea:focus-visible {
 .cater-action.view {
   background: #f2f4f0;
   color: #2d3b36;
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.cater-action-badge {
+  align-items: center;
+  background: #d94135;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  height: 17px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 17px;
+  padding: 0 4px;
 }
 
 .cater-action.reject {

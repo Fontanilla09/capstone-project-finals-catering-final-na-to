@@ -6,7 +6,8 @@
 alter table public.caterers
     add column if not exists business_permit_expiry date,
     add column if not exists business_permit_verified boolean not null default false,
-    add column if not exists business_permit_reviewed_at timestamptz;
+    add column if not exists business_permit_reviewed_at timestamptz,
+    add column if not exists business_permit_submitted_at timestamptz;
 
 create or replace function public.save_my_caterer_permit(permit_path varchar)
 returns void
@@ -24,6 +25,7 @@ begin
         business_permit_expiry = null,
         business_permit_verified = false,
         business_permit_reviewed_at = null,
+        business_permit_submitted_at = now(),
         verification_submitted = true,
         rejection_reason = null,
         updated_at = now()
@@ -52,6 +54,11 @@ begin
             when business_permit_expiry is not distinct from p_expiry_date
                 then business_permit_reviewed_at
             else null
+        end,
+        business_permit_submitted_at = case
+            when business_permit_expiry is not distinct from p_expiry_date
+                then business_permit_submitted_at
+            else now()
         end,
         updated_at = now()
     where user_id = (select user_id from public.get_my_profile())
@@ -327,6 +334,8 @@ returns table (
     business_permit varchar,
     business_permit_expiry date,
     business_permit_verified boolean,
+    business_permit_reviewed_at timestamptz,
+    business_permit_submitted_at timestamptz,
     customer_id bigint,
     caterer_id bigint,
     caterer_verification_submitted boolean,
@@ -348,6 +357,7 @@ begin
         ca.paypal_email,
         c.is_verified, ca.is_verified, ca.business_permit,
         ca.business_permit_expiry, ca.business_permit_verified,
+        ca.business_permit_reviewed_at, ca.business_permit_submitted_at,
         c.id, ca.id, ca.verification_submitted,
         coalesce(c.rejection_reason, ca.rejection_reason)
     from public.users u
