@@ -4627,6 +4627,12 @@ textarea:focus-visible {
   text-decoration: underline;
 }
 
+.dashboard-page-caterer .caterer-rating-breakdown .caterer-dashboard-panel-heading > a {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+
 .dashboard-page-caterer .caterer-earnings-trend {
   display: flex;
   flex-direction: column;
@@ -9943,13 +9949,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 :root[data-theme='dark'] .dashboard-page-caterer .caterer-rating-breakdown .caterer-dashboard-panel-heading > a {
-  background: #293a30;
-  border: 1px solid #466050;
   color: #b5e0c2;
 }
 
 :root[data-theme='dark'] .dashboard-page-caterer .caterer-rating-breakdown .caterer-dashboard-panel-heading > a:hover {
-  background: #324a3b;
   color: #e0f6e6;
 }
 
