@@ -175,6 +175,9 @@ export default function Register() {
       if (error) {
         throw new Error(error.message.includes('already registered') ? 'Email already registered.' : error.message);
       }
+      if (data.user?.identities?.length === 0) {
+        throw new Error('We could not create a new account with this email. It may still be linked to an account. Try signing in or resetting your password; if you recently deleted it, confirm the account was permanently removed before trying again.');
+      }
 
       if (accountType === 'caterer' && values.business_permit?.size) {
         if (!data.session) {
@@ -595,7 +598,7 @@ export default function Register() {
             <p className="register-eyebrow">ONE LAST STEP</p>
             <h2 id="register-confirmation-title">Check your email</h2>
             <p className="register-confirmation-copy">
-              We sent a verification link to <strong>{maskEmail(confirmationEmail)}</strong>.
+              A verification email was requested for <strong>{maskEmail(confirmationEmail)}</strong>.
               Open the email and click the link to verify your account.
             </p>
             <p className="register-confirmation-hint">Can’t find it? Check your spam or junk folder.</p>
