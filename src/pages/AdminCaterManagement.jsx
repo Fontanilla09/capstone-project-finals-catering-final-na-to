@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Grid2X2, List, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { isBusinessPermitReviewPending } from '../lib/businessPermitDate.js';
 import { EVENT_TYPES } from '../lib/eventTypes';
 import DashboardPage from '../components/DashboardPage.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
@@ -33,10 +32,6 @@ function packageEventTheme(eventType) {
   return packageEventThemes[eventType?.trim().toLocaleLowerCase()] || { icon: '✨', color: 'gold' };
 }
 
-function hasPendingPermitReview(caterer) {
-  return isBusinessPermitReviewPending(caterer);
-}
-
 function packageImageUrl(path) {
   return /^https?:\/\//i.test(path) ? path : `${API_BASE}${path}`;
 }
@@ -45,7 +40,6 @@ export default function AdminCaterManagement() {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [verifiedCaterers, setVerifiedCaterers] = useState([]);
   const [verifiedCatererCount, setVerifiedCatererCount] = useState(0);
-  const [pendingPermitReviewCount, setPendingPermitReviewCount] = useState(0);
   const [subscriptions, setSubscriptions] = useState([]);
   const [subscriptionSearch, setSubscriptionSearch] = useState('');
   const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState('all');
@@ -86,7 +80,7 @@ export default function AdminCaterManagement() {
         .order('created_at', { ascending: false }),
       supabase
         .from('caterers')
-        .select('id, business_name, phone, address, city, is_verified, is_suspended, suspension_reason, created_at, business_permit, business_permit_expiry, business_permit_verified, business_permit_reviewed_at, business_permit_submitted_at, rating')
+        .select('id, business_name, phone, address, city, is_verified, is_suspended, suspension_reason, created_at, business_permit, rating')
         .eq('is_verified', true)
         .order('business_name', { ascending: true }),
       supabase.rpc('get_admin_caterer_subscriptions'),
@@ -110,7 +104,6 @@ export default function AdminCaterManagement() {
     if (caterersResult.error) {
       errors.push(`Unable to load verified caterers: ${caterersResult.error.message}`);
     } else {
-      setPendingPermitReviewCount((caterersResult.data || []).filter(hasPendingPermitReview).length);
       const accountByCatererId = new Map(
         accounts
           .filter((account) => account.role === 'caterer' && account.caterer_id)
@@ -125,11 +118,6 @@ export default function AdminCaterManagement() {
         const account = accountByCatererId.get(String(caterer.id));
         return {
           ...caterer,
-          business_permit_expiry: account?.business_permit_expiry || caterer.business_permit_expiry,
-          business_permit_verified: account?.business_permit_verified ?? caterer.business_permit_verified,
-          business_permit_reviewed_at: account?.business_permit_reviewed_at || caterer.business_permit_reviewed_at,
-          business_permit_submitted_at: account?.business_permit_submitted_at || caterer.business_permit_submitted_at,
-          permit_review_pending: hasPendingPermitReview(caterer),
           email: account?.email || 'No email provided',
           contact_person: account?.contact_person || account?.full_name || 'Not provided',
           package_count: packageCounts.get(String(caterer.id)) || 0,
@@ -235,20 +223,6 @@ export default function AdminCaterManagement() {
       await load();
     } catch (reason) {
       setError(reason.message || 'Unable to update caterer approval.');
-    }
-  }
-
-  async function reviewPermitExpiry(catererProfileId, approved) {
-    try {
-      const { error: reviewError } = await supabase.rpc('review_caterer_permit_expiry', {
-        p_caterer_id: Number(catererProfileId),
-        p_approved: approved,
-      });
-      if (reviewError) throw reviewError;
-      setError(approved ? 'Business permit expiry verified.' : 'Business permit verification removed.');
-      await load();
-    } catch (reason) {
-      setError(reason.message || 'Unable to update business permit verification.');
     }
   }
 
@@ -392,9 +366,6 @@ export default function AdminCaterManagement() {
     docs: Number(Boolean(account.business_permit)),
     submitted: account.created_at ? new Date(account.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
     permitPath: account.business_permit || null,
-    permitExpiryDate: account.business_permit_expiry || null,
-    permitVerified: account.business_permit_verified === true,
-    permitReviewPending: hasPendingPermitReview(account),
     email: account.email || 'No email provided',
     phone: account.phone || 'Not provided',
     address: account.address || 'Not provided',
@@ -572,8 +543,8 @@ export default function AdminCaterManagement() {
             <strong>{loading ? '—' : String(verifiedCatererCount)}</strong>
           </article>
           <article>
-            <span>Missing permits</span>
-            <strong>{loading ? '—' : String(pendingApprovals.filter((account) => !account.business_permit).length)}</strong>
+            <span>Permit files</span>
+            <strong>{loading ? '—' : String(pendingApprovals.filter((account) => account.business_permit).length)}</strong>
           </article>
           <article>
             <span>Packages</span>
@@ -583,7 +554,7 @@ export default function AdminCaterManagement() {
 
         <div className="admin-users-tabs cater-tab-bar" aria-label="Cater management tabs">
           <button aria-pressed={activeTab === 'applications'} className={`cater-tab ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => { setActiveTab('applications'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Applications <span>{loading || error ? '—' : pendingApprovals.length}</span></button>
-          <button aria-pressed={activeTab === 'caterers'} className={`cater-tab ${activeTab === 'caterers' ? 'active' : ''}`} onClick={() => { setActiveTab('caterers'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Caterers <span>{loading || error ? '—' : verifiedCatererCount}</span>{pendingPermitReviewCount > 0 && <span className="message-badge" aria-label={`${pendingPermitReviewCount} updated permits to review`}>{pendingPermitReviewCount > 99 ? '99+' : pendingPermitReviewCount}</span>}</button>
+          <button aria-pressed={activeTab === 'caterers'} className={`cater-tab ${activeTab === 'caterers' ? 'active' : ''}`} onClick={() => { setActiveTab('caterers'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Caterers <span>{loading || error ? '—' : verifiedCatererCount}</span></button>
           <button aria-pressed={activeTab === 'subscriptions'} className={`cater-tab ${activeTab === 'subscriptions' ? 'active' : ''}`} onClick={() => { setActiveTab('subscriptions'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Subscriptions <span>{loading || error ? '—' : subscriptions.length}</span></button>
           <button aria-pressed={activeTab === 'packages'} className={`cater-tab ${activeTab === 'packages' ? 'active' : ''}`} onClick={() => { setActiveTab('packages'); setSelectedApplicationId(null); setSelectedCatererId(null); }} type="button">Packages <span>{loading || error ? '—' : packages.length}</span></button>
         </div>
@@ -614,9 +585,9 @@ export default function AdminCaterManagement() {
                     <div className="cater-docs-cell"><span className="cater-doc-pill">{application.docs} file{application.docs === 1 ? '' : 's'}</span></div>
                     <div className="cater-submitted-cell">{application.submitted}</div>
                     <div className="cater-action-cell">
-                      <button className="cater-action view" onClick={() => setSelectedApplicationId(application.id)} type="button">View{application.permitReviewPending && <span className="cater-action-badge" aria-label="Permit needs review">1</span>}</button>
+                      <button className="cater-action view" onClick={() => setSelectedApplicationId(application.id)} type="button">View</button>
                       <button className="cater-action reject" onClick={() => requestRejection({ id: application.profileId, business_name: application.name })} type="button">Reject</button>
-                      <button className="cater-action approve" disabled={!application.permitVerified} onClick={() => decideCaterer('approve_caterer', application.profileId)} type="button">Approve</button>
+                      <button className="cater-action approve" onClick={() => decideCaterer('approve_caterer', application.profileId)} type="button">Approve</button>
                     </div>
                   </div>
                 )) : loading ? <LoadingSpinner compact /> : <p className="cater-empty-state">{applications.length ? 'No applications match your search.' : 'No caterer applications are waiting for review.'}</p>}
@@ -638,7 +609,6 @@ export default function AdminCaterManagement() {
                     <div className="cater-detail-field full-width"><label>Business address</label><div>{selectedApplication.address}</div></div>
                     <div className="cater-detail-field full-width"><label>Submitted</label><div>{selectedApplication.submitted}</div></div>
                   </div>
-                  {!selectedApplication.permitPath && <div className="cater-alert-banner"><span>⚠</span><p>No business permit was submitted with this application.</p></div>}
                   <div className="cater-doc-section">
                     <h4>Permits &amp; documents</h4>
                     <div className="cater-doc-status-row">
@@ -648,19 +618,11 @@ export default function AdminCaterManagement() {
                         {selectedApplication.permitPath && <button className="cater-action view" onClick={() => openPermit(selectedApplication.permitPath)} type="button">View permit</button>}
                       </div>
                     </div>
-                    <div className="cater-doc-status-row">
-                      <div><strong>Expiry date</strong><small>{selectedApplication.permitExpiryDate || 'Not submitted'}</small></div>
-                      <div className="cater-doc-actions">
-                        <span className={`cater-status-pill ${selectedApplication.permitVerified ? 'ok' : 'muted'}`}>{selectedApplication.permitVerified ? 'Verified' : 'Needs review'}</span>
-                        {selectedApplication.permitPath && selectedApplication.permitExpiryDate && !selectedApplication.permitVerified && (
-                          <button className="cater-action approve" onClick={() => reviewPermitExpiry(selectedApplication.profileId, true)} type="button">Verify date</button>
-                        )}
-                      </div>
-                    </div>
+                    <p className="cater-doc-note">A business permit is optional and can be uploaded later from the caterer profile.</p>
                   </div>
                   <div className="cater-detail-footer">
                     <button className="cater-action reject" onClick={() => { setSelectedApplicationId(null); requestRejection({ id: selectedApplication.profileId, business_name: selectedApplication.name }); }} type="button">Reject</button>
-                    <button className="cater-action approve" disabled={!selectedApplication.permitVerified} onClick={() => { setSelectedApplicationId(null); decideCaterer('approve_caterer', selectedApplication.profileId); }} type="button">Approve caterer</button>
+                    <button className="cater-action approve" onClick={() => { setSelectedApplicationId(null); decideCaterer('approve_caterer', selectedApplication.profileId); }} type="button">Approve caterer</button>
                   </div>
                 </aside>
               </div>
@@ -692,7 +654,7 @@ export default function AdminCaterManagement() {
                   <span className="cater-rating">{Number(caterer.rating) > 0 ? `★ ${Number(caterer.rating).toFixed(1)}` : '—'}</span>
                   <span><span className={`cater-badge ${caterer.is_suspended ? 'suspended' : 'verified'}`}>{caterer.is_suspended ? 'Suspended' : 'Verified'}</span></span>
                   <div className="cater-action-cell">
-                    <button className="cater-action view" onClick={() => setSelectedCatererId(caterer.id)} type="button">View{caterer.permit_review_pending && <span className="cater-action-badge" aria-label="Permit needs review">1</span>}</button>
+                    <button className="cater-action view" onClick={() => setSelectedCatererId(caterer.id)} type="button">View</button>
                     <button className={`cater-action ${caterer.is_suspended ? 'approve' : 'reject'}`} onClick={() => { if (caterer.is_suspended) updateCatererSuspension(caterer, false); else { setRestrictionTarget(caterer); setRestrictionReason(''); } }} type="button">{caterer.is_suspended ? 'Reactivate' : 'Suspend'}</button>
                   </div>
                 </div>
@@ -725,21 +687,6 @@ export default function AdminCaterManagement() {
                       <div className="cater-doc-actions">
                         <span className={`cater-status-pill ${selectedCaterer.business_permit ? 'ok' : 'muted'}`}>{selectedCaterer.business_permit ? 'Uploaded' : 'Not submitted'}</span>
                         {selectedCaterer.business_permit && <button className="cater-action view" onClick={() => openPermit(selectedCaterer.business_permit)} type="button">View</button>}
-                      </div>
-                    </div>
-                    <div className="cater-doc-status-row">
-                      <div><strong>Expiry date</strong><small>{selectedCaterer.business_permit_expiry || 'Not submitted'}</small></div>
-                      <div className="cater-doc-actions">
-                        <span className={`cater-status-pill ${selectedCaterer.business_permit_verified ? 'ok' : 'muted'}`}>{selectedCaterer.business_permit_verified ? 'Verified' : 'Needs review'}</span>
-                        {selectedCaterer.business_permit && selectedCaterer.business_permit_expiry && (
-                          <button
-                            className={`cater-action ${selectedCaterer.business_permit_verified ? 'reject' : 'approve'}`}
-                            onClick={() => reviewPermitExpiry(selectedCaterer.id, !selectedCaterer.business_permit_verified)}
-                            type="button"
-                          >
-                            {selectedCaterer.business_permit_verified ? 'Unverify' : 'Verify date'}
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>

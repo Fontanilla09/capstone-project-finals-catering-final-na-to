@@ -332,7 +332,7 @@ export default function Register() {
                 <h2>{['Account', 'Business', 'Payouts'][catererStep - 1]}</h2>
                 <p>{[
                   'Create your login and tell us how to reach you.',
-                  'Add your business location and verification document.',
+                  'Add your business location and optionally upload a business permit.',
                   'Choose where to receive payouts and add an optional GCash QR.',
                 ][catererStep - 1]}</p>
               </>
@@ -448,7 +448,10 @@ export default function Register() {
                   </div>
                 </div>
                 <div className="register-field">
-                  <label htmlFor="register-permit">Business permit</label>
+                  <div className="register-upload-heading">
+                    <label htmlFor="register-permit">Business permit</label>
+                    <span>Optional</span>
+                  </div>
                   <div className={`register-file-drop ${permitName ? 'has-file' : ''}`}>
                     <input
                       accept="application/pdf,image/jpeg,image/png"
@@ -456,7 +459,6 @@ export default function Register() {
                       name="business_permit"
                       onChange={(event) => setPermitName(event.target.files?.[0]?.name || '')}
                       ref={permitInputRef}
-                      required
                       type="file"
                     />
                     {permitName ? (
@@ -468,7 +470,10 @@ export default function Register() {
                     ) : (
                       <label className="register-file-picker" htmlFor="register-permit">
                         <span className="register-file-icon"><UploadCloud size={19} aria-hidden="true" /></span>
-                        <span className="register-file-info"><strong>Upload business permit</strong><small>PDF, JPG, or PNG · Maximum 10MB</small></span>
+                        <span className="register-file-info">
+                          <strong>Upload business permit</strong>
+                          <small>PDF, JPG, or PNG · Maximum 10MB. You can upload it later.</small>
+                        </span>
                         <span className="register-file-action">Browse</span>
                       </label>
                     )}

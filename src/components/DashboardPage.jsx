@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import { API_BASE, requestJson } from '../lib/api';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { getManilaToday, isBusinessPermitReviewPending } from '../lib/businessPermitDate.js';
 import {
   cacheCatererSubscription,
   clearCachedCatererSubscription,
@@ -132,12 +131,6 @@ function getInitials(name) {
     .join('') || 'C';
 }
 
-function hasPendingPermitReview(account) {
-  return account.role === 'caterer'
-    && account.caterer_verified
-    && isBusinessPermitReviewPending(account);
-}
-
 function withTimeout(promise, timeoutMs) {
   let timeoutId;
   const timeout = new Promise((resolve, reject) => {
@@ -183,7 +176,6 @@ export default function DashboardPage({
   const [currentUserId, setCurrentUserId] = useState(initialProfile?.userId || null);
   const [currentCustomerId, setCurrentCustomerId] = useState(initialProfile?.customerId || null);
   const [currentCatererId, setCurrentCatererId] = useState(initialProfile?.catererId || null);
-  const [businessPermitCurrent, setBusinessPermitCurrent] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(initialNotificationsOpen);
   const sections = dashboardSections[role];
@@ -376,25 +368,17 @@ export default function DashboardPage({
           || profile.role !== role
           || (role === 'caterer' && !profile.is_verified && section !== 'profile')
         ) throw new Error('Invalid profile');
-        let permitIsCurrent = false;
         if (role === 'caterer') {
-          const { data: permit, error: permitError } = await withTimeout(
+          const { data: caterer, error: catererError } = await withTimeout(
             supabase
               .from('caterers')
-            .select('business_permit, business_permit_expiry, business_permit_verified, is_suspended, is_verified')
-            .eq('user_id', profile.user_id)
+              .select('is_suspended')
+              .eq('user_id', profile.user_id)
               .maybeSingle(),
             12000,
           );
-          if (permitError) throw permitError;
-          if (!permit || permit.is_suspended) throw new Error('Invalid caterer profile');
-          permitIsCurrent = Boolean(
-            permit?.business_permit
-            && permit.is_verified
-            && permit.business_permit_verified
-            && permit.business_permit_expiry
-            && permit.business_permit_expiry >= getManilaToday(),
-          );
+          if (catererError) throw catererError;
+          if (!caterer || caterer.is_suspended) throw new Error('Invalid caterer profile');
         }
         if (!active) return;
         const verifiedProfile = {
@@ -411,7 +395,6 @@ export default function DashboardPage({
         setCurrentUserId(verifiedProfile.userId);
         setCurrentCustomerId(verifiedProfile.customerId);
         setCurrentCatererId(verifiedProfile.catererId);
-        setBusinessPermitCurrent(permitIsCurrent);
         setAuthCheckError('');
         setAuthChecked(true);
       } catch (error) {
@@ -648,8 +631,7 @@ export default function DashboardPage({
         const pendingCaterers = accounts.filter((user) => (
           user.role === 'caterer' && !user.caterer_verified && !user.rejection_reason
         )).length;
-        const pendingPermitReviews = accounts.filter(hasPendingPermitReview).length;
-        setPendingAccountCount(pendingCaterers + pendingPermitReviews);
+        setPendingAccountCount(pendingCaterers);
       }
       if (!reportsResult.error) setOpenReportCount(reportsResult.count || 0);
     };
@@ -902,7 +884,7 @@ export default function DashboardPage({
               {key === 'reviews' && unreadReviews > 0 && <span className="message-badge" aria-label={`${unreadReviews} unread reviews`}>{unreadReviews > 99 ? '99+' : unreadReviews}</span>}
               {key === 'earnings' && pendingPayoutCount > 0 && <span className="message-badge" aria-label={`${pendingPayoutCount} payouts awaiting request`}>{pendingPayoutCount > 99 ? '99+' : pendingPayoutCount}</span>}
               {key === 'messages' && unreadMessages > 0 && <span className="message-badge">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
-              {key === 'cater-management' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending caterer or permit reviews`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
+              {key === 'cater-management' && pendingAccountCount > 0 && <span className="message-badge" aria-label={`${pendingAccountCount} pending caterer applications`}>{pendingAccountCount > 99 ? '99+' : pendingAccountCount}</span>}
               {key === 'reports' && openReportCount > 0 && <span className="message-badge" aria-label={`${openReportCount} open or in-review reports`}>{openReportCount > 99 ? '99+' : openReportCount}</span>}
             </a>
           ))}
@@ -913,12 +895,6 @@ export default function DashboardPage({
           <div className="dashboard-panel-header">
             <span className="dashboard-panel-kicker">{current[1]}</span>
           </div>
-          {role === 'caterer' && businessPermitCurrent === false && section !== 'profile' && (
-            <div className="form-alert error-alert" role="status">
-              <span>Your public packages are hidden because the business permit is missing, expired, or awaiting admin verification.</span>
-              {' '}<a href="/dashboard/caterer/profile">Open Business Profile to upload or update it.</a>
-            </div>
-          )}
           {role === 'caterer' && reservationNotice && (
             <div className="caterer-booking-notice" role="status">
               <CalendarPlus size={19} aria-hidden="true" />

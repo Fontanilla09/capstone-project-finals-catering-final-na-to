@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { House, Mail, MapPin, Phone, ShieldCheck, Upload } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { getManilaToday } from '../lib/businessPermitDate.js';
 import DashboardPage from '../components/DashboardPage.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 
@@ -12,11 +11,7 @@ export default function CatererProfile() {
   const [uploadingGcashQr, setUploadingGcashQr] = useState(false);
   const [permitPreviewUrl, setPermitPreviewUrl] = useState('');
   const [permitPreviewError, setPermitPreviewError] = useState('');
-  const [permitExpiryDate, setPermitExpiryDate] = useState('');
-  const [permitOcrStatus, setPermitOcrStatus] = useState('');
-  const [permitOcrProgress, setPermitOcrProgress] = useState(0);
-  const [scanningPermit, setScanningPermit] = useState(false);
-  const [savingPermitExpiry, setSavingPermitExpiry] = useState(false);
+  const [uploadingPermit, setUploadingPermit] = useState(false);
 
   async function load() {
     try {
@@ -36,7 +31,6 @@ export default function CatererProfile() {
 
       if (error) throw error;
       setProfile(data || null);
-      setPermitExpiryDate(data?.business_permit_expiry || '');
       setPermitPreviewUrl('');
       setPermitPreviewError('');
       if (data?.business_permit) {
@@ -81,10 +75,6 @@ export default function CatererProfile() {
       if (!payload.business_name || !payload.phone || !payload.address || !payload.city) {
         throw new Error('Business name, phone, address, and city are required.');
       }
-      if (!profile.business_permit) {
-        throw new Error('Upload your business permit before saving your profile.');
-      }
-
       const { data: me, error: meError } = await supabase.rpc('get_my_profile');
       if (meError) throw meError;
 
@@ -161,25 +151,9 @@ export default function CatererProfile() {
     if (file.size > 10 * 1024 * 1024) {
       setError('Business permit must not exceed 10MB.'); event.target.value = ''; return;
     }
-    setScanningPermit(true);
-    setPermitOcrProgress(0);
-    setPermitOcrStatus('Scanning permit for its expiry date…');
-    let detectedDate = '';
-    let ocrStatus = '';
+    setUploadingPermit(true);
     let uploadedPath = '';
     try {
-      try {
-        const { readBusinessPermitExpiry } = await import('../lib/businessPermitOcr.js');
-        const scan = await readBusinessPermitExpiry(file, setPermitOcrProgress);
-        detectedDate = scan.expiryDate || '';
-        ocrStatus = detectedDate
-          ? `OCR found ${new Date(`${detectedDate}T00:00:00`).toLocaleDateString('en-PH', { dateStyle: 'long' })}. Please check it against your permit.`
-          : 'OCR could not confidently identify an expiry date. Enter the date shown on your permit below.';
-      } catch (ocrError) {
-        console.error('Business permit OCR failed:', ocrError);
-        ocrStatus = 'OCR could not read this file. You can still enter the expiry date manually.';
-      }
-
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error('Please sign in again before uploading the permit.');
       const path = `${authData.user.id}/${crypto.randomUUID()}-${file.name}`;
@@ -190,48 +164,17 @@ export default function CatererProfile() {
       if (permitError) throw permitError;
       uploadedPath = '';
       await load();
-      setPermitExpiryDate(detectedDate);
-      setPermitOcrStatus(ocrStatus);
-      setStatus('Business permit uploaded. Confirm and save its expiry date below.');
+      setStatus('Business permit uploaded.');
     } catch (reason) {
       setError(reason.message || 'Business permit upload failed.');
-      setPermitOcrStatus('');
       if (uploadedPath) {
         const { error: cleanupError } = await supabase.storage.from('permits').remove([uploadedPath]);
         if (cleanupError) console.error('Could not remove an unsaved business permit:', cleanupError);
       }
     } finally {
-      setScanningPermit(false);
+      setUploadingPermit(false);
     }
     event.target.value = '';
-  }
-
-  async function savePermitExpiry(event) {
-    event.preventDefault();
-    setStatus('');
-    setError('');
-    if (!profile?.business_permit) {
-      setError('Upload your business permit before saving its expiry date.');
-      return;
-    }
-    if (!permitExpiryDate) {
-      setError('Enter the expiry date shown on your business permit.');
-      return;
-    }
-
-    setSavingPermitExpiry(true);
-    try {
-      const { error: saveError } = await supabase.rpc('save_my_caterer_permit_expiry', {
-        p_expiry_date: permitExpiryDate,
-      });
-      if (saveError) throw saveError;
-      setStatus('Expiry date saved. Any new or changed expiry date must be verified by an admin before new bookings are enabled.');
-      await load();
-    } catch (reason) {
-      setError(reason.message || 'Could not save the permit expiry date.');
-    } finally {
-      setSavingPermitExpiry(false);
-    }
   }
 
   async function uploadGcashQr(event) {
@@ -371,7 +314,7 @@ export default function CatererProfile() {
           <div>
             <h3>Business permit</h3>
             <p>{profile.business_permit ? 'Permit uploaded. Upload a new file to replace it.' : 'Upload a permit to complete your business profile.'}</p>
-            <small>PDF, JPG, or PNG · maximum 10MB. OCR scans in your browser; the file is not sent to an OCR service.</small>
+            <small>Optional. PDF, JPG, or PNG · maximum 10MB. You can upload or replace it at any time.</small>
           </div>
           {profile.business_permit && permitPreviewError && <p className="form-alert error-alert" role="alert">{permitPreviewError}</p>}
           {profile.business_permit && permitPreviewUrl && (
@@ -387,35 +330,9 @@ export default function CatererProfile() {
           )}
           <label className="button button-secondary caterer-permit-upload">
             <Upload size={16} aria-hidden="true" />
-            {scanningPermit ? `Scanning permit${permitOcrProgress ? ` ${permitOcrProgress}%` : '…'}` : profile.business_permit ? 'Replace permit' : 'Upload permit'}
-            <input type="file" accept="application/pdf,image/jpeg,image/png" disabled={scanningPermit} onChange={uploadPermit} />
+            {uploadingPermit ? 'Uploading…' : profile.business_permit ? 'Replace permit' : 'Upload permit'}
+            <input type="file" accept="application/pdf,image/jpeg,image/png" disabled={uploadingPermit} onChange={uploadPermit} />
           </label>
-          {permitOcrStatus && <p className="form-alert" role="status">{permitOcrStatus}</p>}
-          {profile.business_permit && (
-            <form className="caterer-permit-expiry-form" onSubmit={savePermitExpiry}>
-              <label>
-                Permit expiry date
-                <input
-                  type="date"
-                  value={permitExpiryDate}
-                  onChange={(event) => setPermitExpiryDate(event.target.value)}
-                  required
-                />
-              </label>
-              <p>
-                {profile.business_permit_expiry
-                  ? profile.business_permit_verified
-                    ? profile.business_permit_expiry < getManilaToday()
-                      ? 'Expired. Upload a renewed permit and submit its expiry date.'
-                      : `Verified. Expires ${new Date(`${profile.business_permit_expiry}T00:00:00`).toLocaleDateString('en-PH', { dateStyle: 'long' })}.`
-                    : 'Waiting for an admin to verify this date.'
-                  : 'Confirm the OCR result or enter the expiry date printed on the permit.'}
-              </p>
-              <button className="button button-primary" type="submit" disabled={savingPermitExpiry || scanningPermit}>
-                {savingPermitExpiry ? 'Saving…' : 'Confirm expiry date'}
-              </button>
-            </form>
-          )}
         </section>
       </div>
     </DashboardPage>
