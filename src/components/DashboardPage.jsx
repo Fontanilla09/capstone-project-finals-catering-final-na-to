@@ -37,7 +37,7 @@ import LoadingSpinner from './LoadingSpinner.jsx';
 
 const dashboardSections = {
   customer: [['overview', 'Dashboard', '/dashboard/customer'], ['packages', 'Explore caterers', '/packages'], ['messages', 'Messages', '/dashboard/messages'], ['support', 'Help & Support', '/dashboard/customer/support'], ['settings', 'Settings', '/dashboard/customer/settings']],
-  caterer: [['overview', 'Dashboard', '/dashboard/caterer'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['services', 'Manage services', '/dashboard/caterer/services'], ['ai-photos', 'AI generated photo', '/dashboard/caterer/ai-photos'], ['reviews', 'Reviews & ratings', '/dashboard/caterer/reviews'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages'], ['profile', 'Business profile', '/dashboard/caterer/profile']],
+  caterer: [['overview', 'Dashboard', '/dashboard/caterer'], ['reservations', 'Reservations', '/dashboard/caterer/reservations'], ['services', 'Manage services', '/dashboard/caterer/services'], ['ai-photos', 'Venue Visualizer', '/dashboard/caterer/ai-photos'], ['reviews', 'Reviews & ratings', '/dashboard/caterer/reviews'], ['earnings', 'Earnings', '/dashboard/caterer/earnings'], ['messages', 'Messages', '/dashboard/messages'], ['profile', 'Business profile', '/dashboard/caterer/profile']],
   admin: [['overview', 'Dashboard', '/dashboard/admin'], ['cater-management', 'Cater Management', '/dashboard/admin/cater-management'], ['customer-management', 'Customer Management', '/dashboard/admin/customers'], ['reports', 'Reports & complaints', '/dashboard/admin/reports'], ['users', 'User management', '/dashboard/admin/users'], ['activity', 'Activity log', '/dashboard/admin/activity']],
 };
 
