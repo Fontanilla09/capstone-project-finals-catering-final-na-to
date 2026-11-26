@@ -72,6 +72,13 @@ export default function CustomerMessages() {
   const activeDirectoryCaterer = subscribedCaterers.find(
     (item) => String(item.caterer_id) === String(caterer),
   );
+  const newMessageCaterers = subscribedCaterers.filter(
+    (item) =>
+      !conversations.some(
+        (conversation) =>
+          String(conversation.caterer_id) === String(item.caterer_id),
+      ),
+  );
   async function loadConversations(currentRole = role) {
     try {
       const { data, error } = await supabase.rpc("get_my_conversations");
@@ -86,10 +93,10 @@ export default function CustomerMessages() {
         "get_customer_subscribed_caterers",
       );
       if (error) {
-        console.error("Failed to load subscribed caterers:", error);
+        console.error("Failed to load customer chat directory:", error);
         setSubscribedCaterers([]);
         setSubscribedCaterersError(
-          "Subscribed caterers are temporarily unavailable.",
+          "Caterers are temporarily unavailable.",
         );
       } else {
         setSubscribedCaterers(data || []);
@@ -303,7 +310,7 @@ export default function CustomerMessages() {
               <h2>Messages</h2>
               <span>
                 {role === "customer"
-                  ? subscribedCaterers.length
+                  ? newMessageCaterers.length + conversations.length
                   : conversations.length}
               </span>
             </div>
@@ -312,14 +319,14 @@ export default function CustomerMessages() {
               {role === "customer" && (
                 <>
                   <h3 className="messenger-list-section-title">
-                    Subscribed caterers
+                    Caterers
                   </h3>
                   {subscribedCaterersError ? (
                     <p className="messenger-directory-feedback" role="status">
                       {subscribedCaterersError}
                     </p>
-                  ) : subscribedCaterers.length ? (
-                    subscribedCaterers.map((item) => {
+                  ) : newMessageCaterers.length ? (
+                    newMessageCaterers.map((item) => {
                       const href = `/dashboard/messages?customer_id=${customer || ""}&caterer_id=${item.caterer_id}&package_id=0`;
                       const isActive =
                         String(item.caterer_id) === String(caterer) &&
@@ -336,14 +343,14 @@ export default function CustomerMessages() {
                           />
                           <span>
                             <strong>{item.business_name}</strong>
-                            <small>Start a conversation</small>
+                            <small>Send a message</small>
                           </span>
                         </a>
                       );
                     })
                   ) : (
                     <p className="messenger-directory-feedback">
-                      No caterers are currently subscribed.
+                      No new caterers to message.
                     </p>
                   )}
                   <h3 className="messenger-list-section-title">
