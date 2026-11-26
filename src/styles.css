@@ -10164,6 +10164,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--ink);
 }
 
+.dashboard-page .messenger-presence.is-active,
+.dashboard-page .online-dot.is-active {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.dashboard-page .messenger-presence.is-offline,
+.dashboard-page .online-dot.is-offline {
+  color: var(--muted);
+}
+
 .dashboard-page .messenger-messages {
   background: var(--bg);
 }

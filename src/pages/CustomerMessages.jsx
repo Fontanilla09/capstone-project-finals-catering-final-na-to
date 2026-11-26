@@ -40,6 +40,27 @@ function withTimeout(promise, timeoutMs) {
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
 }
 
+function getCatererPresence(lastActiveAt) {
+  const timestamp = Date.parse(lastActiveAt || "");
+  if (!Number.isFinite(timestamp)) {
+    return { active: false, label: "Offline · last seen unavailable" };
+  }
+
+  const elapsedMinutes = Math.floor(Math.max(0, Date.now() - timestamp) / 60000);
+  if (elapsedMinutes < 5) return { active: true, label: "Active" };
+  if (elapsedMinutes < 60) {
+    return { active: false, label: `Offline · ${elapsedMinutes}m ago` };
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return { active: false, label: `Offline · ${elapsedHours}h ago` };
+  }
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  return { active: false, label: `Offline · ${elapsedDays}d ago` };
+}
+
 export default function CustomerMessages() {
   const query = new URLSearchParams(window.location.search);
   const selectedCustomer = query.get("customer_id") || "";
@@ -290,6 +311,10 @@ export default function CustomerMessages() {
     activeConversation?.other_profile_image ||
     activeDirectoryCaterer?.profile_image ||
     conversationImage;
+  const activeCatererPresence = getCatererPresence(
+    activeConversation?.other_last_active_at ||
+      activeDirectoryCaterer?.last_active_at,
+  );
   const conversationHref = (item) =>
     `/dashboard/messages?customer_id=${item.customer_id || ""}&caterer_id=${item.caterer_id || ""}&package_id=${item.package_id || 0}`;
   if (!session)
@@ -343,6 +368,11 @@ export default function CustomerMessages() {
                           />
                           <span>
                             <strong>{item.business_name}</strong>
+                            <small
+                              className={`messenger-presence ${getCatererPresence(item.last_active_at).active ? "is-active" : "is-offline"}`}
+                            >
+                              {getCatererPresence(item.last_active_at).label}
+                            </small>
                             <small>Send a message</small>
                           </span>
                         </a>
@@ -381,6 +411,13 @@ export default function CustomerMessages() {
                             ? `Package #${item.package_id}`
                             : "No messages yet")}
                       </small>
+                      {role === "customer" && (
+                        <small
+                          className={`messenger-presence ${getCatererPresence(item.other_last_active_at).active ? "is-active" : "is-offline"}`}
+                        >
+                          {getCatererPresence(item.other_last_active_at).label}
+                        </small>
+                      )}
                     </span>
                     {isUnread && (
                       <b className="conversation-unread-count">
@@ -423,7 +460,15 @@ export default function CustomerMessages() {
                     : "CaterAI messages"}
                 </small>
               </div>
-              <span className="online-dot">Live</span>
+              {role === "customer" ? (
+                <span
+                  className={`online-dot ${activeCatererPresence.active ? "is-active" : "is-offline"}`}
+                >
+                  {activeCatererPresence.label}
+                </span>
+              ) : (
+                <span className="online-dot">Live</span>
+              )}
             </header>
             {customer && caterer ? (
               <>
