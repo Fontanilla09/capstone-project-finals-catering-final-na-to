@@ -51,9 +51,8 @@ export default function AdminCustomers() {
   useEffect(() => { load(); }, []);
 
   const activeCustomers = customers.filter((customer) => !customer.rejection_reason);
-  const rejectedCustomers = customers.filter((customer) => customer.rejection_reason);
   const totalSpent = activeCustomers.reduce((sum, customer) => sum + (Number(customer.total_spent) || 0), 0);
-  const visibleCustomers = useMemo(() => customers
+  const visibleCustomers = useMemo(() => activeCustomers
     .filter((customer) => {
       const query = search.trim().toLocaleLowerCase();
       return !query || [
@@ -68,7 +67,7 @@ export default function AdminCustomers() {
       if (sortOrder === 'name') return (first.full_name || '').localeCompare(second.full_name || '');
       if (sortOrder === 'spent') return Number(second.total_spent) - Number(first.total_spent);
       return new Date(second.created_at || 0) - new Date(first.created_at || 0);
-    }), [customers, search, sortOrder]);
+    }), [activeCustomers, search, sortOrder]);
 
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(visibleCustomers.length / pageSize));
@@ -100,9 +99,8 @@ export default function AdminCustomers() {
         {notice && <p className="form-alert success-alert" role="status">{notice}</p>}
 
         <div className="admin-users-summary">
-          <article><span>Total customers</span><strong>{loading || error ? '—' : customers.length}</strong></article>
+          <article><span>Total customers</span><strong>{loading || error ? '—' : activeCustomers.length}</strong></article>
           <article><span>Active accounts</span><strong>{loading || error ? '—' : activeCustomers.length}</strong></article>
-          <article><span>Rejected accounts</span><strong>{loading || error ? '—' : rejectedCustomers.length}</strong></article>
           <article><span>Total spent</span><strong>{loading || error ? '—' : formatCurrency(totalSpent)}</strong></article>
         </div>
 
