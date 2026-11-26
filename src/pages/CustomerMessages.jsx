@@ -46,6 +46,8 @@ export default function CustomerMessages() {
   const selectedCaterer = query.get("caterer_id") || "";
   const packageId = query.get("package_id") || "0";
   const [conversations, setConversations] = useState([]);
+  const [subscribedCaterers, setSubscribedCaterers] = useState([]);
+  const [subscribedCaterersError, setSubscribedCaterersError] = useState("");
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [attachment, setAttachment] = useState(null);
@@ -67,7 +69,10 @@ export default function CustomerMessages() {
       String(item.caterer_id || "") === String(caterer) &&
       String(item.package_id || 0) === String(packageId),
   );
-  async function loadConversations() {
+  const activeDirectoryCaterer = subscribedCaterers.find(
+    (item) => String(item.caterer_id) === String(caterer),
+  );
+  async function loadConversations(currentRole = role) {
     try {
       const { data, error } = await supabase.rpc("get_my_conversations");
       if (error) throw error;
@@ -75,6 +80,21 @@ export default function CustomerMessages() {
     } catch (error) {
       setConversations([]);
       setStatus("");
+    }
+    if (currentRole === "customer") {
+      const { data, error } = await supabase.rpc(
+        "get_customer_subscribed_caterers",
+      );
+      if (error) {
+        console.error("Failed to load subscribed caterers:", error);
+        setSubscribedCaterers([]);
+        setSubscribedCaterersError(
+          "Subscribed caterers are temporarily unavailable.",
+        );
+      } else {
+        setSubscribedCaterers(data || []);
+        setSubscribedCaterersError("");
+      }
     }
   }
   async function loadMessages() {
@@ -132,7 +152,7 @@ export default function CustomerMessages() {
         setSession(nextSession);
         setRole(profile.role || "customer");
         setStatus("");
-        loadConversations();
+        loadConversations(profile.role || "customer");
       } catch {
         if (active) window.location.href = "/login";
       }
@@ -200,7 +220,7 @@ export default function CustomerMessages() {
       loadConversations();
     }, 2000);
     return () => clearInterval(timer);
-  }, [session, customer, caterer, packageId]);
+  }, [session, customer, caterer, packageId, role]);
   async function send(event) {
     event.preventDefault();
     if (!text.trim() && !attachment) return;
@@ -256,9 +276,13 @@ export default function CustomerMessages() {
   };
   const activeTitle = activeConversation
     ? conversationName(activeConversation)
-    : conversationTitle || "New conversation";
+    : activeDirectoryCaterer?.business_name ||
+      conversationTitle ||
+      "New conversation";
   const activeImage =
-    activeConversation?.other_profile_image || conversationImage;
+    activeConversation?.other_profile_image ||
+    activeDirectoryCaterer?.profile_image ||
+    conversationImage;
   const conversationHref = (item) =>
     `/dashboard/messages?customer_id=${item.customer_id || ""}&caterer_id=${item.caterer_id || ""}&package_id=${item.package_id || 0}`;
   if (!session)
@@ -277,10 +301,56 @@ export default function CustomerMessages() {
           <aside className="messenger-sidebar">
             <div className="messenger-sidebar-heading">
               <h2>Messages</h2>
-              <span>{conversations.length}</span>
+              <span>
+                {role === "customer"
+                  ? subscribedCaterers.length
+                  : conversations.length}
+              </span>
             </div>
             <div className="messenger-search">Search conversations</div>
             <div className="messenger-conversations">
+              {role === "customer" && (
+                <>
+                  <h3 className="messenger-list-section-title">
+                    Subscribed caterers
+                  </h3>
+                  {subscribedCaterersError ? (
+                    <p className="messenger-directory-feedback" role="status">
+                      {subscribedCaterersError}
+                    </p>
+                  ) : subscribedCaterers.length ? (
+                    subscribedCaterers.map((item) => {
+                      const href = `/dashboard/messages?customer_id=${customer || ""}&caterer_id=${item.caterer_id}&package_id=0`;
+                      const isActive =
+                        String(item.caterer_id) === String(caterer) &&
+                        packageId === "0";
+                      return (
+                        <a
+                          className={`${isActive ? "messenger-conversation active" : "messenger-conversation"}`}
+                          href={href}
+                          key={item.caterer_id}
+                        >
+                          <MessengerAvatar
+                            image={item.profile_image}
+                            name={item.business_name}
+                          />
+                          <span>
+                            <strong>{item.business_name}</strong>
+                            <small>Start a conversation</small>
+                          </span>
+                        </a>
+                      );
+                    })
+                  ) : (
+                    <p className="messenger-directory-feedback">
+                      No caterers are currently subscribed.
+                    </p>
+                  )}
+                  <h3 className="messenger-list-section-title">
+                    Conversations
+                  </h3>
+                </>
+              )}
               {conversations.map((item) => {
                 const isUnread = Number(item.unread_count || 0) > 0;
                 const isActive =
@@ -313,8 +383,13 @@ export default function CustomerMessages() {
                   </a>
                 );
               })}
+              {role === "customer" && !conversations.length && (
+                <p className="messenger-directory-feedback">
+                  No conversations yet.
+                </p>
+              )}
             </div>
-            {!conversations.length && (
+            {role === "caterer" && !conversations.length && (
               <p className="messenger-empty">No conversations yet.</p>
             )}
           </aside>

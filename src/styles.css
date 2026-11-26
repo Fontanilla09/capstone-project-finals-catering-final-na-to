@@ -10125,6 +10125,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--ink);
 }
 
+.messenger-list-section-title {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  margin: 12px 0 2px;
+  padding: 8px 18px 4px;
+  text-transform: uppercase;
+}
+
+.messenger-directory-feedback {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 18px 12px;
+}
+
 .dashboard-page .messenger-sidebar-heading span,
 .dashboard-page .messenger-search,
 .dashboard-page .messenger-conversation:hover,
