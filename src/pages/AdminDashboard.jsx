@@ -33,14 +33,23 @@ export default function AdminDashboard() {
 
   async function load() {
     try {
-      const [overviewResult, subscriptionResult] = await Promise.all([
+      const [overviewResult, subscriptionResult, customersResult] = await Promise.all([
         supabase.rpc('get_admin_overview'),
         supabase.rpc('get_admin_subscription_earnings'),
+        supabase.rpc('get_admin_customers'),
       ]);
       if (overviewResult.error) throw overviewResult.error;
       if (subscriptionResult.error) throw subscriptionResult.error;
       const overview = overviewResult.data;
-      setStats(overview.stats || {});
+      const overviewStats = overview.stats || {};
+      if (!customersResult.error) {
+        const activeCustomerCount = (customersResult.data || [])
+          .filter((customer) => !customer.rejection_reason)
+          .length;
+        setStats({ ...overviewStats, customers: activeCustomerCount });
+      } else {
+        setStats(overviewStats);
+      }
       setAnalytics({
         ...(overview.analytics || { statuses: {} }),
         ...(subscriptionResult.data || {}),
@@ -88,6 +97,7 @@ export default function AdminDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payouts' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'caterer_subscriptions' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, load)
       .subscribe();
     return () => {
         clearInterval(dashboardTimer);

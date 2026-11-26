@@ -33,7 +33,7 @@ begin
 
     select jsonb_build_object(
         'stats', jsonb_build_object(
-            'customers', (select count(*) from public.customers),
+            'customers', (select count(*) from public.customers where rejection_reason is null),
             'caterers', (select count(*) from public.caterers),
             'verified', (select count(*) from public.caterers where is_verified = true),
             'pending', (select count(*) from public.caterers where is_verified = false),
