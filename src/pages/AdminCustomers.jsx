@@ -22,9 +22,6 @@ function formatDate(value) {
 export default function AdminCustomers() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savingCustomerId, setSavingCustomerId] = useState(null);
-  const [rejectingCustomer, setRejectingCustomer] = useState(null);
-  const [rejectionReason, setRejectionReason] = useState('');
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
   const [page, setPage] = useState(1);
@@ -84,45 +81,6 @@ export default function AdminCustomers() {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
 
-  function openRejectionForm(customer) {
-    setRejectingCustomer(customer);
-    setRejectionReason('');
-    setError('');
-    setNotice('');
-  }
-
-  async function rejectAccount(event) {
-    event.preventDefault();
-    if (!rejectingCustomer) return;
-    const reason = rejectionReason.trim();
-    if (reason.length < 5 || reason.length > 500) {
-      setError('Enter a rejection reason between 5 and 500 characters.');
-      return;
-    }
-
-    setSavingCustomerId(rejectingCustomer.customer_id);
-    setError('');
-    setNotice('');
-    try {
-      const { error: rejectionError } = await supabase.rpc('set_customer_verification', {
-        customer_id: rejectingCustomer.customer_id,
-        approved: false,
-        p_rejection_reason: reason,
-      });
-      if (rejectionError) throw rejectionError;
-      const rejectedName = rejectingCustomer.full_name || 'Customer';
-      setRejectingCustomer(null);
-      setRejectionReason('');
-      const refreshed = await load({ keepNotice: true });
-      setNotice(refreshed
-        ? `${rejectedName}'s account was rejected.`
-        : 'Account rejected, but the customer list could not be refreshed.');
-    } catch (rejectionError) {
-      setError(rejectionError.message || 'Unable to reject this customer account.');
-    } finally {
-      setSavingCustomerId(null);
-    }
-  }
 
   return (
     <DashboardPage role="admin" section="customer-management">
@@ -168,7 +126,7 @@ export default function AdminCustomers() {
             <table className="admin-users-table">
               <thead>
                 <tr>
-                  <th>Customer</th><th>Contact</th><th>Location</th><th>Status</th><th>Joined</th><th>Bookings</th><th>Total spent</th><th>Action</th>
+                  <th>Customer</th><th>Contact</th><th>Location</th><th>Status</th><th>Joined</th><th>Bookings</th><th>Total spent</th>
                 </tr>
               </thead>
               <tbody>
@@ -190,24 +148,10 @@ export default function AdminCustomers() {
                     <td data-label="Joined">{formatDate(customer.created_at)}</td>
                     <td data-label="Bookings">{customer.total_bookings ?? 0}</td>
                     <td data-label="Total spent">{formatCurrency(customer.total_spent)}</td>
-                    <td data-label="Action">
-                      {!customer.rejection_reason && (
-                        <div className="admin-users-actions">
-                          <button
-                            className="admin-users-reject"
-                            disabled={loading || savingCustomerId !== null}
-                            onClick={() => openRejectionForm(customer)}
-                            type="button"
-                          >
-                            Reject account
-                          </button>
-                        </div>
-                      )}
-                    </td>
                   </tr>
                 ))}
                 {!pageCustomers.length && (
-                  <tr><td className="admin-users-empty" colSpan="8">
+                  <tr><td className="admin-users-empty" colSpan="7">
                     {loading
                       ? <LoadingSpinner compact />
                       : error
@@ -228,58 +172,6 @@ export default function AdminCustomers() {
             </div>
           </div>
         </section>
-
-        {rejectingCustomer && (
-          <div
-            className="account-reject-overlay"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Reject ${rejectingCustomer.full_name || 'customer'} account`}
-            onClick={() => { if (savingCustomerId === null) setRejectingCustomer(null); }}
-          >
-            <form
-              className="account-reject-form"
-              onSubmit={rejectAccount}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header>
-                <div>
-                  <p className="eyebrow">Reject customer account</p>
-                  <h3>{rejectingCustomer.full_name || 'Customer'}</h3>
-                  <p>This reason will be saved and shown to the customer when they try to sign in.</p>
-                </div>
-              </header>
-              <label htmlFor="customer-account-rejection-reason">Reason for rejection</label>
-              <textarea
-                id="customer-account-rejection-reason"
-                value={rejectionReason}
-                onChange={(event) => setRejectionReason(event.target.value)}
-                maxLength={500}
-                minLength={5}
-                required
-                placeholder="Explain why this customer account is being rejected."
-              />
-              <div className="account-reject-footer">
-                <span>{rejectionReason.trim().length}/500</span>
-                <button
-                  className="button button-secondary"
-                  disabled={savingCustomerId !== null}
-                  onClick={() => setRejectingCustomer(null)}
-                  type="button"
-                >
-                  Cancel
-                </button>
-                <button
-                  className="button admin-button-muted"
-                  disabled={rejectionReason.trim().length < 5 || savingCustomerId !== null}
-                  type="submit"
-                >
-                  {savingCustomerId === rejectingCustomer.customer_id ? 'Rejecting...' : 'Reject account'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
       </div>
     </DashboardPage>
   );
