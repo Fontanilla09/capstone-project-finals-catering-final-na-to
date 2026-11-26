@@ -63,6 +63,7 @@ export default function AdminCaterManagement() {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [rejectingAccount, setRejectingAccount] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [savingRejection, setSavingRejection] = useState(false);
   const [permitPreview, setPermitPreview] = useState(null);
   const [permitZoom, setPermitZoom] = useState(1);
   const [activatingSubscriptionId, setActivatingSubscriptionId] = useState(null);
@@ -191,12 +192,22 @@ export default function AdminCaterManagement() {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [permitPreview]);
 
+  useEffect(() => {
+    if (!rejectingAccount) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === 'Escape' && !savingRejection) setRejectingAccount(null);
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [rejectingAccount, savingRejection]);
+
   function requestRejection(account) {
     const catererProfileId = account?.caterer_id ?? account?.id ?? null;
     if (catererProfileId === null || catererProfileId === undefined || catererProfileId === '') {
       setError('This caterer profile could not be identified for rejection.');
       return;
     }
+    setSavingRejection(false);
     setRejectingAccount({
       id: Number(catererProfileId),
       name: account.business_name || account.name || 'Caterer',
@@ -255,11 +266,11 @@ export default function AdminCaterManagement() {
 
   async function submitRejection(event) {
     event.preventDefault();
-    if (!rejectingAccount) return;
+    if (!rejectingAccount || savingRejection) return;
 
     const reason = rejectionReason.trim();
-    if (reason.length < 5) {
-      setError('Please enter a reason of at least 5 characters.');
+    if (reason.length < 5 || reason.length > 500) {
+      setError('Enter a rejection reason between 5 and 500 characters.');
       return;
     }
 
@@ -269,36 +280,34 @@ export default function AdminCaterManagement() {
       return;
     }
 
+    setSavingRejection(true);
+    setError('');
     try {
-      const { error } = await supabase.rpc('set_caterer_verification', {
+      const { error: rejectionError } = await supabase.rpc('set_caterer_verification', {
         caterer_id: resolvedProfileId,
         approved: false,
         p_rejection_reason: reason,
-      }).catch(async (callError) => {
-        if (!callError?.message?.includes('set_caterer_verification')) {
-          throw callError;
-        }
-        const fallback = await supabase.rpc('set_caterer_verification', {
-          caterer_id: resolvedProfileId,
-          approved: false,
-        });
-        return fallback;
       });
-      if (error) throw error;
+      if (rejectionError) throw rejectionError;
 
       setRejectingAccount(null);
       setRejectionReason('');
       try {
-        await supabase.functions.invoke('send-account-rejection-email', {
+        const { error: deliveryError } = await supabase.functions.invoke('send-account-rejection-email', {
           body: { accountType: 'caterer', accountProfileId: resolvedProfileId },
         });
+        if (deliveryError) throw deliveryError;
       } catch (deliveryError) {
         setError(`Caterer rejected and the reason was saved, but the email could not be sent: ${deliveryError.message || 'Unexpected delivery error.'}`);
+        await load();
+        return;
       }
       setError('Caterer rejected. The reason was saved.');
       await load();
     } catch (reasonError) {
       setError(reasonError.message || 'Unable to reject the caterer.');
+    } finally {
+      setSavingRejection(false);
     }
   }
 
@@ -871,7 +880,7 @@ export default function AdminCaterManagement() {
         )}
 
         {rejectingAccount && (
-          <div className="account-reject-overlay" role="dialog" aria-modal="true" aria-label={`Reject ${rejectingAccount.name}`} onClick={() => setRejectingAccount(null)}>
+          <div className="account-reject-overlay" role="dialog" aria-modal="true" aria-label={`Reject ${rejectingAccount.name}`} onClick={() => { if (!savingRejection) setRejectingAccount(null); }}>
             <form className="account-reject-form" onSubmit={submitRejection} onClick={(event) => event.stopPropagation()}>
               <header>
                 <div>
@@ -884,8 +893,8 @@ export default function AdminCaterManagement() {
               <textarea id="account-rejection-reason" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} maxLength={500} minLength={5} required placeholder="Explain why this account was rejected." />
               <div className="account-reject-footer">
                 <span>{rejectionReason.trim().length}/500</span>
-                <button className="button button-secondary" onClick={() => setRejectingAccount(null)} type="button">Cancel</button>
-                <button className="button admin-button-muted" disabled={rejectionReason.trim().length < 5} type="submit">Reject account</button>
+                <button className="button button-secondary" onClick={() => setRejectingAccount(null)} disabled={savingRejection} type="button">Cancel</button>
+                <button className="button admin-button-muted" disabled={rejectionReason.trim().length < 5 || savingRejection} type="submit">{savingRejection ? 'Rejecting...' : 'Reject account'}</button>
               </div>
             </form>
           </div>
