@@ -550,6 +550,17 @@ export default function DashboardPage({
   }, [authChecked, currentUserId, currentCustomerId, role, section]);
 
   useEffect(() => {
+    if (role !== 'customer' || !notificationsOpen) return;
+    setUnreadNotifications(0);
+    if (!currentCustomerId) return;
+    try {
+      localStorage.setItem(`caterai-reservation-notifications-unread-${currentCustomerId}`, '0');
+    } catch (error) {
+      console.warn('Failed to mark customer booking notifications as read:', error);
+    }
+  }, [currentCustomerId, notificationsOpen, role]);
+
+  useEffect(() => {
     if (!authChecked || role !== 'caterer' || !currentCatererId) return undefined;
     const lastSeenKey = `caterai-caterer-last-seen-reservation-${currentCatererId}`;
     const lastNotifiedKey = `caterai-caterer-last-notified-reservation-${currentCatererId}`;
