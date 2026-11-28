@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Download, ImagePlus, LoaderCircle, Sparkles, Trash2, WandSparkles } from 'lucide-react';
-import { deleteGeneratedImage, downloadGeneratedImage, generateImage, loadGeneratedImages, refreshGeneratedImageUrl, saveGeneratedImageToHistory } from '../lib/imageGeneration';
+import { clearImageGenerationResult, deleteGeneratedImage, downloadGeneratedImage, generateImageInBackground, getImageGenerationSnapshot, loadGeneratedImages, refreshGeneratedImageUrl, saveGeneratedImageToHistory, subscribeToImageGeneration } from '../lib/imageGeneration';
 import DashboardPage from '../components/DashboardPage.jsx';
 
 export default function AiGeneratedPhoto() {
   const fileInputRef = useRef(null);
+  const generation = useSyncExternalStore(subscribeToImageGeneration, getImageGenerationSnapshot);
   const [image, setImage] = useState(null);
   const [prompt, setPrompt] = useState('Create a polished event-service package photo with elegant venue setup, coordinated styling, and warm event atmosphere.');
-  const [result, setResult] = useState('');
+  const [result, setResult] = useState(() => getImageGenerationSnapshot().result);
   const [history, setHistory] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('caterai-ai-image-history') || '[]');
@@ -19,9 +20,10 @@ export default function AiGeneratedPhoto() {
     }
   });
   const [status, setStatus] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null);
+  const loading = generation.loading;
+  const progress = generation.progress;
+  const visibleStatus = status || generation.status;
 
   useEffect(() => {
     if (!selectedImage) return undefined;
@@ -67,6 +69,17 @@ export default function AiGeneratedPhoto() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    const generated = generation.generatedImage;
+    if (!generated) return;
+    setResult(generated.url);
+    setHistory((current) => {
+      const next = [generated, ...current.filter((entry) => entry.path !== generated.path && entry.url !== generated.url)].slice(0, 12);
+      localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
+      return next;
+    });
+  }, [generation.generatedImage]);
+
   async function generate(event) {
     event.preventDefault();
     if (!prompt.trim()) {
@@ -82,48 +95,20 @@ export default function AiGeneratedPhoto() {
       return;
     }
 
-    setLoading(true);
-    setProgress(0);
-    setStatus('Creating your studio preview...');
+    setStatus('');
     setResult('');
 
     try {
-      async function requestGeneration(includeReference) {
-        return generateImage({
-          image: includeReference ? image : null,
-          prompt: prompt.trim(),
-          aspectRatio: '1:1',
-          onStatus: setStatus,
-          onProgress: setProgress,
-        });
-      }
-
-      let usedReference = Boolean(image);
-      let data;
-      try {
-        data = await requestGeneration(true);
-      } catch (error) {
-        const cannotFetchReference = image && /image fetch|access settings|file upload|image url/i.test(error.message);
-        if (!cannotFetchReference) throw error;
-        usedReference = false;
-        setProgress(0);
-        setStatus('Reference image is not publicly reachable. Creating the image from your prompt instead...');
-        data = await requestGeneration(false);
-      }
+      const { data, usedReference } = await generateImageInBackground({
+        image,
+        prompt: prompt.trim(),
+        aspectRatio: '1:1',
+      });
       const generatedUrl = data.url;
       setResult(generatedUrl);
-      setHistory((current) => {
-        const generated = { url: generatedUrl, path: data.path, prompt: prompt.trim(), createdAt: new Date().toISOString() };
-        const next = [generated, ...current.filter((entry) => entry.path !== generated.path && entry.url !== generated.url)].slice(0, 12);
-        localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
-        return next;
-      });
       setStatus(usedReference ? 'Photo generated successfully.' : 'Photo generated from your prompt.');
     } catch (error) {
       setStatus(error.message);
-    } finally {
-      setLoading(false);
-      setProgress(0);
     }
   }
 
@@ -153,12 +138,15 @@ export default function AiGeneratedPhoto() {
       localStorage.setItem('caterai-ai-image-history', JSON.stringify(next));
       return next;
     });
-    if (result === imageEntry.url) setResult('');
+    if (result === imageEntry.url || generation.result === imageEntry.url) {
+      setResult('');
+      clearImageGenerationResult(imageEntry.url);
+    }
     setStatus('');
   }
 
   const latestImage = history[0];
-  const latestUrl = result || latestImage?.url;
+  const latestUrl = result || generation.result || latestImage?.url;
   const displayedImage = history.find((entry) => entry.url === latestUrl) || latestImage;
 
   return (
@@ -168,8 +156,8 @@ export default function AiGeneratedPhoto() {
           <div><span className="ai-studio-kicker"><Sparkles size={14} /> CATERAI IMAGE STUDIO</span><h2>Create visuals for your next event</h2><p>Describe the scene you want. CaterAI will turn your idea into a polished catering photo.</p></div>
           <span className="ai-studio-ready"><i /> AI image generator</span>
         </header>
-        {status && <div className={`ai-studio-status ${loading ? 'is-loading' : ''}`} role="status">
-          <p>{status}</p>
+        {visibleStatus && <div className={`ai-studio-status ${loading ? 'is-loading' : ''}`} role="status">
+          <p>{visibleStatus}</p>
           {loading && <div className="ai-progress-wrap">
             <div className="ai-progress-label"><span>Approximate progress · based on wait time</span><strong>{progress}%</strong></div>
             <div className="ai-progress-track" role="progressbar" aria-label="Approximate image generation progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-valuetext={`${progress}% approximate progress, based on wait time`}>

@@ -4,6 +4,29 @@ import { blockedPromptMessage, isPromptBlocked } from './themePromptGuard.js';
 
 const pollIntervalMs = 3000;
 const maxPollAttempts = 180;
+const imageGenerationListeners = new Set();
+let imageGenerationSnapshot = {
+  loading: false,
+  progress: 0,
+  status: '',
+  result: '',
+  generatedImage: null,
+};
+let activeImageGeneration = null;
+
+function updateImageGenerationSnapshot(updates) {
+  imageGenerationSnapshot = { ...imageGenerationSnapshot, ...updates };
+  imageGenerationListeners.forEach((listener) => listener());
+}
+
+export function getImageGenerationSnapshot() {
+  return imageGenerationSnapshot;
+}
+
+export function subscribeToImageGeneration(listener) {
+  imageGenerationListeners.add(listener);
+  return () => imageGenerationListeners.delete(listener);
+}
 
 async function postImageRequest(path, body, accessToken, method = 'POST') {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -68,6 +91,82 @@ export async function generateImage({ image, prompt, aspectRatio = '1:1', onStat
   }
 
   throw new Error('Image generation is taking too long. Please try again.');
+}
+
+export async function generateImageInBackground({ image, prompt, aspectRatio = '1:1' }) {
+  if (activeImageGeneration) return activeImageGeneration;
+
+  const task = Promise.resolve().then(async () => {
+    updateImageGenerationSnapshot({
+      loading: true,
+      progress: 0,
+      status: 'Creating your studio preview...',
+    });
+
+    try {
+      async function requestGeneration(includeReference) {
+        return generateImage({
+          image: includeReference ? image : null,
+          prompt,
+          aspectRatio,
+          onStatus: (status) => updateImageGenerationSnapshot({ status }),
+          onProgress: (progress) => updateImageGenerationSnapshot({ progress }),
+        });
+      }
+
+      let usedReference = Boolean(image);
+      let data;
+      try {
+        data = await requestGeneration(true);
+      } catch (error) {
+        const cannotFetchReference = image && /image fetch|access settings|file upload|image url/i.test(error.message);
+        if (!cannotFetchReference) throw error;
+        usedReference = false;
+        updateImageGenerationSnapshot({
+          progress: 0,
+          status: 'Reference image is not publicly reachable. Creating the image from your prompt instead...',
+        });
+        data = await requestGeneration(false);
+      }
+
+      const generatedImage = {
+        url: data.url,
+        path: data.path,
+        prompt: prompt.trim(),
+        createdAt: new Date().toISOString(),
+      };
+      updateImageGenerationSnapshot({
+        progress: 100,
+        result: data.url,
+        generatedImage,
+        status: usedReference ? 'Photo generated successfully.' : 'Photo generated from your prompt.',
+      });
+      return { data, usedReference };
+    } catch (error) {
+      updateImageGenerationSnapshot({ status: error.message });
+      throw error;
+    } finally {
+      updateImageGenerationSnapshot({ loading: false, progress: 0 });
+    }
+  });
+
+  activeImageGeneration = task;
+  try {
+    return await task;
+  } finally {
+    if (activeImageGeneration === task) activeImageGeneration = null;
+  }
+}
+
+export function clearImageGenerationResult(url) {
+  if (imageGenerationSnapshot.result === url) {
+    updateImageGenerationSnapshot({
+      result: '',
+      generatedImage: imageGenerationSnapshot.generatedImage?.url === url
+        ? null
+        : imageGenerationSnapshot.generatedImage,
+    });
+  }
 }
 
 export async function refreshGeneratedImageUrl(path) {
