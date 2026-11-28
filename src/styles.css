@@ -14650,3 +14650,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     max-width: 1600px;
   }
 }
+
+.dashboard-page-message-auth-loading .dashboard-shell-message-auth-loading {
+  max-width: 1360px;
+  padding: 108px 32px 48px;
+}
+
+.dashboard-page-message-auth-loading .dashboard-content-panel {
+  margin: 0 auto;
+  max-width: 1240px;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-page-message-auth-loading .dashboard-shell-message-auth-loading {
+    padding: 92px 22px 40px;
+  }
+}
+
+@media (max-width: 620px) {
+  .dashboard-page-message-auth-loading .dashboard-shell-message-auth-loading {
+    padding: 86px 14px 32px;
+  }
+}

@@ -734,7 +734,27 @@ export default function DashboardPage({
     );
   }
 
-  if (!authChecked && section !== 'messages') return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><LoadingSpinner fullPage /></main>;
+  if (!authChecked && section === 'messages') {
+    return (
+      <main className="dashboard-page dashboard-page-message-auth-loading">
+        <header className="dashboard-header">
+          <div className="dashboard-header-left">
+            <div className="dashboard-brand-block">
+              <span className="dashboard-brand-small">CATERAI WORKSPACE</span>
+              <h1>Messages</h1>
+            </div>
+          </div>
+        </header>
+        <div className="dashboard-shell dashboard-shell-message-auth-loading">
+          <section className="dashboard-content-panel">
+            {children || <LoadingSpinner compact />}
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><LoadingSpinner fullPage /></main>;
 
   return (
     <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>
