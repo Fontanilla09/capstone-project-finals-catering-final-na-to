@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { API_BASE } from "../lib/api";
 import { getChatModerationError } from "../lib/chatModeration";
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import DashboardPage from "../components/DashboardPage.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 
@@ -25,19 +25,6 @@ function MessengerAvatar({ image, name, large = false }) {
       {name?.charAt(0).toUpperCase() || "?"}
     </span>
   );
-}
-
-function withTimeout(promise, timeoutMs) {
-  let timeoutId;
-  const timeout = new Promise((resolve, reject) => {
-    timeoutId = window.setTimeout(() => {
-      const error = new Error("Message session initialization timed out.");
-      error.name = "TimeoutError";
-      reject(error);
-    }, timeoutMs);
-  });
-
-  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
 }
 
 function getCatererPresence(lastActiveAt) {
@@ -75,6 +62,7 @@ export default function CustomerMessages() {
   const [status, setStatus] = useState("");
   const [role, setRole] = useState("customer");
   const [session, setSession] = useState(null);
+  const sessionUserId = useRef(null);
   const [conversationTitle, setConversationTitle] = useState("");
   const [conversationImage, setConversationImage] = useState("");
   const [showConversationList, setShowConversationList] = useState(
@@ -100,7 +88,7 @@ export default function CustomerMessages() {
           String(conversation.caterer_id) === String(item.caterer_id),
       ),
   );
-  async function loadConversations(currentRole = role) {
+  const loadConversations = useCallback(async (currentRole) => {
     try {
       const { data, error } = await supabase.rpc("get_my_conversations");
       if (error) throw error;
@@ -124,7 +112,7 @@ export default function CustomerMessages() {
         setSubscribedCaterersError("");
       }
     }
-  }
+  }, []);
   async function loadMessages() {
     if (!customer || !caterer) return;
     try {
@@ -140,57 +128,14 @@ export default function CustomerMessages() {
       setStatus("");
     }
   }
-  useEffect(() => {
-    let active = true;
-
-    const initializeSession = async () => {
-      if (!isSupabaseConfigured) {
-        if (active) window.location.href = "/login";
-        return;
-      }
-
-      try {
-        const { data: authData, error: authError } =
-          await withTimeout(supabase.auth.getUser(), 12000);
-        if (authError || !authData.user) {
-          if (active) window.location.href = "/login";
-          return;
-        }
-
-        const { data: profiles, error: profileError } =
-          await withTimeout(supabase.rpc("get_my_profile"), 12000);
-        const profile = profiles?.[0];
-
-        if (profileError || !profile) {
-          if (active) window.location.href = "/login";
-          return;
-        }
-
-        const nextSession = {
-          authenticated: true,
-          role: profile.role,
-          user_id: profile.user_id,
-          customer_id: profile.customer_id,
-          caterer_id: profile.caterer_id,
-          email: authData.user.email,
-          name: profile.display_name,
-        };
-
-        if (!active) return;
-        setSession(nextSession);
-        setRole(profile.role || "customer");
-        setStatus("");
-        loadConversations(profile.role || "customer");
-      } catch {
-        if (active) window.location.href = "/login";
-      }
-    };
-
-    initializeSession();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const handleSessionVerified = useCallback((verifiedSession) => {
+    if (sessionUserId.current === verifiedSession.user_id) return;
+    sessionUserId.current = verifiedSession.user_id;
+    setSession(verifiedSession);
+    setRole(verifiedSession.role || "customer");
+    setStatus("");
+    loadConversations(verifiedSession.role || "customer");
+  }, [loadConversations]);
   useEffect(() => {
     if (!session?.authenticated || !caterer || packageId === "0") {
       setConversationTitle("");
@@ -245,10 +190,10 @@ export default function CustomerMessages() {
     loadMessages();
     const timer = setInterval(() => {
       loadMessages();
-      loadConversations();
+      loadConversations(role);
     }, 2000);
     return () => clearInterval(timer);
-  }, [session, customer, caterer, packageId, role]);
+  }, [session, customer, caterer, packageId, role, loadConversations]);
   async function send(event) {
     event.preventDefault();
     if (!text.trim() && !attachment) return;
@@ -317,15 +262,9 @@ export default function CustomerMessages() {
   );
   const conversationHref = (item) =>
     `/dashboard/messages?customer_id=${item.customer_id || ""}&caterer_id=${item.caterer_id || ""}&package_id=${item.package_id || 0}`;
-  if (!session)
-    return (
-      <main className="packages-page" aria-busy="true">
-        <LoadingSpinner fullPage />
-      </main>
-    );
   return (
-    <DashboardPage role={role} section="messages">
-      <>
+    <DashboardPage role={role} section="messages" onSessionVerified={handleSessionVerified}>
+      {session ? <>
         {status && <p className="form-alert error-alert">{status}</p>}
         <div
           className={`messenger-shell ${showConversationList ? "mobile-conversations" : "mobile-chat"}`}
@@ -555,7 +494,7 @@ export default function CustomerMessages() {
             )}
           </section>
         </div>
-      </>
+      </> : <LoadingSpinner compact />}
     </DashboardPage>
   );
 }

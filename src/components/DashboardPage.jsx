@@ -153,6 +153,7 @@ export default function DashboardPage({
   initialNotificationsOpen = false,
   onDismissCustomerNotice,
   onPayCustomerNotice,
+  onSessionVerified,
 }) {
   const [initialProfile] = useState(() => getCachedDashboardProfile(role));
   const [displayName, setDisplayName] = useState(initialProfile?.displayName || '');
@@ -375,16 +376,18 @@ export default function DashboardPage({
         const { data: profiles, error: profileError } = await withTimeout(supabase.rpc('get_my_profile'), 12000);
         const profile = profiles?.[0];
         if (profileError) throw profileError;
+        const verifiedRole = section === 'messages' ? profile?.role : role;
         if (
           !profile
-          || profile.role !== role
-          || (role === 'caterer' && !profile.is_verified && section !== 'profile')
+          || !['customer', 'caterer', 'admin'].includes(profile.role)
+          || (section !== 'messages' && profile.role !== role)
+          || (verifiedRole === 'caterer' && !profile.is_verified && section !== 'profile')
         ) {
           clearCachedProfile();
           redirectToLogin();
           return;
         }
-        if (role === 'caterer') {
+        if (verifiedRole === 'caterer') {
           const { data: caterer, error: catererError } = await withTimeout(
             supabase
               .from('caterers')
@@ -402,7 +405,7 @@ export default function DashboardPage({
         }
         if (!active) return;
         const verifiedProfile = {
-          displayName: profile.display_name || (role === 'admin' ? 'Admin' : role === 'caterer' ? 'Caterer' : 'Customer'),
+          displayName: profile.display_name || (verifiedRole === 'admin' ? 'Admin' : verifiedRole === 'caterer' ? 'Caterer' : 'Customer'),
           displayEmail: authData.user.email || '',
           userId: profile.user_id,
           customerId: profile.customer_id || null,
@@ -416,6 +419,15 @@ export default function DashboardPage({
         setCurrentCustomerId(verifiedProfile.customerId);
         setCurrentCatererId(verifiedProfile.catererId);
         setAuthCheckError('');
+        onSessionVerified?.({
+          authenticated: true,
+          role: verifiedRole,
+          user_id: verifiedProfile.userId,
+          customer_id: verifiedProfile.customerId,
+          caterer_id: verifiedProfile.catererId,
+          email: verifiedProfile.displayEmail,
+          name: verifiedProfile.displayName,
+        });
         setAuthChecked(true);
       } catch (error) {
         if (!active) return;
@@ -457,7 +469,7 @@ export default function DashboardPage({
       window.removeEventListener('focus', handleFocus);
       authListener?.subscription?.unsubscribe();
     };
-  }, [authRetryKey, role]);
+  }, [authRetryKey, onSessionVerified, role, section]);
 
   useEffect(() => {
     if (!authChecked || !currentUserId || !['customer', 'caterer', 'admin'].includes(role)) return undefined;
@@ -722,7 +734,7 @@ export default function DashboardPage({
     );
   }
 
-  if (!authChecked) return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><LoadingSpinner fullPage /></main>;
+  if (!authChecked && section !== 'messages') return <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}><LoadingSpinner fullPage /></main>;
 
   return (
     <main className={`dashboard-page${role === 'customer' ? ' dashboard-page-customer' : ''}${role === 'caterer' ? ' dashboard-page-caterer' : ''}${role === 'admin' ? ' dashboard-page-admin' : ''}`}>
