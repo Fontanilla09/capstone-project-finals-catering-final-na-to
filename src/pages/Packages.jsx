@@ -17,6 +17,7 @@ export default function Packages() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [session, setSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [visiblePackageCount, setVisiblePackageCount] = useState(packagesPerPage);
 
   async function load(nextFilters = filters) {
@@ -69,13 +70,26 @@ export default function Packages() {
 
   useEffect(() => {
     load();
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      setSession({ authenticated: false });
+      setSessionChecked(true);
+      return;
+    }
     supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return setSession({ authenticated: false });
+      if (!data.user) {
+        setSession({ authenticated: false });
+        setSessionChecked(true);
+        return;
+      }
       const { data: profiles } = await supabase.rpc('get_my_profile');
       const profile = profiles?.[0];
       setSession(profile ? { authenticated: true, redirect: profile.role === 'caterer' ? '/dashboard/caterer' : '/dashboard/customer' } : { authenticated: false });
-    }).catch(() => setSession({ authenticated: false }));
+      setSessionChecked(true);
+    }).catch((error) => {
+      console.error('Could not check the current session on the packages page:', error);
+      setSession({ authenticated: false });
+      setSessionChecked(true);
+    });
   }, []);
 
   const update = (event) => setFilters({ ...filters, [event.target.name]: event.target.value });
@@ -85,7 +99,7 @@ export default function Packages() {
   return <main className="packages-page">
     <nav className="packages-nav">
       <span className="brand"><img className="brand-mark" src="/caterai-logo.png" alt="" />Cater<span>AI</span></span>
-      {session?.authenticated ? <a href={session.redirect}>Dashboard</a> : <a href="/login">Log in</a>}
+      {sessionChecked && (session?.authenticated ? <a href={session.redirect}>Dashboard</a> : <a href="/login">Log in</a>)}
     </nav>
     <section className="packages-content">
       <div className="packages-hero">
