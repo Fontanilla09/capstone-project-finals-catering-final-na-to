@@ -191,7 +191,7 @@ export default function AdminReports() {
                 <div>
                   <span className={`report-status report-status-${report.status}`}>{statusLabels[report.status] || report.status}</span>
                   <p className="eyebrow">
-                    {report.reservation_id ? 'Booking issue' : report.target_type === 'package' ? 'Package report' : 'Caterer report'}
+                    {report.reservation_id ? 'Booking issue' : report.target_type === 'package' ? 'Package report' : report.target_type === 'caterer' ? 'Caterer report' : 'General support'}
                   </p>
                   <h3>{report.target_name}</h3>
                 </div>
