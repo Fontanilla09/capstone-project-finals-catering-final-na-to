@@ -14589,3 +14589,64 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme='dark'] .booking-page .payment-summary .payment-row.advance strong {
   color: var(--accent-ink);
 }
+
+@media (min-width: 1101px) {
+  .dashboard-page.dashboard-page-caterer {
+    font-size: 15px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .dashboard-nav {
+    width: 260px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .dashboard-nav a:not(.dashboard-nav-brand) {
+    font-size: 14px;
+    min-height: 48px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .dashboard-menu-signout {
+    font-size: 14px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .stat-card {
+    padding: 20px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .stat-card h3 {
+    font-size: 12px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .stat-card > small,
+  .dashboard-page.dashboard-page-caterer .caterer-analytics-metrics .caterer-expected-guests small,
+  .dashboard-page.dashboard-page-caterer .caterer-booking-legend-item small {
+    font-size: 12px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .caterer-analytics-metrics span,
+  .dashboard-page.dashboard-page-caterer .caterer-analytics-status span,
+  .dashboard-page.dashboard-page-caterer .caterer-booking-legend-label,
+  .dashboard-page.dashboard-page-caterer .caterer-booking-legend-item strong {
+    font-size: 14px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .caterer-dashboard-panel-heading h3,
+  .dashboard-page.dashboard-page-caterer .caterer-upcoming-heading h3 {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .dashboard-page.dashboard-page-caterer .dashboard-shell {
+    max-width: 1920px;
+    padding-left: 312px;
+    padding-right: 40px;
+  }
+
+  .dashboard-page.dashboard-page-caterer .dashboard-nav {
+    left: max(20px, calc((100vw - 1920px) / 2 + 20px));
+  }
+
+  .dashboard-page.dashboard-page-caterer .dashboard-content-panel {
+    max-width: 1600px;
+  }
+}
