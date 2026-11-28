@@ -404,6 +404,10 @@ export default function Book() {
                   ? <><LockKeyhole size={15} aria-hidden="true" /><span>You’ll be redirected to PayPal to securely complete your online payment.</span></>
                   : <><LockKeyhole size={15} aria-hidden="true" /><span>The caterer has not set up a payment method yet. Please contact the caterer.</span></>}
             </p>
+            <label className="booking-terms">
+              <input form="booking-form" name="agree_same_day_cancellation_policy" type="checkbox" value="accepted" required />
+              <span>I understand that cancelling on the same calendar day I place this booking incurs a 20% deduction based on the total booking amount.</span>
+            </label>
             <label className="booking-terms"><input form="booking-form" name="agree_terms" type="checkbox" required /> <span>I agree to the booking terms and 30% down payment.</span></label>
             <button className="booking-submit" form="booking-form" disabled={loading || !item || !paymentMethod || !eventDate || dateAvailability.date !== eventDate || dateAvailability.status !== 'available' || Boolean(gcashOption)} type="submit">
               {loading ? 'Preparing payment…' : dateAvailability.status === 'checking' ? 'Checking availability…' : paymentMethod === 'gcash' ? 'Continue to GCash' : paymentMethod === 'paypal' ? 'Continue to PayPal' : 'Payment unavailable'} <span aria-hidden="true">↗</span>
