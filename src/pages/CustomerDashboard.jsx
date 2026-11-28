@@ -17,6 +17,7 @@ import {
 import { requestJson } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import BookingCalendar from '../components/BookingCalendar.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import GcashPaymentForm from '../components/GcashPaymentForm.jsx';
 import { formatEventTimeRange } from '../lib/eventTime';
@@ -549,6 +550,12 @@ export default function CustomerDashboard() {
     () => reservations.filter((item) => Number(item.paid_amount || 0) > 0),
     [reservations],
   );
+  const calendarBookingDates = useMemo(
+    () => paidReservations
+      .filter((item) => ['pending', 'confirmed', 'completed'].includes(item.reservation_status))
+      .map((item) => item.event_date),
+    [paidReservations],
+  );
   const summary = useMemo(() => ({
     total: paidReservations.length,
     pending: paidReservations.filter((item) => item.reservation_status === 'pending').length,
@@ -693,6 +700,8 @@ export default function CustomerDashboard() {
             <strong>{formatMoney(totalBalance)}</strong>
           </article>
         </section>
+
+        <BookingCalendar dates={calendarBookingDates} />
 
         <section className="customer-dashboard-overview-grid" aria-label="Customer booking overview">
           <article className="customer-next-event customer-dashboard-animated-card" style={{ '--customer-card-index': 0 }}>

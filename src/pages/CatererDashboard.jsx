@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Activity, CalendarCheck2, CalendarDays, Clock3, MessageSquareText, Package, Star, UsersRound, WalletCards } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DashboardPage from '../components/DashboardPage.jsx';
+import BookingCalendar from '../components/BookingCalendar.jsx';
 import { formatEventTimeRange } from '../lib/eventTime';
 
 function money(value) { return `₱${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
@@ -230,6 +231,9 @@ export default function CatererDashboard() {
     rating,
     count: reviews.filter((review) => Number(review.rating) === rating).length,
   }));
+  const calendarBookingDates = reservations
+    .filter((item) => ['pending', 'confirmed', 'completed'].includes(item.reservation_status))
+    .map((item) => item.event_date);
 
   return (
     <DashboardPage role="caterer">
@@ -439,6 +443,7 @@ export default function CatererDashboard() {
                 <div className="caterer-activity-empty"><Activity size={18} aria-hidden="true" /><span>New reservations, reviews, and payouts will appear here.</span></div>
               )}
             </section>
+            <BookingCalendar className="caterer-dashboard-panel" dates={calendarBookingDates} />
           </div>
         </section>
       </>

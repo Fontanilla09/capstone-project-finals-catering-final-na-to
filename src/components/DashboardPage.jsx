@@ -359,15 +359,31 @@ export default function DashboardPage({
       }
       try {
         const { data: authData, error: authError } = await withTimeout(supabase.auth.getUser(), 12000);
-        if (authError || !authData.user) throw new Error('Not authenticated');
+        if (authError) {
+          if (authError.status === 401 || authError.name === 'AuthSessionMissingError') {
+            clearCachedProfile();
+            redirectToLogin();
+            return;
+          }
+          throw authError;
+        }
+        if (!authData.user) {
+          clearCachedProfile();
+          redirectToLogin();
+          return;
+        }
         const { data: profiles, error: profileError } = await withTimeout(supabase.rpc('get_my_profile'), 12000);
         const profile = profiles?.[0];
+        if (profileError) throw profileError;
         if (
-          profileError
-          || !profile
+          !profile
           || profile.role !== role
           || (role === 'caterer' && !profile.is_verified && section !== 'profile')
-        ) throw new Error('Invalid profile');
+        ) {
+          clearCachedProfile();
+          redirectToLogin();
+          return;
+        }
         if (role === 'caterer') {
           const { data: caterer, error: catererError } = await withTimeout(
             supabase
@@ -378,7 +394,11 @@ export default function DashboardPage({
             12000,
           );
           if (catererError) throw catererError;
-          if (!caterer || caterer.is_suspended) throw new Error('Invalid caterer profile');
+          if (!caterer || caterer.is_suspended) {
+            clearCachedProfile();
+            redirectToLogin();
+            return;
+          }
         }
         if (!active) return;
         const verifiedProfile = {
@@ -404,8 +424,8 @@ export default function DashboardPage({
           setAuthCheckError('Connection is taking longer than expected. Try again.');
           return;
         }
-        clearCachedProfile();
-        redirectToLogin();
+        console.error('Dashboard session verification failed.', error);
+        setAuthCheckError('Could not verify your session. Check your connection and try again.');
       } finally {
         checking = false;
       }

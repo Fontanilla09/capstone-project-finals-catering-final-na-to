@@ -1631,6 +1631,119 @@ button:active, a:active { transform: scale(.98); }
 .customer-dashboard-stat span { color: var(--muted); font-size: 11px; }
 .customer-dashboard-stat strong { color: var(--ink); font-size: clamp(19px, 2vw, 24px); font-weight: 750; letter-spacing: -.04em; line-height: 1.1; overflow-wrap: anywhere; }
 .customer-dashboard-stat-balance strong { color: var(--accent); }
+.booking-calendar {
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e2e7df);
+  border-radius: 15px;
+  box-sizing: border-box;
+  max-width: 360px;
+  min-width: 0;
+  padding: 14px;
+}
+.booking-calendar-header {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.booking-calendar-header h3 {
+  color: var(--ink, #263b33);
+  font-size: 16px;
+  letter-spacing: -.025em;
+  margin: 0;
+}
+.booking-calendar-header p {
+  color: var(--muted, #68766d);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+.booking-calendar-navigation {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.booking-calendar-navigation strong {
+  color: var(--ink, #263b33);
+  font-size: 12px;
+  min-width: 112px;
+  text-align: center;
+}
+.booking-calendar-navigation button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--line, #e2e7df);
+  border-radius: 8px;
+  color: var(--ink, #263b33);
+  cursor: pointer;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
+}
+.booking-calendar-navigation button:hover {
+  background: var(--brand-50, #f1f5ee);
+}
+.booking-calendar-grid {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.booking-calendar-weekday {
+  color: var(--muted, #68766d);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 0;
+  text-align: center;
+}
+.booking-calendar-day {
+  align-items: center;
+  border-radius: 9px;
+  color: var(--ink, #263b33);
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  height: 36px;
+  justify-content: center;
+  min-width: 0;
+  position: relative;
+}
+.booking-calendar-day.is-outside-month {
+  color: var(--muted, #68766d);
+  opacity: .48;
+}
+.booking-calendar-day.is-today time {
+  outline: 1px solid var(--brand-600, #3d7055);
+  outline-offset: 3px;
+}
+.booking-calendar-day.has-booking {
+  background: var(--brand-50, #edf4ec);
+  color: var(--brand-700, #285a3d);
+  font-weight: 750;
+}
+.booking-calendar-indicator {
+  background: var(--brand-600, #3d7055);
+  border-radius: 50%;
+  display: inline-block;
+  height: 5px;
+  width: 5px;
+}
+.booking-calendar-day .booking-calendar-indicator {
+  bottom: 4px;
+  position: absolute;
+}
+.booking-calendar-legend {
+  align-items: center;
+  color: var(--muted, #68766d);
+  display: flex;
+  font-size: 10px;
+  gap: 7px;
+  margin: 13px 0 0;
+}
 .customer-dashboard-overview-grid { align-items: stretch; display: grid; gap: 16px; grid-template-columns: minmax(0, 1.55fr) minmax(290px, .95fr); }
 .customer-dashboard-animated-card { animation: customer-dashboard-enter .58s cubic-bezier(.2,.75,.25,1) both; animation-delay: calc(var(--customer-card-index, 0) * 90ms); }
 .customer-next-event { background: linear-gradient(125deg, #174d3a, #21694e); border: 1px solid #28694f; border-radius: 17px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; overflow: hidden; padding: 20px; position: relative; }
@@ -1714,6 +1827,7 @@ button:active, a:active { transform: scale(.98); }
   .customer-dashboard-stat { border-radius: 12px; min-height: 72px; padding: 12px; }
   .customer-dashboard-stat:last-child { grid-column: 1 / -1; }
   .customer-dashboard-stat strong { font-size: 20px; }
+  .booking-calendar-grid { gap: 2px; }
   .customer-dashboard-overview-grid { gap: 12px; }
   .customer-next-event { border-radius: 14px; padding: 16px 14px; }
   .customer-next-event-heading h2 { font-size: 31px; }
@@ -4558,7 +4672,7 @@ textarea:focus-visible {
   align-items: stretch;
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 14px;
 }
 
