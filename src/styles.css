@@ -1744,7 +1744,8 @@ button:active, a:active { transform: scale(.98); }
   gap: 7px;
   margin: 13px 0 0;
 }
-.customer-dashboard-overview-grid { align-items: stretch; display: grid; gap: 16px; grid-template-columns: minmax(0, 1.55fr) minmax(290px, .95fr); }
+.customer-dashboard-overview-grid { align-items: stretch; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); }
+.customer-dashboard-overview-grid > .customer-action-card { grid-column: 1 / -1; }
 .customer-dashboard-animated-card { animation: customer-dashboard-enter .58s cubic-bezier(.2,.75,.25,1) both; animation-delay: calc(var(--customer-card-index, 0) * 90ms); }
 .customer-next-event { background: linear-gradient(125deg, #174d3a, #21694e); border: 1px solid #28694f; border-radius: 17px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; overflow: hidden; padding: 20px; position: relative; }
 .customer-next-event::after { background: radial-gradient(circle, rgba(255,255,255,.12), transparent 68%); content: ""; height: 220px; pointer-events: none; position: absolute; right: -85px; top: -120px; width: 220px; }

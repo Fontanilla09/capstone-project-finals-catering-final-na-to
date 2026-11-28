@@ -701,8 +701,6 @@ export default function CustomerDashboard() {
           </article>
         </section>
 
-        <BookingCalendar dates={calendarBookingDates} />
-
         <section className="customer-dashboard-overview-grid" aria-label="Customer booking overview">
           <article className="customer-next-event customer-dashboard-animated-card" style={{ '--customer-card-index': 0 }}>
             {nextEvent ? (
@@ -771,6 +769,8 @@ export default function CustomerDashboard() {
               </div>
             )}
           </article>
+
+          <BookingCalendar dates={calendarBookingDates} />
 
           <article className="customer-action-card customer-dashboard-animated-card" style={{ '--customer-card-index': 1 }}>
             <header className="customer-dashboard-card-heading">
